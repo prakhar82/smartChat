@@ -1,0 +1,12 @@
+<plist version="1.0">
+<dict>
+  <key>CFBundleDisplayName</key>
+  <string>smartChat</string>
+  <key>NSCameraUsageDescription</key>
+  <string>We need camera access to scan documents.</string>
+  <key>NSPhotoLibraryUsageDescription</key>
+  <string>We need access to your photos to upload files.</string>
+  <key>UIFileSharingEnabled</key>
+  <true/>
+</dict>
+</plist>
