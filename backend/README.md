@@ -74,7 +74,13 @@ docker-compose logs -f api
 - **Adminer (PostgreSQL)**: [http://localhost:8081](http://localhost:8081)
 - **Mongo Express (MongoDB)**: [http://localhost:8082](http://localhost:8082)
 - **Redis Commander (Redis)**: [http://localhost:8083](http://localhost:8083)
-
+- **postgres url**: `jdbc:postgresql://localhost:5432/smartchat`
+- **postgres user**: `smartchat`
+- **postgres password**: `smartchat_pw`
+- **mongo url**: `mongodb://root:change_me@localhost:27017` 
+- **redis url**: `redis://localhost:6379`
+- **mongo user**: `root`
+- **mongo password**: `change_me`
 ### 6.  ⚡ Testing
 #### Health Check
 ```bash
@@ -110,41 +116,29 @@ Import the provided Postman collection to test all API endpoints easily.
 ```bash
 {
   "info": {
-    "name": "SmartChat API",
-    "_postman_id": "b4b7a770-88c6-4cb5-9d10-123456789abc",
-    "description": "Postman collection for SmartChat Backend APIs",
+    "name": "SmartChat API (Auto Refresh)",
+    "_postman_id": "smartchat-collection-2025-auto",
+    "description": "SmartChat API Collection with Auto Token Refresh in Pre-request Scripts",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
-      "name": "Health Check",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "http://localhost:8080/actuator/health",
-          "protocol": "http",
-          "host": ["localhost"],
-          "port": "8080",
-          "path": ["actuator", "health"]
-        }
-      }
-    },
-    {
       "name": "Auth - Register",
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"username\": \"alice\",\n  \"email\": \"alice@example.com\",\n  \"password\": \"password123\"\n}"
-        },
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
         "url": {
           "raw": "http://localhost:8080/api/auth/register",
           "protocol": "http",
           "host": ["localhost"],
           "port": "8080",
           "path": ["api", "auth", "register"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"mobileNumber\": \"7888030330\",\n  \"password\": \"your-password\",\n  \"fullName\": \"Test User\"\n}"
         }
       }
     },
@@ -152,98 +146,214 @@ Import the provided Postman collection to test all API endpoints easily.
       "name": "Auth - Login",
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"alice@example.com\",\n  \"password\": \"password123\"\n}"
-        },
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
         "url": {
           "raw": "http://localhost:8080/api/auth/login",
           "protocol": "http",
           "host": ["localhost"],
           "port": "8080",
           "path": ["api", "auth", "login"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"mobileNumber\": \"7888030330\",\n  \"password\": \"your-password\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let jsonData = pm.response.json();",
+              "if (jsonData.accessToken) pm.environment.set(\"token\", jsonData.accessToken);",
+              "if (jsonData.refreshToken) pm.environment.set(\"refreshToken\", jsonData.refreshToken);",
+              "pm.environment.set(\"tokenTimestamp\", Date.now());"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Refresh",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "http://localhost:8080/api/auth/refresh",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "auth", "refresh"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let jsonData = pm.response.json();",
+              "if (jsonData.accessToken) pm.environment.set(\"token\", jsonData.accessToken);",
+              "if (jsonData.refreshToken) pm.environment.set(\"refreshToken\", jsonData.refreshToken);",
+              "pm.environment.set(\"tokenTimestamp\", Date.now());"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Contacts - Fetch",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "let tokenTimestamp = pm.environment.get(\"tokenTimestamp\");",
+              "let now = Date.now();",
+              "let tokenAge = tokenTimestamp ? (now - tokenTimestamp) / 1000 : null;",
+              "if (!pm.environment.get(\"token\") || (tokenAge && tokenAge > 3000)) {",
+              "    pm.sendRequest({",
+              "        url: 'http://localhost:8080/api/auth/refresh',",
+              "        method: 'POST',",
+              "        header: { 'Content-Type': 'application/json' },",
+              "        body: { mode: 'raw', raw: JSON.stringify({ refreshToken: pm.environment.get(\"refreshToken\") }) }",
+              "    }, function (err, res) {",
+              "        if (!err) {",
+              "            let data = res.json();",
+              "            if (data.accessToken) pm.environment.set(\"token\", data.accessToken);",
+              "            if (data.refreshToken) pm.environment.set(\"refreshToken\", data.refreshToken);",
+              "            pm.environment.set(\"tokenTimestamp\", Date.now());",
+              "        }",
+              "    });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:8080/api/contacts",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "contacts"]
         }
       }
     },
     {
-      "name": "Messages - Send",
+      "name": "Chats - Fetch",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "let tokenTimestamp = pm.environment.get(\"tokenTimestamp\");",
+              "let now = Date.now();",
+              "let tokenAge = tokenTimestamp ? (now - tokenTimestamp) / 1000 : null;",
+              "if (!pm.environment.get(\"token\") || (tokenAge && tokenAge > 3000)) {",
+              "    pm.sendRequest({",
+              "        url: 'http://localhost:8080/api/auth/refresh',",
+              "        method: 'POST',",
+              "        header: { 'Content-Type': 'application/json' },",
+              "        body: { mode: 'raw', raw: JSON.stringify({ refreshToken: pm.environment.get(\"refreshToken\") }) }",
+              "    }, function (err, res) {",
+              "        if (!err) {",
+              "            let data = res.json();",
+              "            if (data.accessToken) pm.environment.set(\"token\", data.accessToken);",
+              "            if (data.refreshToken) pm.environment.set(\"refreshToken\", data.refreshToken);",
+              "            pm.environment.set(\"tokenTimestamp\", Date.now());",
+              "        }",
+              "    });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:8080/api/chats/2?userId=1",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "chats", "2"],
+          "query": [
+            { "key": "userId", "value": "1" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Chats - Send",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "let tokenTimestamp = pm.environment.get(\"tokenTimestamp\");",
+              "let now = Date.now();",
+              "let tokenAge = tokenTimestamp ? (now - tokenTimestamp) / 1000 : null;",
+              "if (!pm.environment.get(\"token\") || (tokenAge && tokenAge > 3000)) {",
+              "    pm.sendRequest({",
+              "        url: 'http://localhost:8080/api/auth/refresh',",
+              "        method: 'POST',",
+              "        header: { 'Content-Type': 'application/json' },",
+              "        body: { mode: 'raw', raw: JSON.stringify({ refreshToken: pm.environment.get(\"refreshToken\") }) }",
+              "    }, function (err, res) {",
+              "        if (!err) {",
+              "            let data = res.json();",
+              "            if (data.accessToken) pm.environment.set(\"token\", data.accessToken);",
+              "            if (data.refreshToken) pm.environment.set(\"refreshToken\", data.refreshToken);",
+              "            pm.environment.set(\"tokenTimestamp\", Date.now());",
+              "        }",
+              "    });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "POST",
         "header": [
           { "key": "Content-Type", "value": "application/json" },
           { "key": "Authorization", "value": "Bearer {{token}}" }
         ],
+        "url": {
+          "raw": "http://localhost:8080/api/chats/send",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "chats", "send"]
+        },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"receiverId\": 2,\n  \"content\": \"Hello Bob!\"\n}"
-        },
-        "url": {
-          "raw": "http://localhost:8080/api/messages",
-          "protocol": "http",
-          "host": ["localhost"],
-          "port": "8080",
-          "path": ["api", "messages"]
+          "raw": "{\n  \"senderId\": 1,\n  \"receiverId\": 2,\n  \"message\": \"Hello from Postman!\"\n}"
         }
       }
-    },
-    {
-      "name": "Messages - Fetch",
-      "request": {
-        "method": "GET",
-        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-        "url": {
-          "raw": "http://localhost:8080/api/messages/2",
-          "protocol": "http",
-          "host": ["localhost"],
-          "port": "8080",
-          "path": ["api", "messages", "2"]
-        }
-      }
-    }
-  ],
-  "variable": [
-    {
-      "key": "token",
-      "value": ""
     }
   ]
 }
-```
-## 📂 SmartChat.postman_environment.json
-Import the provided Postman environment
-```bash
-{
-  "id": "9a3b7d10-5f72-4c5a-b123-abcdef123456",
-  "name": "SmartChat Local",
-  "values": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:8080",
-      "enabled": true
-    },
-    {
-      "key": "token",
-      "value": "",
-      "enabled": true
-    },
-    {
-      "key": "apiPort",
-      "value": "8080",
-      "enabled": true
-    },
-    {
-      "key": "profile",
-      "value": "dev",
-      "enabled": true
-    }
-  ],
-  "_postman_variable_scope": "environment",
-  "_postman_exported_at": "2025-09-09T18:30:00Z",
-  "_postman_exported_using": "Postman/11.0.0"
-}
-```
 
+```
 
 ## 🗂️ Project Structure
 ```

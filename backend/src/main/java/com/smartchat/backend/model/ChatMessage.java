@@ -1,20 +1,16 @@
-/*
- * Copyright (c) 2025 SmartChat Contributors
- * All rights reserved.
- * Unauthorized copying or distribution of this file,
- * via any medium, is strictly prohibited unless permitted by license.
- * Author: Prakhar Dwivedi
- */
-
 package com.smartchat.backend.model;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "chat_messages")
-@Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class ChatMessage {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,5 +24,16 @@ public class ChatMessage {
 
     private String emoji;
 
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime timestamp;
+
+    /**
+     * Automatically set timestamp before saving
+     */
+    @PrePersist
+    protected void onCreate() {
+        if (timestamp == null) {
+            timestamp = LocalDateTime.now();
+        }
+    }
 }

@@ -1,6 +1,7 @@
 #File to avoid to  push changes to remote repository
 node_modules
 dist
+logs
 .DS_Store
 .vscode
 .idea
@@ -33,7 +34,6 @@ dist
 *.sqlite
 *.sqlite3
 *.db3
-*.log
 *.pid
 *.seed
 *.pid.lock
@@ -48,9 +48,6 @@ dist
 *.dylib
 *.lib
 *.a
-*.obj
-*.class
-*.obj
 *.pyc
 *.pyo
 *.pyd

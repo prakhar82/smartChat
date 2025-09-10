@@ -30,6 +30,7 @@ public class User {
     @Column(nullable = false)
     private String password;
 
+    private String email;
     private String name;
     private String profilePicUrl;
     private String role; // ROLE_USER, ROLE_ADMIN, etc.

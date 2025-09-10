@@ -34,6 +34,8 @@ public class RegisterRequest {
     @NotBlank(message = "password is required")
     private String password;
 
+    private String name;
+
     /**
      * Optional: client may request a role. Prefer validating/ignoring this on server-side
      * unless you trust the client (most apps should default to ROLE_USER).
