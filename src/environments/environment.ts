@@ -6,6 +6,7 @@
  * Author: Prakhar Dwivedi
  */
 
-import { Routes } from '@angular/router';
-
-export const routes: Routes = [];
+export const environment = {
+  production: false,
+  apiUrl: 'http://localhost:8080/api'  // Your backend base URL
+};

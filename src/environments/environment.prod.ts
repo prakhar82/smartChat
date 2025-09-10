@@ -6,6 +6,7 @@
  * Author: Prakhar Dwivedi
  */
 
-import { Routes } from '@angular/router';
-
-export const routes: Routes = [];
+export const environment = {
+  production: true,
+  apiUrl: 'https://your-api-domain.com/api'  // For production deployment
+};
