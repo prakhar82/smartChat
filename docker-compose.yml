@@ -165,7 +165,7 @@ services:
         condition: service_healthy
     volumes:
       - ./logs/web:/var/log/nginx
-    command: [ "sh", "-c", "nginx -g 'daemon off;' >> /var/log/nginx/nginx.log 2>&1" ]
+    command: [ "nginx", "-g", "daemon off;" ] # Keep nginx in foreground
     ports:
       - "80:80"
 

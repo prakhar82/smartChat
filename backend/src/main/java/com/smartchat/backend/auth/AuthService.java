@@ -59,7 +59,8 @@ public class AuthService {
         String accessToken = jwtUtil.generateAccessToken(userDetails.getUsername(), List.of(user.getRole()));
         String refreshToken = jwtUtil.generateRefreshToken(userDetails.getUsername());
 
-        return new AuthResponse(accessToken, refreshToken);
+        return new AuthResponse(accessToken, refreshToken, user.getId());
+
     }
 
     /**
@@ -83,8 +84,11 @@ public class AuthService {
         User user = userRepository.findByMobileNumber(username).orElseThrow();
 
         String newAccessToken = jwtUtil.generateAccessToken(username, List.of(user.getRole()));
-        return new AuthResponse(newAccessToken, refreshToken);
+
+        // Pass userId as well
+        return new AuthResponse(newAccessToken, refreshToken, user.getId());
     }
+
 
     /**
      * Register a new user into the system.
@@ -118,7 +122,8 @@ public class AuthService {
         String accessToken = jwtUtil.generateAccessToken(newUser.getMobileNumber(), List.of(newUser.getRole()));
         String refreshToken = jwtUtil.generateRefreshToken(newUser.getMobileNumber());
 
-        // 5. Return tokens as response
-        return new AuthResponse(accessToken, refreshToken);
+        // 5. Return tokens as response (include userId now)
+        return new AuthResponse(accessToken, refreshToken, newUser.getId());
     }
+
 }

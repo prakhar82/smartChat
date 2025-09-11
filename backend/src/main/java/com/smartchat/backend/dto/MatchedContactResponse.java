@@ -6,15 +6,16 @@
  * Author: $USER_NAME
  */
 
-package com.smartchat.backend.auth.dto;
+package com.smartchat.backend.dto;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 
+/**
+ * Returned to the client: only matched SmartChat users from a user's contacts.
+ */
 @Data
-@AllArgsConstructor
-public class AuthResponse {
-    private String accessToken;
-    private String refreshToken;
+public class MatchedContactResponse {
     private Long userId;
+    private String phoneNumber;
+    private String name;
 }

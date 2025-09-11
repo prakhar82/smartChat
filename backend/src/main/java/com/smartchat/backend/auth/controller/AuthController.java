@@ -14,6 +14,7 @@ import com.smartchat.backend.auth.dto.AuthRequest;
 import com.smartchat.backend.auth.dto.AuthResponse;
 import com.smartchat.backend.auth.dto.RefreshRequest;
 import com.smartchat.backend.auth.dto.RegisterRequest;
+import com.smartchat.backend.repository.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +26,8 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final UserRepository userRepo;  // ✅ Inject repository here
+
 
     // =========================
     // Register Endpoint
@@ -54,4 +57,34 @@ public class AuthController {
         AuthResponse authResponse = authService.refreshToken(request.getRefreshToken());
         return ResponseEntity.ok(authResponse);
     }
+
+    /**
+     * Return current authenticated user details.
+     * The client can call this after login to refresh user profile.
+     * Expects Authorization: Bearer &lt;token&gt;
+     */
+    @GetMapping("/me")
+    public ResponseEntity<com.smartchat.backend.model.User> me(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(401).build();
+        }
+        String token = authHeader.replace("Bearer ", "");
+        // NOTE: rely on existing JWT service to extract subject (mobile number) if you have one.
+        // Fallback: if token contains "sub" in payload, try to decode
+        try {
+            String[] parts = token.split("\\\\.");
+            if (parts.length < 2) return ResponseEntity.status(401).build();
+            String payload = new String(java.util.Base64.getUrlDecoder().decode(parts[1]));
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode node = mapper.readTree(payload);
+            String mobile = node.has("sub") ? node.get("sub").asText() : null;
+            if (mobile == null) return ResponseEntity.status(401).build();
+            return userRepo.findByMobileNumber(mobile)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.status(401).build();
+        }
+    }
+
 }
