@@ -1,0 +1,9 @@
+<div>
+  <h2>Chats</h2>
+  <ul>
+    <li *ngFor="let c of contacts" (click)="openChat(c)" style="cursor:pointer;">
+      <strong>{{ c.name }}</strong><br/>
+      <small>{{ c.phoneNumber }}</small>
+    </li>
+  </ul>
+</div>

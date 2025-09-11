@@ -1,0 +1,9 @@
+<div class="sync-container">
+  <h2>Sync Contacts</h2>
+  <button (click)="syncPhoneContacts()">📱 Sync Phone Contacts</button>
+  <button (click)="syncGoogleContacts()">🔑 Sync Google Contacts</button>
+
+  <div *ngIf="synced" class="synced">
+    ✅ Contacts synced successfully. Go to Chat list.
+  </div>
+</div>
