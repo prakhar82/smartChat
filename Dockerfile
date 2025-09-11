@@ -6,11 +6,11 @@ FROM node:20 AS build
 # Set working directory inside container
 WORKDIR /app
 
-# Copy package.json and package-lock.json (for cached installs)
+# Copy package.json and package-lock.json first (for better caching)
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install -g @angular/cli@17 \
+# Install Angular CLI (matching your Angular 20.x project) + deps
+RUN npm install -g @angular/cli@20 \
     && npm install
 
 # Copy source code
@@ -28,16 +28,11 @@ FROM nginx:alpine
 RUN rm -rf /usr/share/nginx/html/*
 
 # Copy built Angular dist from Stage 1
-COPY --from=build /app/dist/smartchat-frontend/browser /usr/share/nginx/html
+# ⚠️ Adjusted folder name from "smartchat-frontend" → "frontend"
+COPY --from=build /app/dist/frontend/browser /usr/share/nginx/html
 
 # Copy custom Nginx config (optional if you need API proxying)
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
-# End of Dockerfile
-# ===============================
-# To build and run:
-# docker build -t smartchat-frontend .
-# docker run -d -p 80:80 smartchat-frontend
-# ===============================
