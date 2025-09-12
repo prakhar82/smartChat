@@ -1,11 +1,14 @@
 package com.smartchat.backend.controller;
 
 import com.smartchat.backend.model.ChatMessage;
+import com.smartchat.backend.model.MessageStatus;
 import com.smartchat.backend.model.User;
 import com.smartchat.backend.repository.ChatMessageRepository;
 import com.smartchat.backend.repository.UserRepository;
 import com.smartchat.backend.service.ChatCacheService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,6 +35,7 @@ public class ChatRestController {
     private final UserRepository userRepo;
     private final ChatMessageRepository chatRepo;
     private final ChatCacheService chatCache;
+    private final SimpMessagingTemplate messagingTemplate;
 
     /**
      * Fetch all available contacts (users).
@@ -53,18 +57,22 @@ public class ChatRestController {
      * @return list of chat messages between the two users
      */
     @GetMapping("/chats/{contactId}")
-    public List<ChatMessage> getChatHistory(@PathVariable Long contactId, @RequestParam Long userId) {
+    public List<ChatMessage> getChatHistory(@PathVariable Long contactId,
+                                            @RequestParam Long userId) {
+        // Try cache first
         List<ChatMessage> cached = chatCache.getLastMessages(userId, contactId);
         if (cached != null && !cached.isEmpty()) {
             return cached;
         }
 
+        // Fallback to DB: get last 30 messages both ways
         List<ChatMessage> dbMessages =
-                chatRepo.findTop30BySenderIdAndReceiverIdOrderByTimestampDesc(userId, contactId);
+                chatRepo.findConversation(userId, contactId, Pageable.ofSize(30));
 
         dbMessages.forEach(chatCache::cacheMessage);
         return dbMessages;
     }
+
 
     /**
      * Send a new chat message from one user to another.
@@ -76,8 +84,25 @@ public class ChatRestController {
      */
     @PostMapping("/chats/send")
     public ChatMessage sendMessage(@RequestBody ChatMessage msg) {
+        msg.setStatus(MessageStatus.SENT);
         ChatMessage saved = chatRepo.save(msg);
         chatCache.cacheMessage(saved);
         return saved;
+    }
+
+    @PatchMapping("/chats/{id}/status")
+    public ChatMessage updateStatus(@PathVariable Long id, @RequestParam MessageStatus status) {
+        ChatMessage msg = chatRepo.findById(id).orElseThrow();
+        msg.setStatus(status);
+        ChatMessage updated = chatRepo.save(msg);
+        chatCache.cacheMessage(updated);
+
+        // Notify receiver/sender via WS
+        messagingTemplate.convertAndSendToUser(
+                msg.getReceiverId().toString(),
+                "/topic/messages",
+                updated
+        );
+        return updated;
     }
 }

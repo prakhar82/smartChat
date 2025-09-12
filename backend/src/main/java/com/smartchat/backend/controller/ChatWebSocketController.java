@@ -9,6 +9,7 @@
 package com.smartchat.backend.controller;
 
 import com.smartchat.backend.model.ChatMessage;
+import com.smartchat.backend.model.MessageStatus;
 import com.smartchat.backend.repository.ChatMessageRepository;
 import com.smartchat.backend.service.ChatCacheService;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ public class ChatWebSocketController {
     @MessageMapping("/chat.send")
     public void processMessage(ChatMessage message) {
         message.setTimestamp(LocalDateTime.now());
+        message.setStatus(MessageStatus.SENT);
         ChatMessage saved = chatRepo.save(message);
         chatCache.cacheMessage(saved);
 

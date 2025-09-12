@@ -1,5 +1,5 @@
 ###############################################################################
-# SmartChat - Docker Compose Stack
+# SmartChat - Docker Compose Stack (File-based Logging)
 # -----------------------------------------------------------------------------
 # Services included:
 # - PostgreSQL (Relational DB)
@@ -12,7 +12,12 @@
 # - Spins up full dev stack with a single command (`docker compose up`).
 # - Provides clean isolation (each service in its own container).
 # - Volumes ensure persistence of DB/cache across restarts.
-# - Dedicated log files per service keep console logs clean.
+#
+# Why file-based logs (instead of stdout)?
+# - Some teams prefer dedicated log files per service (in ./logs/...).
+# - Easier to browse logs in an editor, archive, or ship to ELK/Splunk.
+# - Keeps `docker logs` output clean (only container lifecycle messages).
+# - ⚠️ Not recommended for large-scale production: use stdout + a log driver.
 #
 # Copyright (c) 2025 SmartChat Contributors
 ###############################################################################
@@ -40,8 +45,14 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./infra/postgres/init:/docker-entrypoint-initdb.d
-      - ./logs/postgres:/var/log/postgresql
-    command: ["postgres", "-c", "logging_collector=on", "-c", "log_destination=stderr", "-c", "log_directory=/var/log/postgresql", "-c", "log_filename=postgres.log"]
+      - pg_logs:/var/log/postgresql   # 👈 Docker-managed volume
+    command: [
+      "postgres",
+      "-c", "logging_collector=on",
+      "-c", "log_destination=stderr",
+      "-c", "log_directory=/var/log/postgresql",
+      "-c", "log_filename=postgres.log"
+    ]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -64,18 +75,31 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
-    command: ["mongod", "--quiet", "--logpath", "/var/log/mongodb/mongod.log", "--logRotate", "rename"]
+    command: [
+      "mongod",
+      "--quiet",
+      "--logpath", "/var/log/mongodb/mongod.log",
+      "--logRotate", "rename"
+    ]
     ports:
       - "${MONGO_PORT}:27017"
     volumes:
       - mongodata:/data/db
       - ./infra/mongo/init:/docker-entrypoint-initdb.d
-      - ./logs/mongo:/var/log/mongodb
+      - mongo_logs:/var/log/mongodb  # 👈 Docker-managed volume
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      test: [
+        "CMD",
+        "mongosh", "--quiet",
+        "-u", "${MONGO_INITDB_ROOT_USERNAME}",
+        "-p", "${MONGO_INITDB_ROOT_PASSWORD}",
+        "--authenticationDatabase", "admin",
+        "--eval", "db.adminCommand('ping')"
+      ]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 20s
 
   # =========================
   # Redis
@@ -89,14 +113,13 @@ services:
     image: redis:7-alpine
     container_name: redis
     restart: unless-stopped
-    command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--logfile", "/var/log/redis/redis.log"]
+    command: [ "redis-server", "/usr/local/etc/redis/redis.conf", "--logfile", "" ]
     volumes:
-      - ./infra/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
-      - redisdata:/data
-      - ./logs/redis:/var/log/redis
+       - ./infra/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+       - redisdata:/data
     ports:
       - "${REDIS_PORT}:6379"
-    healthcheck:
+    healthcheck :
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
@@ -135,7 +158,10 @@ services:
       DEBUG_PORT: ${DEBUG_PORT}
       DEBUG_SUSPEND: ${DEBUG_SUSPEND}
       API_PORT: ${API_PORT}
-    command: [ "sh", "-c", "java -jar app.jar --server.port=${API_PORT} >> /var/log/api/api.log 2>&1" ]
+    command: [
+      "sh", "-c",
+      "java -jar app.jar --server.port=${API_PORT} >> /var/log/api/api.log 2>&1"
+    ]
     volumes:
       - ./logs/api:/var/log/api
     ports:
@@ -170,9 +196,9 @@ services:
       - "80:80"
 
 # =========================
-# Volumes (Persistence)
+# Volumes (Persistence + Logs)
 # -------------------------
-# WHAT: Persists DB/cache data
+# WHAT: Persists DB/cache data + service logs
 # WHY: Survive restarts, avoid data loss
 # WHERE: Bound to PG, Mongo, Redis
 # =========================
@@ -180,4 +206,6 @@ volumes:
   pgdata:
   mongodata:
   redisdata:
-  marklogicdata:
+  pg_logs:
+  mongo_logs:
+  redis_logs:

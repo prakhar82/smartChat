@@ -24,16 +24,20 @@ public class ChatMessage {
 
     private String emoji;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private MessageStatus status = MessageStatus.SENT; // ✅ default
+
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime timestamp;
 
-    /**
-     * Automatically set timestamp before saving
-     */
     @PrePersist
     protected void onCreate() {
         if (timestamp == null) {
             timestamp = LocalDateTime.now();
+        }
+        if (status == null) {
+            status = MessageStatus.SENT;
         }
     }
 }
