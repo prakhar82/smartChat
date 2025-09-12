@@ -7,8 +7,17 @@
  */
 
 import { bootstrapApplication } from '@angular/platform-browser';
-import { appConfig } from './app/app.config';
-import { App } from './app/app';
+import { provideHttpClient } from '@angular/common/http';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 
-bootstrapApplication(App, appConfig)
-  .catch((err) => console.error(err));
+import { AppComponent } from './app/app.component';  // ✅ use AppComponent
+import { appConfig } from './app/app.config';        // ✅ central config
+
+bootstrapApplication(AppComponent, {
+  ...appConfig,
+  providers: [
+    ...appConfig.providers,
+    provideHttpClient(),
+    provideAnimationsAsync()
+  ]
+}).catch(err => console.error(err));

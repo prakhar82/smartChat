@@ -1,10 +1,16 @@
-<div class="auth-form">
+<div class="auth-container" @fadeIn>
   <h2>Login</h2>
   <form (ngSubmit)="login()">
-    <label>Mobile number</label>
-    <input name="mobile" [(ngModel)]="mobileNumber" required />
+    <label>Mobile Number</label>
+    <input [(ngModel)]="mobileNumber" name="mobile" required />
+
     <label>Password</label>
-    <input name="password" type="password" [(ngModel)]="password" required />
+    <input type="password" [(ngModel)]="password" name="password" required />
+
     <button type="submit">Login</button>
   </form>
+  <p>
+    Don’t have an account?
+    <a routerLink="/register">Register</a>
+  </p>
 </div>

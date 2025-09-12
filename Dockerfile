@@ -3,36 +3,38 @@
 # ===============================
 FROM node:20 AS build
 
-# Set working directory inside container
 WORKDIR /app
 
-# Copy package.json and package-lock.json first (for better caching)
+# Copy package.json and package-lock.json first (better caching)
 COPY package*.json ./
 
-# Install Angular CLI (matching your Angular 20.x project) + deps
+# Install Angular CLI + project dependencies
 RUN npm install -g @angular/cli@20 \
-    && npm install
+    && npm install \
+    && npm install --save-dev @types/sockjs-client @types/stompjs
 
 # Copy source code
 COPY . .
 
-# Build Angular app for production
-RUN npm run build
+# Ensure polyfills are copied (forces rebuild if changed)
+COPY src/polyfills.ts ./src/polyfills.ts
+
+# Build Angular app for production (force baseHref to "/")
+RUN npm run build -- --configuration production --base-href=/
 
 # ===============================
 # Stage 2: Serve via Nginx
 # ===============================
 FROM nginx:alpine
 
-# Remove default nginx website
+# Remove default nginx site
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copy built Angular dist from Stage 1
-# ⚠️ Adjusted folder name from "smartchat-frontend" → "frontend"
+# Copy built Angular dist (⚠ adjust folder name if your dist is different)
 COPY --from=build /app/dist/frontend/browser /usr/share/nginx/html
 
-# Copy custom Nginx config (optional if you need API proxying)
+# Copy custom Nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["nginx", "-g", "daemon of]()

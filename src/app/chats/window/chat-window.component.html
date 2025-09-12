@@ -1,16 +1,10 @@
-<div>
-  <h2>Chat with {{ contactId }}</h2>
-
-  <div class="messages">
-    <div *ngFor="let m of messages">
-      <div><strong>{{ m.senderId }}</strong>: {{ m.message }}</div>
-      <div><small>{{ m.timestamp }}</small></div>
-      <hr />
-    </div>
-  </div>
-
-  <div>
-    <input [(ngModel)]="newMessage" (keyup.enter)="send()" placeholder="Type a message..." />
-    <button (click)="send()">Send</button>
-  </div>
+<div *ngFor="let msg of messages" [class.self]="msg.senderId === userId">
+  <span>{{ msg.message }}</span>
+  <small>
+    <ng-container [ngSwitch]="msg.status">
+      <span *ngSwitchCase="'SENT'">✓</span>
+      <span *ngSwitchCase="'DELIVERED'">✓✓</span>
+      <span *ngSwitchCase="'READ'">✓✓✔</span>
+    </ng-container>
+  </small>
 </div>

@@ -1,9 +1,14 @@
-<div>
-  <h2>Chats</h2>
-  <ul>
-    <li *ngFor="let c of contacts" (click)="openChat(c)" style="cursor:pointer;">
-      <strong>{{ c.name }}</strong><br/>
-      <small>{{ c.phoneNumber }}</small>
+<div class="chat-list">
+  <h3>Your Chats</h3>
+
+  <div *ngIf="loading">Loading...</div>
+  <div *ngIf="error">{{ error }}</div>
+
+  <ul *ngIf="!loading && contacts.length > 0">
+    <li *ngFor="let c of contacts" (click)="openChat(c)">
+      <span>{{ c.name || ('User ' + c.id) }}</span>
     </li>
   </ul>
+
+  <p *ngIf="!loading && contacts.length === 0">No contacts found.</p>
 </div>
