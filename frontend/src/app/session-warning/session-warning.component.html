@@ -1,0 +1,19 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<div class="overlay" *ngIf="visible">
+  <div class="modal">
+    <h2>Session Expiring Soon</h2>
+    <p>Your session will expire in <strong>{{ countdown }}</strong> seconds.</p>
+    <div class="actions">
+      <button class="btn refresh" (click)="stayLoggedIn()">Stay Logged In</button>
+      <button class="btn logout" (click)="logout()">Logout</button>
+    </div>
+  </div>
+</div>
+

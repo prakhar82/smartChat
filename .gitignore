@@ -60,3 +60,5 @@ frontend/typings
 # System files
 # =========================================================
 Thumbs.db
+.env
+.env

@@ -1,0 +1,78 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<div class="register-container">
+  <h2>Create your SmartChat account</h2>
+
+  <form (ngSubmit)="onRegister(form)" #form="ngForm" class="register-form">
+    <!-- First Name -->
+    <div class="form-group">
+      <input type="text"
+             [(ngModel)]="model.firstName"
+             name="firstName"
+             placeholder="First Name"
+             required/>
+    </div>
+
+    <!-- Last Name -->
+    <div class="form-group">
+      <input type="text"
+             [(ngModel)]="model.lastName"
+             name="lastName"
+             placeholder="Last Name"/>
+    </div>
+
+    <!-- Country Code + Mobile -->
+    <div class="form-group inline">
+      <input type="text"
+             [(ngModel)]="model.countryCode"
+             name="countryCode"
+             placeholder="+91"
+             required/>
+      <input type="text"
+             [(ngModel)]="model.mobileNumber"
+             name="mobileNumber"
+             placeholder="Mobile Number"
+             required/>
+    </div>
+
+    <!-- Email -->
+    <div class="form-group">
+      <input type="email"
+             [(ngModel)]="model.email"
+             name="email"
+             placeholder="Email Address"/>
+    </div>
+
+    <!-- Password -->
+    <div class="form-group">
+      <input type="password"
+             [(ngModel)]="model.password"
+             name="password"
+             placeholder="Password"
+             required/>
+    </div>
+
+    <!-- Confirm Password -->
+    <div class="form-group">
+      <input type="password"
+             [(ngModel)]="model.confirmPassword"
+             name="confirmPassword"
+             placeholder="Confirm Password"
+             required/>
+    </div>
+
+    <!-- Error message -->
+    <p class="error" *ngIf="errorMsg">{{ errorMsg }}</p>
+
+    <!-- Submit Button -->
+    <button type="submit" [disabled]="form.invalid || loading">
+      {{ loading ? '⏳ Registering...' : 'Register' }}
+    </button>
+  </form>
+</div>

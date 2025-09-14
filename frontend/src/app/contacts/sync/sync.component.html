@@ -1,0 +1,19 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<div class="sync-container">
+  <h2>👋 Hi {{ firstName || 'Friend' }},</h2>
+  <p>Let’s sync your contacts so you can start chatting!</p>
+
+  <button (click)="syncPhoneContacts()" [disabled]="syncing">📱 Sync Phone Contacts</button>
+  <button (click)="syncGoogleContacts()" [disabled]="syncing">🔑 Sync Google Contacts</button>
+  <button class="skip-btn" (click)="skipSync()">⏭ Skip</button>
+
+  <p *ngIf="syncing">⏳ Syncing contacts...</p>
+  <p class="error" *ngIf="errorMsg">{{ errorMsg }}</p>
+</div>

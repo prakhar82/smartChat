@@ -1,0 +1,9 @@
+<div class="h-screen bg-gray-100">
+  <h2 class="text-xl font-bold p-4">Chats</h2>
+
+  <div *ngFor="let contact of contacts" class="p-4 border-b hover:bg-gray-200 cursor-pointer"
+       (click)="openChat(contact)">
+    <p class="font-semibold">{{ contact.contactName || 'Unknown' }}</p>
+    <p class="text-sm text-gray-600">{{ contact.phoneNormalized }}</p>
+  </div>
+</div>
