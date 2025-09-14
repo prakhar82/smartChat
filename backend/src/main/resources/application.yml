@@ -1,0 +1,142 @@
+spring:
+  application:
+    name: smartchat-backend
+
+  # =========================
+  # Datasource (Postgres)
+  # =========================
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:postgres}:${POSTGRES_PORT:5432}/${POSTGRES_DB:smartchat}
+    username: ${POSTGRES_USER:smartchat}
+    password: ${POSTGRES_PASSWORD:smartchat_pw}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  data:
+    mongodb:
+      uri: mongodb://${MONGO_INITDB_ROOT_USERNAME:root}:${MONGO_INITDB_ROOT_PASSWORD:change_me}@${MONGO_HOST:mongo}:${MONGO_PORT:27017}/${MONGO_DB:smartchat}?authSource=admin
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      timeout: 60000
+      client-type: lettuce
+      lettuce:
+        pool:
+          max-active: 10
+          max-idle: 5
+          min-idle: 1
+          max-wait: 10000
+
+  rabbitmq: # ✅ fixed (no nested spring)
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASS:guest}
+
+stomp:
+  relay:
+    port: ${STOMP_RELAY_PORT:61613}
+
+# =========================
+# Server
+# =========================
+server:
+  port: ${API_PORT:8080}
+  forward-headers-strategy: framework
+
+# =========================
+# Security / JWT
+# =========================
+security:
+  jwt:
+    secret: ${JWT_SECRET:7n4f+JzS2M8gFvE3x+H8Yk5jA6lV2bQmR9tX1pE3r0M=}
+    expiration: ${JWT_EXPIRATION:3600000}
+    refresh-expiration: ${JWT_REFRESH_EXPIRATION:86400000}
+    password:
+      strength: 10
+    reset-token-expiration: ${RESET_TOKEN_EXPIRATION:900000}
+    verification-token-expiration: ${VERIFICATION_TOKEN_EXPIRATION:86400000}
+    max-login-attempts: ${MAX_LOGIN_ATTEMPTS:5}
+    lockout-duration: ${LOCKOUT_DURATION:900000}
+
+# =========================
+# CORS
+# =========================
+cors:
+  allowed-origins: ${CORS_ORIGINS:http://localhost:4200,http://localhost}
+  allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+  allowed-headers: "*"
+  allow-credentials: true
+  max-age: 1h
+
+# =========================
+# Actuator
+# =========================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+
+# =========================
+# Logging
+# =========================
+logging:
+  level:
+    root: INFO
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.mongodb.driver: ERROR
+
+# =========================
+# Google Contacts Config
+# =========================
+google:
+  client:
+    id: ${GOOGLE_CLIENT_ID}
+    secret: ${GOOGLE_CLIENT_SECRET}
+  people:
+    personFields: names,phoneNumbers,emailAddresses
+    pageSize: 1000
+
+contacts:
+  fallbackRegions: ${CONTACT_FALLBACK_REGIONS:US,IN,GB}
+  cache:
+    ttl: ${CONTACTS_CACHE_TTL_SECONDS:300}
+
+chat:
+  history:
+    limit: 30
+  cache:
+    ttl-minutes: 60
