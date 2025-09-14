@@ -1,0 +1,39 @@
+name: Electron (Windows) Build
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install frontend dependencies and build
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Install mobile deps
+        run: |
+          cd mobile
+          npm ci
+
+      - name: Package Electron app (Windows)
+        run: |
+          cd mobile
+          npm run electron:pack
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-windows
+          path: mobile/dist/*.exe

@@ -3,7 +3,7 @@
  * All rights reserved.
  * Unauthorized copying or distribution of this file,
  * via any medium, is strictly prohibited unless permitted by license.
- * Author: Prakhar Dwivedi
+ * Author: $USER_NAME
  */
 
 package com.smartchat.backend.auth.controller;
@@ -15,6 +15,7 @@ import com.smartchat.backend.auth.dto.AuthResponse;
 import com.smartchat.backend.auth.dto.RefreshRequest;
 import com.smartchat.backend.auth.dto.RegisterRequest;
 import com.smartchat.backend.repository.UserRepository;
+import com.smartchat.backend.service.GoogleContactService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -27,7 +28,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final UserRepository userRepo;  // ✅ Inject repository here
-
+    private final GoogleContactService googleContactService;
 
     // =========================
     // Register Endpoint
@@ -35,7 +36,20 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            return ResponseEntity.badRequest().body(
+                    new AuthResponse(null, null, null, "Passwords do not match")
+            );
+        }
+
         AuthResponse response = authService.register(request);
+
+        // Sync Google contacts if provided
+        if (request.getGoogleToken() != null && !request.getGoogleToken().isBlank()) {
+            Long userId = response.getUserId();
+            googleContactService.fetchAndSync(userId, request.getGoogleToken());
+        }
+
         return ResponseEntity.ok(response);
     }
 

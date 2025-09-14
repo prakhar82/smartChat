@@ -8,10 +8,11 @@
 
 package com.smartchat.backend.dto;
 
-public record MatchedContactResponse(
-    Long contactId,
-    String contactName,
-    String phoneNormalized,
-    Long matchedUserId,
-    String matchedUserName
-) {}
+import lombok.Data;
+
+@Data
+public class Contect {
+    private String phoneNormalized;
+    private String contactName;
+    private String phoneRaw;
+}

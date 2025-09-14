@@ -8,17 +8,13 @@
 
 package com.smartchat.backend.repository;
 
-import com.smartchat.backend.model.User;
+import com.smartchat.backend.model.UserContact;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.util.Optional;
 
-public interface UserRepository extends JpaRepository<User, Long> {
-
-    Optional<com.smartchat.backend.model.User> findByMobileNumber(String mobileNumber);
-
-    Optional<User> findByMobileNormalized(String mobileNormalized);
-
-    List<User> findByMobileNormalizedIn(List<String> mobiles);
+public interface UserContactRepository extends JpaRepository<UserContact, Long> {
+    Optional<UserContact> findByOwnerUserIdAndPhoneNormalized(Long ownerUserId, String phoneNormalized);
+    List<UserContact> findByOwnerUserId(Long ownerUserId);
 }

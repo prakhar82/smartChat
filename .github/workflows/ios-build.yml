@@ -1,0 +1,75 @@
+name: iOS CI - Build & Deploy with Fastlane
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install frontend deps and build
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Install mobile deps and pods
+        run: |
+          cd mobile
+          npm ci
+          npx cap sync ios
+          cd ios/App
+          pod install --repo-update
+
+      - name: Set up Ruby & Fastlane
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.1
+      - name: Install Fastlane
+        run: gem install fastlane -NV
+
+      - name: Decode and import certificates + provisioning profile
+        env:
+          KEYCHAIN_NAME: build.keychain
+        run: |
+          set -e
+          if [ -z "${{ secrets.APPLE_CERT_BASE64 }}" ]; then echo "Missing APPLE_CERT_BASE64"; exit 1; fi
+          if [ -z "${{ secrets.APPLE_PROV_PROFILE_BASE64 }}" ]; then echo "Missing APPLE_PROV_PROFILE_BASE64"; exit 1; fi
+          if [ -z "${{ secrets.APPLE_CERT_PASSWORD }}" ]; then echo "Missing APPLE_CERT_PASSWORD"; exit 1; fi
+          echo "${{ secrets.APPLE_CERT_BASE64 }}" | base64 --decode > ios_dist.p12
+          echo "${{ secrets.APPLE_PROV_PROFILE_BASE64 }}" | base64 --decode > ios.mobileprovision
+
+          security create-keychain -p "" "${KEYCHAIN_NAME}"
+          security import ios_dist.p12 -k ~/Library/Keychains/"${KEYCHAIN_NAME}" -P "${{ secrets.APPLE_CERT_PASSWORD }}" -T /usr/bin/codesign
+          security list-keychains -s ~/Library/Keychains/"${KEYCHAIN_NAME}"
+          security default-keychain -s ~/Library/Keychains/"${KEYCHAIN_NAME}"
+          security unlock-keychain -p "" ~/Library/Keychains/"${KEYCHAIN_NAME}"
+          security set-keychain-settings -lut 21600 ~/Library/Keychains/"${KEYCHAIN_NAME}"
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\\ Profiles
+          cp ios.mobileprovision ~/Library/MobileDevice/Provisioning\\ Profiles/
+
+      - name: Setup App Store Connect API key
+        run: |
+          mkdir -p ./fastlane
+          echo "${{ secrets.APP_STORE_CONNECT_API_KEY }}" > ./fastlane/appstore_connect_key.json
+        working-directory: mobile/ios
+
+      - name: Run Fastlane (build & upload to TestFlight)
+        working-directory: mobile/ios
+        run: |
+          fastlane ios beta
+        env:
+          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}

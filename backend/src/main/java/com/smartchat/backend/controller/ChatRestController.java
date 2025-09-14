@@ -1,17 +1,10 @@
-package com.smartchat.backend.controller;
-
-import com.smartchat.backend.model.ChatMessage;
-import com.smartchat.backend.model.MessageStatus;
-import com.smartchat.backend.model.User;
-import com.smartchat.backend.repository.ChatMessageRepository;
-import com.smartchat.backend.repository.UserRepository;
-import com.smartchat.backend.service.ChatCacheService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Pageable;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
+/*
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
+ */
 
 /**
  * REST controller responsible for handling chat-related operations,
@@ -27,82 +20,64 @@ import java.util.List;
  *
  * <p>Base URL: {@code /api}</p>
  */
+
+package com.smartchat.backend.controller;
+
+import com.smartchat.backend.model.ChatMessage;
+import com.smartchat.backend.repository.ChatMessageRepository;
+import com.smartchat.backend.service.ChatService;
+import com.smartchat.backend.service.cache.ChatCacheServiceImpl;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/chats")
 @RequiredArgsConstructor
 public class ChatRestController {
 
-    private final UserRepository userRepo;
     private final ChatMessageRepository chatRepo;
-    private final ChatCacheService chatCache;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final ChatCacheServiceImpl chatCache;
+    private final ChatService chatService;
 
-    /**
-     * Fetch all available contacts (users).
-     *
-     * @return list of all registered users in the system
-     */
-    @GetMapping("/contacts")
-    public List<User> getContacts() {
-        return userRepo.findAll();
-    }
+    @Value("${chat.history.limit:30}")
+    private int historyLimit;
 
-    /**
-     * Retrieve the latest chat history between the current user and a contact.
-     * First checks the Redis cache for recent messages; if none found,
-     * falls back to the database (last 30 messages).
-     *
-     * @param contactId the ID of the contact user
-     * @param userId    the ID of the current user requesting the history
-     * @return list of chat messages between the two users
-     */
-    @GetMapping("/chats/{contactId}")
+    @GetMapping("/{contactId}")
     public List<ChatMessage> getChatHistory(@PathVariable Long contactId,
                                             @RequestParam Long userId) {
-        // Try cache first
-        List<ChatMessage> cached = chatCache.getLastMessages(userId, contactId);
-        if (cached != null && !cached.isEmpty()) {
+
+        // 1. Try cache
+        List<ChatMessage> cached = chatCache.get(userId, contactId);
+        if (!cached.isEmpty()) {
             return cached;
         }
 
-        // Fallback to DB: get last 30 messages both ways
-        List<ChatMessage> dbMessages =
-                chatRepo.findConversation(userId, contactId, Pageable.ofSize(30));
+        // 2. Query DB (both directions)
+        List<ChatMessage> dbMessages = chatRepo
+                .findBySenderIdAndReceiverIdOrSenderIdAndReceiverIdOrderByTimestampDesc(
+                        userId, contactId,
+                        contactId, userId,
+                        PageRequest.of(0, historyLimit)
+                );
 
-        dbMessages.forEach(chatCache::cacheMessage);
+        // 3. Cache merged messages
+        chatCache.put(userId, contactId, dbMessages);
+
         return dbMessages;
     }
 
-
-    /**
-     * Send a new chat message from one user to another.
-     * The message is saved in the database and cached in Redis.
-     * Timestamp is automatically set via @PrePersist in the entity.
-     *
-     * @param msg the chat message object (senderId, receiverId, message, emoji)
-     * @return the persisted chat message with generated ID and timestamp
-     */
-    @PostMapping("/chats/send")
-    public ChatMessage sendMessage(@RequestBody ChatMessage msg) {
-        msg.setStatus(MessageStatus.SENT);
-        ChatMessage saved = chatRepo.save(msg);
-        chatCache.cacheMessage(saved);
-        return saved;
+    @PostMapping("/send")
+    public ChatMessage sendMessage(@RequestBody ChatMessage message) {
+        return chatService.saveAndSend(message);
     }
 
-    @PatchMapping("/chats/{id}/status")
-    public ChatMessage updateStatus(@PathVariable Long id, @RequestParam MessageStatus status) {
-        ChatMessage msg = chatRepo.findById(id).orElseThrow();
-        msg.setStatus(status);
-        ChatMessage updated = chatRepo.save(msg);
-        chatCache.cacheMessage(updated);
-
-        // Notify receiver/sender via WS
-        messagingTemplate.convertAndSendToUser(
-                msg.getReceiverId().toString(),
-                "/topic/messages",
-                updated
-        );
-        return updated;
+    @PatchMapping("/status/{id}")
+    public ChatMessage updateStatus(@PathVariable Long id, @RequestBody java.util.Map<String, String> body) {
+        String status = body.get("status");
+        return chatService.updateStatus(id, status);
     }
 }

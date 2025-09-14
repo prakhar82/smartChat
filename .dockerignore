@@ -1,0 +1,45 @@
+# Node & Angular
+node_modules
+frontend/node_modules
+frontend/dist
+frontend/.angular/cache
+
+# Java & Maven/Gradle
+backend/target
+backend/build
+backend/.mvn/wrapper/maven-wrapper.jar
+backend/.mvn/wrapper/maven-wrapper.properties
+backend/.mvn/wrapper/maven-wrapper
+
+# Logs & temp files
+*.log
+*.tmp
+*.swp
+*.swo
+*.bak
+*.old
+
+# IDE & system
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Git & metadata
+.git
+.gitignore
+.gitattributes
+.editorconfig
+
+# Coverage & test artifacts
+coverage
+frontend/coverage
+testem.log
+backend/.gradle
+backend/.classpath
+backend/.project
+backend/.settings
+
+# Docker & Compose
+docker-compose.override.yml
+.env.local

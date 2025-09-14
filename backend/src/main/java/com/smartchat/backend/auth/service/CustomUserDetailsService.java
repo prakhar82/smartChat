@@ -29,7 +29,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String mobileNumber) throws UsernameNotFoundException {
-        User user = userRepository.findByMobileNumber(mobileNumber)
+        User user = (User) userRepository.findByMobileNumber(mobileNumber)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         GrantedAuthority authority = new SimpleGrantedAuthority(user.getRole() != null ? user.getRole() : "ROLE_USER");

@@ -1,0 +1,71 @@
+name: Android CI - Build APK
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      JAVA_VERSION: '21'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install frontend deps and build
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Install mobile deps
+        run: |
+          cd mobile
+          npm ci
+          npx cap sync android
+
+      - name: Decode and set up keystore
+        env:
+          KEYSTORE_PATH: mobile/android/app/release-key.jks
+        run: |
+          if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then echo "Missing ANDROID_KEYSTORE_BASE64 secret"; exit 1; fi
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > "${KEYSTORE_PATH}"
+          ls -l "${KEYSTORE_PATH}"
+
+      - name: Build Android release (signed)
+        working-directory: mobile/android
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          chmod +x ./gradlew
+          ./gradlew clean assembleRelease \
+            -Pandroid.injected.signing.store.file=app/release-key.jks \
+            -Pandroid.injected.signing.store.password=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.ANDROID_KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-signed
+          path: mobile/android/app/build/outputs/**/*.apk

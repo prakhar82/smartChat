@@ -3,7 +3,7 @@
  * All rights reserved.
  * Unauthorized copying or distribution of this file,
  * via any medium, is strictly prohibited unless permitted by license.
- * Author: Prakhar Dwivedi
+ * Author: $USER_NAME
  */
 
 package com.smartchat.backend.auth;
@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 
@@ -28,17 +29,28 @@ public class JwtUtil {
     private final JwtProperties jwtProperties;
 
     private Key getSigningKey() {
-        byte[] keyBytes = jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8);
-        if (keyBytes.length < 32) {
-            throw new IllegalArgumentException("JWT secret key must be at least 32 bytes for HS256");
+        String secret = jwtProperties.getSecret();
+        byte[] keyBytes;
+
+        try {
+            // Try Base64 decode first
+            keyBytes = Base64.getDecoder().decode(secret);
+        } catch (IllegalArgumentException e) {
+            // Fallback: treat as raw string
+            keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         }
+
+        if (keyBytes.length < 32) {
+            throw new IllegalArgumentException("JWT secret key must be at least 256 bits (32 bytes)");
+        }
+
         return Keys.hmacShaKeyFor(keyBytes);
     }
-
 
     // =========================
     // Generate Tokens
     // =========================
+
     public String generateAccessToken(String username, List<String> roles) {
         return buildToken(username, roles, jwtProperties.getExpiration());
     }

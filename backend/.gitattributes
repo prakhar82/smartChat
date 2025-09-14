@@ -1,2 +1,6 @@
+# Ensure consistent line endings
+* text=auto
+
+# Scripts
 /mvnw text eol=lf
 *.cmd text eol=crlf

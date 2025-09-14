@@ -20,5 +20,6 @@ import java.util.List;
 @Data
 public class ContactSyncRequest {
     private Long userId;
-    private List<String> contacts;
+    private List<Contect> contacts;
+    private Long ownerUserId;
 }

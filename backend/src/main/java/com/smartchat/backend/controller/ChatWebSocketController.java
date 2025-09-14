@@ -3,41 +3,33 @@
  * All rights reserved.
  * Unauthorized copying or distribution of this file,
  * via any medium, is strictly prohibited unless permitted by license.
- * Author: Prakhar Dwivedi
+ * Author: $USER_NAME
  */
 
 package com.smartchat.backend.controller;
 
 import com.smartchat.backend.model.ChatMessage;
-import com.smartchat.backend.model.MessageStatus;
-import com.smartchat.backend.repository.ChatMessageRepository;
-import com.smartchat.backend.service.ChatCacheService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.messaging.handler.annotation.*;
+import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
-
-import java.time.LocalDateTime;
 
 @Controller
 @RequiredArgsConstructor
 public class ChatWebSocketController {
 
     private final SimpMessagingTemplate messagingTemplate;
-    private final ChatMessageRepository chatRepo;
-    private final ChatCacheService chatCache;
 
+    /**
+     * Handle incoming WebSocket messages from Angular
+     */
     @MessageMapping("/chat.send")
     public void processMessage(ChatMessage message) {
-        message.setTimestamp(LocalDateTime.now());
-        message.setStatus(MessageStatus.SENT);
-        ChatMessage saved = chatRepo.save(message);
-        chatCache.cacheMessage(saved);
-
+        // Send to the recipient’s private queue
         messagingTemplate.convertAndSendToUser(
-                message.getReceiverId().toString(),
-                "/topic/messages",
-                saved
+                String.valueOf(message.getReceiverId()),
+                "/queue/messages",
+                message
         );
     }
 }

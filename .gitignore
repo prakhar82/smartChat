@@ -1,56 +1,62 @@
-#File to avoid to  push changes to remote repository
-node_modules
-dist
-logs
+# =========================================================
+# Global ignores
+# =========================================================
+node_modules/
+dist/
+logs/
 .DS_Store
-.vscode
-.idea
-.github
+.vscode/
+.idea/
 *.log
 *.tmp
+*.bak
 *.swp
 *.swo
-*.bak
-*.old
-*.orig
-*.rej
-*.class
-*.jar
-*.war
-*.ear
-*.iml
-*.ipr
-*.iws
-*.sublime-project
-*.sublime-workspace
-*.tmproj
-*.code-workspace
-*.suo
-*.user
-*.userosscache
-*.sln
-*.db
-*.sql
-*.sqlite
-*.sqlite3
-*.db3
-*.pid
-*.seed
-*.pid.lock
-*.gz
-*.zip
-*.tar
-*.rar
-*.7z
-*.exe
-*.dll
-*.so
-*.dylib
-*.lib
-*.a
-*.pyc
-*.pyo
-*.pyd
-*.odt
 
+# =========================================================
+# Backend (Spring Boot / Java)
+# =========================================================
+backend/target/
+backend/build/
+backend/.mvn/wrapper/maven-wrapper.jar
 
+# STS / IntelliJ / NetBeans
+backend/.apt_generated
+backend/.classpath
+backend/.factorypath
+backend/.project
+backend/.settings
+backend/.springBeans
+backend/.sts4-cache
+backend/.idea
+backend/*.iws
+backend/*.iml
+backend/*.ipr
+backend/nbproject/
+backend/nbbuild/
+backend/dist/
+backend/nbdist/
+backend/.nb-gradle/
+
+# =========================================================
+# Frontend (Angular)
+# =========================================================
+frontend/node_modules/
+frontend/dist/
+frontend/out-tsc/
+frontend/.angular/cache/
+frontend/tmp/
+frontend/.idea
+frontend/.vscode/
+frontend/.history/
+
+# Angular test & coverage
+frontend/coverage/
+frontend/libpeerconnection.log
+frontend/testem.log
+frontend/typings
+
+# =========================================================
+# System files
+# =========================================================
+Thumbs.db
