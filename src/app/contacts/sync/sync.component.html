@@ -1,9 +1,19 @@
-<div class="sync-container">
-  <h2>Sync Contacts</h2>
-  <button (click)="syncPhoneContacts()">📱 Sync Phone Contacts</button>
-  <button (click)="syncGoogleContacts()">🔑 Sync Google Contacts</button>
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
 
-  <div *ngIf="synced" class="synced">
-    ✅ Contacts synced successfully. Go to Chat list.
-  </div>
+<div class="sync-container">
+  <h2>👋 Hi {{ firstName || 'Friend' }},</h2>
+  <p>Let’s sync your contacts so you can start chatting!</p>
+
+  <button (click)="syncPhoneContacts()" [disabled]="syncing">📱 Sync Phone Contacts</button>
+  <button (click)="syncGoogleContacts()" [disabled]="syncing">🔑 Sync Google Contacts</button>
+  <button class="skip-btn" (click)="skipSync()">⏭ Skip</button>
+
+  <p *ngIf="syncing">⏳ Syncing contacts...</p>
+  <p class="error" *ngIf="errorMsg">{{ errorMsg }}</p>
 </div>

@@ -1,31 +1,32 @@
 /*
- * HTTP Interceptor
- *  - Attaches Bearer token to outgoing requests
- *  - On 401, attempts refresh via AuthService.refreshToken() and retries request
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
  */
 
-import { Injectable } from '@angular/core';
-import {
-  HttpInterceptor, HttpRequest, HttpHandler,
-  HttpEvent, HttpErrorResponse
-} from '@angular/common/http';
-import { Observable, throwError, BehaviorSubject } from 'rxjs';
-import { catchError, switchMap, filter, take } from 'rxjs/operators';
-import { AuthService } from '../../auth/auth.service';
-import { Router } from '@angular/router';
+import {Injectable} from '@angular/core';
+import {HttpErrorResponse, HttpEvent, HttpHandler, HttpInterceptor, HttpRequest} from '@angular/common/http';
+import {BehaviorSubject, Observable, throwError} from 'rxjs';
+import {catchError, filter, switchMap, take} from 'rxjs/operators';
+import {AuthService} from '../../auth/auth.service';
+import {Router} from '@angular/router';
 
-@Injectable()
+@Injectable({providedIn: 'root'})
 export class AuthInterceptor implements HttpInterceptor {
   private isRefreshing = false;
   private refreshTokenSubject = new BehaviorSubject<string | null>(null);
 
-  constructor(private authService: AuthService, private router: Router) {}
+  constructor(private authService: AuthService, private router: Router) {
+  }
 
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     const token = this.authService.getToken();
     let authReq = req;
-    if (token) {
-      authReq = req.clone({ setHeaders: { Authorization: `Bearer ${token}` } });
+
+    if (token && !req.url.includes('/api/auth/login') && !req.url.includes('/api/auth/register')) {
+      authReq = req.clone({setHeaders: {Authorization: `Bearer ${token}`}});
     }
 
     return next.handle(authReq).pipe(
@@ -48,7 +49,7 @@ export class AuthInterceptor implements HttpInterceptor {
           this.isRefreshing = false;
           this.refreshTokenSubject.next(res.accessToken);
           return next.handle(request.clone({
-            setHeaders: { Authorization: `Bearer ${res.accessToken}` }
+            setHeaders: {Authorization: `Bearer ${res.accessToken}`}
           }));
         }),
         catchError(err => {
@@ -63,7 +64,7 @@ export class AuthInterceptor implements HttpInterceptor {
         filter(token => token != null),
         take(1),
         switchMap(token => next.handle(request.clone({
-          setHeaders: { Authorization: `Bearer ${token}` }
+          setHeaders: {Authorization: `Bearer ${token}`}
         })))
       );
     }

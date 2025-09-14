@@ -10,8 +10,9 @@ COPY package*.json ./
 
 # Install Angular CLI + project dependencies
 RUN npm install -g @angular/cli@20 \
-    && npm install \
-    && npm install --save-dev @types/sockjs-client @types/stompjs
+        && npm install --legacy-peer-deps \
+        && npm install @ctrl/ngx-emoji-mart
+
 
 # Copy source code
 COPY . .

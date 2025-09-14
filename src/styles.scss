@@ -7,3 +7,163 @@
  */
 
 /* You can add global styles to this file, and also import other style files */
+/* === General App Styling === */
+
+/* === General App Styling === */
+body, html {
+  margin: 0;
+  padding: 0;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  background-color: #ece5dd; /* WhatsApp background */
+}
+
+/* === Buttons === */
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 20px;
+  font-weight: bold;
+}
+
+button:hover {
+  opacity: 0.9;
+}
+
+/* === Inputs === */
+input, textarea {
+  width: 100%;
+  padding: 10px;
+  margin: 6px 0 12px 0;
+  border-radius: 20px;
+  border: 1px solid #ccc;
+  outline: none;
+}
+
+input:focus, textarea:focus {
+  border-color: #25d366;
+}
+
+/* === Auth Container === */
+.auth-container {
+  max-width: 450px;
+  margin: 50px auto;
+  padding: 20px;
+  background-color: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.auth-container h2 {
+  color: #075e54;
+  margin-bottom: 16px;
+}
+
+/* === Chats Container === */
+.chats-container {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Chat list panel */
+.chat-list {
+  width: 30%;
+  border-right: 1px solid #ddd;
+  background-color: #fff;
+  overflow-y: auto;
+}
+
+/* Chat window panel */
+.chat-window {
+  width: 70%;
+  display: flex;
+  flex-direction: column-reverse;
+  padding: 12px;
+  overflow-y: auto;
+  background-color: #ece5dd;
+}
+
+/* === Chat List === */
+.chat-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.chat-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+
+.chat-list li:hover {
+  background-color: #f0f0f0;
+}
+
+.contact-name {
+  font-weight: bold;
+}
+
+/* Invite button */
+.invite-btn {
+  background-color: #34b7f1;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+/* === Chat Messages === */
+.chat-window div {
+  max-width: 70%;
+  padding: 10px 14px;
+  margin-bottom: 6px;
+  border-radius: 20px;
+  position: relative;
+  word-wrap: break-word;
+}
+
+.chat-window div.self {
+  background-color: #dcf8c6;
+  margin-left: auto;
+}
+
+.chat-window div:not(.self) {
+  background-color: #fff;
+  margin-right: auto;
+}
+
+.chat-window small {
+  display: block;
+  font-size: 10px;
+  color: #999;
+  text-align: right;
+}
+
+/* Chat input */
+.chat-input {
+  display: flex;
+  padding: 8px;
+  background-color: #f0f0f0;
+  border-top: 1px solid #ddd;
+}
+
+.chat-input input {
+  flex: 1;
+  border-radius: 20px;
+  border: 1px solid #ccc;
+  padding: 10px;
+  outline: none;
+}
+
+.chat-input button {
+  margin-left: 6px;
+  background-color: #25d366;
+  color: white;
+  padding: 10px 16px;
+}

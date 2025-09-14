@@ -1,47 +1,141 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input,OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { ChatService } from '../chat.service';
+import { ContactService } from '../../contacts/contact.service';
+import { AuthService } from '../../auth/auth.service';
+
+@Component({
+  selector: 'app-chat-list',
+  imports: [CommonModule],
+  templateUrl: './chat-list.component.html',
+  styleUrls: ['./chat-list.component.css'],
+  standalone: true
+})
+export class ChatListComponent implements OnInit {
+  @Input() userId!: string;
+  contacts: any[] = [];
+
+  constructor(
+    private contactService: ContactService,
+    private auth: AuthService,
+    private router: Router
+  ) {}
+
+  ngOnInit() {
+    const userId = this.auth.getUserId();
+    this.contactService.getMatchedContacts(userId).subscribe((res) => {
+      this.contacts = res;
+    });
+  }
+
+  openChat(contact: any) {
+    this.router.navigate(['/chats', contact.matchedUserId]);
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+import { Component, OnInit, Input } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { ContactService, MatchedContact } from '../../contacts/contact.service';
 
 @Component({
   selector: 'app-chat-list',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './chat-list.component.html',
   styleUrls: ['./chat-list.component.css']
 })
 export class ChatListComponent implements OnInit {
-  @Input() userId: number | null = null;
-  contacts: any[] = [];
-  loading = true;
+  @Input() userId!: number;
+
+  contacts: MatchedContact[] = [];
+  filteredContacts: MatchedContact[] = [];
+  searchQuery = '';
+  loading = false;
   error = '';
 
-  constructor(private chatService: ChatService, private router: Router) {}
+  constructor(private contactService: ContactService, private router: Router) {}
 
-  ngOnInit() {
+  ngOnInit(): void {
     if (!this.userId) {
-      this.error = 'No user logged in';
-      this.loading = false;
+      this.error = 'User not logged in';
       return;
     }
+    this.loadContacts(this.userId);
+  }
 
-    this.chatService.connectWebSocket(this.userId); // 🔗 connect once
-
-    this.chatService.getMatchedContacts(this.userId).subscribe({
-      next: (res) => {
-        this.contacts = res;
+  private loadContacts(userId: number) {
+    this.loading = true;
+    this.contactService.getMatchedContacts(userId).subscribe({
+      next: (data) => {
+        this.contacts = data;
+        this.filteredContacts = data;
         this.loading = false;
       },
-      error: (err) => {
-        console.error('Failed to load contacts', err);
-        this.error = 'Could not load contacts';
+      error: (e: any) => {
+        console.error('Failed to load contacts', e);
+        this.error = 'Failed to load contacts';
         this.loading = false;
       }
     });
   }
 
-  openChat(contact: any) {
-    if (!this.userId) return;
-    this.router.navigate(['/chats', contact.id]);
+  filterContacts() {
+    const q = this.searchQuery.toLowerCase().trim();
+    this.filteredContacts = this.contacts.filter(c =>
+      (c.contactName?.toLowerCase().includes(q)) ||
+      (c.phoneNormalized?.includes(q))
+    );
+  }
+
+  openChat(contact: MatchedContact) {
+    const contactId = contact.matchedUserId || contact.contactId;
+    if (!contactId) return;
+    this.router.navigate(['/chats', contactId]);
+  }
+
+  sendInvite(event: Event, contact: MatchedContact) {
+    event.stopPropagation();
+    if (!contact.phoneNormalized || !contact.contactName) {
+      this.error = 'Invalid contact info';
+      return;
+    }
+    this.contactService.sendInviteEmail(contact.phoneNormalized, contact.contactName).subscribe({
+      next: () => alert(`Invite sent to ${contact.contactName}`),
+      error: (e: any) => {
+        console.error('Error sending invite', e);
+        this.error = 'Failed to send invite.';
+      }
+    });
   }
 }
+*/

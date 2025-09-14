@@ -1,24 +1,29 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-
-import { LoginComponent } from './auth/login/login.component';
 import { RegisterComponent } from './auth/register/register.component';
-import { ContactSyncComponent } from './contacts/sync/sync.component';
+import { LoginComponent } from './auth/login/login.component';
+import { SyncContactsComponent  } from './contacts/sync/sync.component';
 import { ChatListComponent } from './chats/list/chat-list.component';
 import { ChatWindowComponent } from './chats/window/chat-window.component';
 import { AuthGuard } from './auth/auth.guard';
 
 const routes: Routes = [
-  { path: 'login', component: LoginComponent },
   { path: 'register', component: RegisterComponent },
-  { path: 'contacts-sync', component: ContactSyncComponent, canActivate: [AuthGuard] },
-  { path: 'chat-list', component: ChatListComponent, canActivate: [AuthGuard] },
-  { path: 'chat-window/:id', component: ChatWindowComponent, canActivate: [AuthGuard] },
-  { path: '', redirectTo: 'login', pathMatch: 'full' }
+  { path: 'login', component: LoginComponent },
+  { path: 'sync', component: SyncContactsComponent, canActivate: [AuthGuard] },
+  {
+    path: 'chats',
+    canActivate: [AuthGuard],
+    children: [
+      { path: '', component: ChatListComponent },
+      { path: ':id', component: ChatWindowComponent },
+    ],
+  },
+  { path: '', redirectTo: '/login', pathMatch: 'full' },
 ];
 
 @NgModule({
-  imports: [RouterModule.forRoot(routes)],
-  exports: [RouterModule]
+  imports: [RouterModule.forRoot(routes, { useHash: true })],
+  exports: [RouterModule],
 })
 export class AppRoutingModule {}

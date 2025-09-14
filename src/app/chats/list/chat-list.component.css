@@ -1,17 +1,78 @@
+/* Chat list container */
 .chat-list {
-  padding: 15px;
-  background: #f8f9fa;
-  height: 100%;
+  width: 100%;
+  max-width: 350px;
+  background-color: #f0f2f5; /* WhatsApp light background */
+  border-right: 1px solid #ddd;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 10px 0;
+  box-sizing: border-box;
 }
-.chat-list ul {
-  list-style: none;
-  padding: 0;
+
+/* Header */
+.chat-list h3 {
+  text-align: center;
+  color: #075e54;
+  margin-bottom: 15px;
+  font-weight: 600;
 }
-.chat-list li {
-  padding: 12px;
-  border-bottom: 1px solid #ddd;
+
+/* Contact item */
+.contact-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  margin: 0 10px;
+  border-radius: 8px;
   cursor: pointer;
+  transition: background-color 0.2s;
 }
-.chat-list li:hover {
-  background: #e9ecef;
+
+.contact-item:hover {
+  background-color: #e5ddd5;
+}
+
+/* Contact name */
+.contact-name {
+  font-weight: 500;
+  color: #111;
+}
+
+/* Invite button */
+.invite-btn {
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  border: none;
+  border-radius: 6px;
+  background-color: #25d366;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.invite-btn:hover {
+  background-color: #128c7e;
+}
+
+/* Loading and error messages */
+.error {
+  color: red;
+  text-align: center;
+  padding: 10px 0;
+}
+
+.search-input {
+  width: 90%;
+  margin: 0 auto 10px auto;
+  padding: 8px 12px;
+  border-radius: 20px;
+  border: 1px solid #ccc;
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: #25d366;
+  box-shadow: 0 0 5px rgba(37, 211, 102, 0.5);
 }

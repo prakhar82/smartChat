@@ -3,21 +3,19 @@
  * All rights reserved.
  * Unauthorized copying or distribution of this file,
  * via any medium, is strictly prohibited unless permitted by license.
- * Author: Prakhar Dwivedi
+ * Author: $USER_NAME
  */
 
-import { bootstrapApplication } from '@angular/platform-browser';
-import { provideHttpClient } from '@angular/common/http';
-import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import {bootstrapApplication} from '@angular/platform-browser';
+import {provideAnimationsAsync} from '@angular/platform-browser/animations/async';
 
-import { AppComponent } from './app/app.component';  // ✅ use AppComponent
-import { appConfig } from './app/app.config';        // ✅ central config
+import {AppComponent} from './app/app.component';
+import {appConfig} from './app/app.config';
 
 bootstrapApplication(AppComponent, {
   ...appConfig,
   providers: [
     ...appConfig.providers,
-    provideHttpClient(),
     provideAnimationsAsync()
   ]
 }).catch(err => console.error(err));
