@@ -11,7 +11,6 @@ package com.smartchat.backend.config;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import com.smartchat.backend.dto.MatchedContactResponse;
 import com.smartchat.backend.model.ChatMessage;
 import org.springframework.context.annotation.Bean;
@@ -37,7 +36,7 @@ public class RedisConfig {
         template.setKeySerializer(new StringRedisSerializer());
         template.setHashKeySerializer(new StringRedisSerializer());
 
-        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(objectMapper());
+        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(redisObjectMapper());
         template.setValueSerializer(serializer);
         template.setHashValueSerializer(serializer);
 
@@ -55,7 +54,7 @@ public class RedisConfig {
         template.setKeySerializer(new StringRedisSerializer());
         template.setHashKeySerializer(new StringRedisSerializer());
 
-        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(objectMapper());
+        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(redisObjectMapper());
         template.setValueSerializer(serializer);
         template.setHashValueSerializer(serializer);
 
@@ -73,7 +72,7 @@ public class RedisConfig {
         template.setKeySerializer(new StringRedisSerializer());
         template.setHashKeySerializer(new StringRedisSerializer());
 
-        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(objectMapper());
+        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(redisObjectMapper());
         template.setValueSerializer(serializer);
         template.setHashValueSerializer(serializer);
 
@@ -81,16 +80,14 @@ public class RedisConfig {
     }
 
     /**
-     * Shared ObjectMapper for all Redis serializers.
+     * Dedicated ObjectMapper for Redis serialization only.
+     * 🚫 Does NOT affect Spring Boot’s HTTP ObjectMapper (used in controllers).
      */
     @Bean
-    public ObjectMapper objectMapper() {
+    public ObjectMapper redisObjectMapper() {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
-        objectMapper.activateDefaultTyping(
-                LaissezFaireSubTypeValidator.instance,
-                ObjectMapper.DefaultTyping.NON_FINAL
-        );
+        // ❌ Removed activateDefaultTyping (caused WRAPPER_ARRAY issue in REST)
         return objectMapper;
     }
 }

@@ -8,11 +8,17 @@
 
 package com.smartchat.backend.dto;
 
-public record MatchedContactResponse(
+import java.time.LocalDateTime;
+
+/**
+ * DTO for WhatsApp-style recent chat list
+ */
+public record RecentChatResponse(
+        String contactId,
         String contactName,
-        String contactId,   // 👈 changed from Long → String for MongoDB consistency
         String phoneNormalized,
         boolean registered,
-        String email
+        String lastMessage,
+        LocalDateTime lastMessageTime
 ) {
 }

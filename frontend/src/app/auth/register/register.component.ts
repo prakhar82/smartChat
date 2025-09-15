@@ -9,7 +9,7 @@
 import {Component} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {FormsModule, NgForm} from '@angular/forms';
-import {Router} from '@angular/router';
+import {ActivatedRoute, Router} from '@angular/router';
 import {AuthService, RegisterRequest} from '../auth.service';
 
 @Component({
@@ -28,14 +28,27 @@ export class RegisterComponent {
     password: '',
     confirmPassword: '',
     email: '',
-    googleToken: null
+    googleToken: null,
+    referralToken: ''
   };
 
 
   errorMsg = '';
   loading = false;
 
-  constructor(private auth: AuthService, private router: Router) {
+  constructor(private auth: AuthService,
+              private router: Router,
+              private route: ActivatedRoute
+  ) {
+  }
+
+  ngOnInit(): void {
+    // ✅ Capture referral token from URL if present
+    const ref = this.route.snapshot.queryParamMap.get('ref');
+    if (ref) {
+      this.model.referralToken = ref;
+      console.log('Referral token detected:', ref);
+    }
   }
 
   /** Simple Register Handler */
@@ -52,9 +65,13 @@ export class RegisterComponent {
 
     this.loading = true;
     this.auth.register(this.model).subscribe({
-      next: () => {
+      next: (res) => {
         this.loading = false;
-        // ✅ Tokens are already stored inside AuthService
+  
+        // ✅ Save tokens and user details
+        this.auth.setSession(res);
+
+        // ✅ Redirect to Sync Contacts screen
         this.router.navigate(['/sync-contacts']);
       },
       error: (err) => {
@@ -63,4 +80,5 @@ export class RegisterComponent {
       }
     });
   }
+
 }

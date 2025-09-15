@@ -24,4 +24,5 @@ public class RegisterRequest {
     private String password;
     private String confirmPassword;
     private String googleToken; // optional for Google sync
+    private String referralToken;
 }

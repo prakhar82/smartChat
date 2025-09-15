@@ -44,6 +44,10 @@ public class UserContact {
     @Column(name = "source")
     private String source;
 
+    @Column(name = "email")
+    private String email;   // 👈 required for invite
+
+
     @Column(name = "created_at")
     private Instant createdAt = Instant.now();
 

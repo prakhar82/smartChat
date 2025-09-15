@@ -24,8 +24,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -95,21 +95,21 @@ public class ContactServiceImpl implements ContactService {
 
         if (numbers.isEmpty()) return List.of();
 
+        // ✅ Load all SmartChat users who match phone numbers
         List<User> matchedUsers = userRepository.findByMobileNormalizedIn(numbers);
-        Map<String, User> matchedMap = matchedUsers.stream()
-                .collect(Collectors.toMap(User::getMobileNormalized, u -> u));
+        Set<String> matchedSet = matchedUsers.stream()
+                .map(User::getMobileNormalized)
+                .collect(Collectors.toSet());
 
+        // ✅ Build response DTOs
         List<MatchedContactResponse> result = contacts.stream()
-                .map(c -> {
-                    User matchedUser = matchedMap.get(c.getPhoneNormalized());
-                    return new MatchedContactResponse(
-                            c.getId(),
-                            c.getContactName(),
-                            c.getPhoneNormalized(),
-                            matchedUser != null ? matchedUser.getId() : null,
-                            matchedUser != null ? matchedUser.getMobileNormalized() : null
-                    );
-                })
+                .map(c -> new MatchedContactResponse(
+                        c.getContactName() != null ? c.getContactName() : c.getPhoneNormalized(),
+                        c.getId() != null ? c.getId().toString() : null, // 👈 directly use MongoDB ObjectId (String)
+                        c.getPhoneNormalized(),
+                        matchedSet.contains(c.getPhoneNormalized()),
+                        c.getEmail()
+                ))
                 .toList();
 
         // ✅ Cache result with TTL
@@ -117,6 +117,7 @@ public class ContactServiceImpl implements ContactService {
 
         return result;
     }
+
 
     @Override
     public void evictMatchedCache(Long userId) {

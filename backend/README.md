@@ -14,12 +14,16 @@ A **Dockerized full-stack chat application** built with:
 ## 🛠️ Setup
 
 ### 1. Clone Repository
+
 ```bash
 git clone https://github.com/your-org/smartchat.git
 cd smartchat
 ```
+
 ### 2. Configure Environment Variables
+
 Create a `.env` file in the root directory with the following content:
+
 ```env
 PROFILE=dev
 API_PORT=8080
@@ -37,82 +41,103 @@ JWT_SECRET=your_jwt_secret_key
 JWT_EXPIRATION_MS=3600000
 ```
 
-
 ### 3. Build & Run
 
 #### This is often used during development to reset the environment completely.
+
 ```bash
 docker compose down -v --rmi all
+docker compose build --no-cache
+docker compose up
 ```
 
 ```bash
 docker-compose up --build
 ```
+
 #### api logs
+
 ```bash
 docker-compose logs -f api
 ```
 
-
 ### 4. Access the Application
+
 - **Frontend**: [http://localhost](http://localhost)
 - **API**: [http://localhost:8080/api](http://localhost:8080/api)
 - **PostgreSQL**: `localhost:5432` (DB: `smartchat`,
 
-## 🐳 Services    
-| Service    | Port  | Description            |
-| ---------- | ----- | ---------------------- |
-| `api`      | 8080  | Spring Boot backend    |
-| `web`      | 80    | Angular/React frontend |
-| `postgres` | 5432  | PostgreSQL database    |
-| `mongo`    | 27017 | MongoDB database       |
-| `redis`    | 6379  | Redis cache            |
-| `adminer`   | 8081  | Database admin tool    |
-| `mongo-express` | 8082 | MongoDB admin tool |
-| `redis-commander` | 8083 | Redis admin tool |
+## 🐳 Services
+
+| Service           | Port  | Description            |
+|-------------------|-------|------------------------|
+| `api`             | 8080  | Spring Boot backend    |
+| `web`             | 80    | Angular/React frontend |
+| `postgres`        | 5432  | PostgreSQL database    |
+| `mongo`           | 27017 | MongoDB database       |
+| `redis`           | 6379  | Redis cache            |
+| `adminer`         | 8081  | Database admin tool    |
+| `mongo-express`   | 8082  | MongoDB admin tool     |
+| `redis-commander` | 8083  | Redis admin tool       |
+
 ### 5. Admin Tools
+
 - **Adminer (PostgreSQL)**: [http://localhost:8081](http://localhost:8081)
 - **Mongo Express (MongoDB)**: [http://localhost:8082](http://localhost:8082)
 - **Redis Commander (Redis)**: [http://localhost:8083](http://localhost:8083)
 - **postgres url**: `jdbc:postgresql://localhost:5432/smartchat`
 - **postgres user**: `smartchat`
 - **postgres password**: `smartchat_pw`
-- **mongo url**: `mongodb://root:change_me@localhost:27017` 
+- **mongo url**: `mongodb://root:change_me@localhost:27017`
 - **redis url**: `redis://localhost:6379`
 - **mongo user**: `root`
 - **mongo password**: `change_me`
-### 6.  ⚡ Testing
+
+### 6. ⚡ Testing
+
 #### Health Check
+
 ```bash
 curl http://localhost:8080/api/health
 ```
+
 ### 7. Register
+
 ```bash
 curl -X POST http://localhost:8080/api/auth/register -H "Content-Type:
 application/json" -d '{"username":"alice","email":"alice@example.com","password":"password123"}'
 ``` 
 
 #### 8. Login
+
 Use Postman or curl to test API endpoints. Example:
+
 ```bash
 curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"alice@example.com","password":"password123"}'
 ``` 
+
 #### 9. Send Message
+
 ```bash
 curl -X POST http://localhost:8080/api/messages \
   -H "Authorization: Bearer <JWT_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{"receiverId":2,"content":"Hello Bob!"}'
 ```
+
 ### 10. View Messages
+
 ```bash
 curl -X GET http://localhost:8080/api/messages/2 \
   -H "Authorization: Bearer <JWT_TOKEN>"
 ```
+
 ## 📂 SmartChat.postman_collection.json
+
 Import the provided Postman collection to test all API endpoints easily.
+
 ```bash
 {
   "info": {
@@ -356,6 +381,7 @@ Import the provided Postman collection to test all API endpoints easily.
 ```
 
 ## 🗂️ Project Structure
+
 ```
 smartchat/
 ├── backend/                # Spring Boot backend
@@ -369,7 +395,9 @@ smartchat/
 ├── docker-compose.yml      # Docker Compose configuration
 └── .env                    # Environment variables
 ```
+
 ## 📊 Architecture Diagram
+
 ```plaintext
 +-------------------+        +-------------------+
 |   Frontend (80)   | <----> |   Backend (8080)   |
@@ -390,7 +418,9 @@ smartchat/
                         |     Redis (6379)   |
                         +-------------------+
 ```     
+
 ## Class Diagram (UML)
+
 ```plaintext
 +-------------------+         +---------------------+
 | User              |         | Message             |
@@ -450,7 +480,9 @@ smartchat/
 +-------------------+  
  
 ``` 
+
 ## 📌 Next Steps
+
 - Add WebSocket for real-time chat.
 - Add integration tests.
 - Deploy with Kubernetes or Docker Swarm.
@@ -511,10 +543,10 @@ smartchat/
 - Implement a message filtering feature (e.g., spam detection).
 - Add a message AI assistant feature (e.g., chatbots).
 
-    
 -- -
 
 ## 🔧 Customization
+
 - Modify the `.env` file to change configurations.
 - Update `docker-compose.yml` to add/remove services.
 - Change frontend code in the `frontend/` directory.

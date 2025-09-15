@@ -23,6 +23,7 @@
 
 package com.smartchat.backend.controller;
 
+import com.smartchat.backend.dto.RecentChatResponse;
 import com.smartchat.backend.model.ChatMessage;
 import com.smartchat.backend.repository.ChatMessageRepository;
 import com.smartchat.backend.service.ChatService;
@@ -45,6 +46,11 @@ public class ChatRestController {
 
     @Value("${chat.history.limit:30}")
     private int historyLimit;
+
+    @GetMapping("/recent")
+    public List<RecentChatResponse> recentChats(@RequestParam Long userId) {
+        return chatService.getRecentChats(userId);
+    }
 
     @GetMapping("/{contactId}")
     public List<ChatMessage> getChatHistory(@PathVariable Long contactId,

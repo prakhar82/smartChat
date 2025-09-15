@@ -17,6 +17,7 @@ export interface AuthResponse {
   firstName?: string;
   lastName?: string;
   email?: string;
+  message?: string;
 }
 
 export interface RegisterRequest {
@@ -27,25 +28,22 @@ export interface RegisterRequest {
   email: string;
   password: string;
   confirmPassword: string;
-  googleToken?: string | null; // optional
+  googleToken?: string | null;
+  referralToken?: string;
 }
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
-  // 🔑 Base API URL (replace with environments if needed)
   private apiUrl = 'http://localhost:8080/api/auth';
 
   constructor(private http: HttpClient) {
   }
 
-  /**
-   * Register a new user
-   */
   register(model: RegisterRequest): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.apiUrl}/register`, model).pipe(
-      tap((res) => this.storeTokens(res)),
+      tap((res) => this.setSession(res)),
       catchError((error) => {
         console.error('❌ Registration failed', error);
         return throwError(() => error);
@@ -53,14 +51,11 @@ export class AuthService {
     );
   }
 
-  /**
-   * Login with mobile number and password
-   */
   login(mobileNumber: string, password: string): Observable<AuthResponse> {
     return this.http
       .post<AuthResponse>(`${this.apiUrl}/login`, {mobileNumber, password})
       .pipe(
-        tap((res) => this.storeTokens(res)),
+        tap((res) => this.setSession(res)),
         catchError((error) => {
           console.error('❌ Login failed', error);
           return throwError(() => error);
@@ -68,9 +63,6 @@ export class AuthService {
       );
   }
 
-  /**
-   * Refresh access token
-   */
   refreshToken(): Observable<{ accessToken: string }> {
     return this.http.post<{ accessToken: string }>(
       `${this.apiUrl}/refresh`,
@@ -79,47 +71,27 @@ export class AuthService {
   }
 
   /**
-   * Store authentication tokens + user info
+   * ✅ Single method to save tokens + user info
    */
-  private storeTokens(res: AuthResponse) {
-    if (res.accessToken) {
-      localStorage.setItem('smartchat.accessToken', res.accessToken);
-    }
-    if (res.refreshToken) {
-      localStorage.setItem('smartchat.refreshToken', res.refreshToken);
-    }
-    if (res.userId !== null && res.userId !== undefined) {
-      localStorage.setItem('smartchat.userId', String(res.userId));
-    }
-    if (res.firstName) {
-      localStorage.setItem('smartchat.firstName', res.firstName);
-    }
-    if (res.lastName) {
-      localStorage.setItem('smartchat.lastName', res.lastName);
-    }
-    if (res.email) {
-      localStorage.setItem('smartchat.email', res.email);
-    }
+  setSession(res: AuthResponse) {
+    if (!res) return;
+    localStorage.setItem('smartchat.accessToken', res.accessToken || '');
+    localStorage.setItem('smartchat.refreshToken', res.refreshToken || '');
+    localStorage.setItem('smartchat.userId', res.userId?.toString() || '');
+    localStorage.setItem('smartchat.firstName', res.firstName || '');
+    localStorage.setItem('smartchat.lastName', res.lastName || '');
+    localStorage.setItem('smartchat.email', res.email || '');
   }
 
-  /**
-   * Get stored access token
-   */
   getToken(): string | null {
     return localStorage.getItem('smartchat.accessToken');
   }
 
-  /**
-   * Get logged-in user ID
-   */
   getUserId(): number {
     const uid = localStorage.getItem('smartchat.userId');
     return uid ? Number(uid) : 0;
   }
 
-  /**
-   * Logout user and clear tokens
-   */
   logout(): void {
     localStorage.removeItem('smartchat.accessToken');
     localStorage.removeItem('smartchat.refreshToken');
@@ -129,16 +101,10 @@ export class AuthService {
     localStorage.removeItem('smartchat.email');
   }
 
-  /**
-   * Check if user is logged in
-   */
   isLoggedIn(): boolean {
     return !!this.getToken();
   }
 
-  /**
-   * Get cached first name (optional)
-   */
   getFirstName(): string | null {
     return localStorage.getItem('smartchat.firstName');
   }

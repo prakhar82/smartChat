@@ -6,21 +6,22 @@
  * Author: $USER_NAME
  */
 
+/*
+ * SyncContactsComponent
+ *
+ * Handles syncing phone + Google contacts after registration/login.
+ */
+
 import {Component, OnInit} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {firstValueFrom} from 'rxjs';
 import {Router} from '@angular/router';
-import {ContactService} from '../contact.service';
+import {ContactPayload, ContactService} from '../contact.service';
 import {AuthService} from '../../auth/auth.service';
-
-// Capacitor Contacts plugin
 import {Contacts, GetContactsOptions} from '@capacitor-community/contacts';
 
-interface MyContact {
-  id?: string;
-  name?: string;
-  phoneNumbers?: { number?: string }[];
-}
+// Google Identity
+declare const google: any;
 
 @Component({
   selector: 'app-sync-contacts',
@@ -43,7 +44,7 @@ export class SyncContactsComponent implements OnInit {
   }
 
   ngOnInit() {
-    let firstName = this.authService.getFirstName();
+    this.firstName = this.authService.getFirstName();
     const uid = this.authService.getUserId();
     if (!uid) {
       this.errorMsg = 'User not logged in';
@@ -61,7 +62,7 @@ export class SyncContactsComponent implements OnInit {
       const options: GetContactsOptions = {projection: 'all' as any};
       const result = await Contacts.getContacts(options);
 
-      const contacts = (result.contacts as MyContact[] || []).map((c) => ({
+      const contacts: ContactPayload[] = (result.contacts || []).map((c: any) => ({
         contactName: c.name || '',
         phoneNormalized: c.phoneNumbers?.[0]?.number || '',
         phoneRaw: c.phoneNumbers?.[0]?.number || '',
@@ -78,31 +79,45 @@ export class SyncContactsComponent implements OnInit {
     }
   }
 
-  /** 🔑 Sync Google contacts via OAuth2 access token */
+  /** 🔑 Sync Google contacts */
   async syncGoogleContacts() {
     if (this.userId === null) return;
     this.syncing = true;
 
     try {
-      const googleAccessToken = prompt('Paste Google access token (for testing)');
-      if (!googleAccessToken) return;
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: '804357637525-auufm7hjj51mtsugsgnlqkudptiln1ba.apps.googleusercontent.com', // 👈 your Google Client ID
+        scope: 'https://www.googleapis.com/auth/contacts.readonly',
+        callback: async (response: any) => {
+          if (response && response.access_token) {
+            try {
+              await firstValueFrom(
+                this.contactService.syncGoogleContacts(this.userId!, response.access_token)
+              );
+              this.syncing = false;
+              this.router.navigate(['/chats']);
+            } catch (err) {
+              console.error('syncGoogleContacts backend error', err);
+              this.errorMsg = 'Backend failed to sync Google contacts';
+              this.syncing = false;
+            }
+          } else {
+            this.errorMsg = 'No access token received from Google';
+            this.syncing = false;
+          }
+        },
+      });
 
-      await firstValueFrom(
-        this.contactService.syncGoogleContacts(this.userId, googleAccessToken)
-      );
-
-      this.syncing = false;
-      this.router.navigate(['/chats']); // ✅ redirect after sync
+      client.requestAccessToken();
     } catch (err) {
       console.error('syncGoogleContacts error', err);
       this.syncing = false;
-      this.errorMsg = 'Failed to sync Google contacts';
+      this.errorMsg = 'Google OAuth failed';
     }
   }
 
-  /** Skip syncing and go directly to chats */
+  /** Skip syncing */
   skipSync() {
     this.router.navigate(['/chats']);
   }
-
 }

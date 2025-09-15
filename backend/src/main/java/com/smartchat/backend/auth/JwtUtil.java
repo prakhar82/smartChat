@@ -33,10 +33,8 @@ public class JwtUtil {
         byte[] keyBytes;
 
         try {
-            // Try Base64 decode first
             keyBytes = Base64.getDecoder().decode(secret);
         } catch (IllegalArgumentException e) {
-            // Fallback: treat as raw string
             keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         }
 
@@ -51,19 +49,20 @@ public class JwtUtil {
     // Generate Tokens
     // =========================
 
-    public String generateAccessToken(String username, List<String> roles) {
-        return buildToken(username, roles, jwtProperties.getExpiration());
+    public String generateAccessToken(Long userId, String username, List<String> roles) {
+        return buildToken(userId, username, roles, jwtProperties.getExpiration());
     }
 
-    public String generateRefreshToken(String username) {
-        return buildToken(username, null, jwtProperties.getRefreshExpiration());
+    public String generateRefreshToken(Long userId, String username) {
+        return buildToken(userId, username, null, jwtProperties.getRefreshExpiration());
     }
 
-    private String buildToken(String username, List<String> roles, long expirationMs) {
+    private String buildToken(Long userId, String username, List<String> roles, long expirationMs) {
         JwtBuilder builder = Jwts.builder()
                 .setSubject(username)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + expirationMs))
+                .claim("userId", userId) // ✅ include userId in JWT
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256);
 
         if (roles != null && !roles.isEmpty()) {
@@ -76,6 +75,10 @@ public class JwtUtil {
     // =========================
     // Extract Claims
     // =========================
+    public Long extractUserId(String token) {
+        return extractClaim(token, claims -> claims.get("userId", Long.class));
+    }
+
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }

@@ -18,6 +18,8 @@ import com.smartchat.backend.repository.UserRepository;
 import com.smartchat.backend.service.GoogleContactService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,20 +32,24 @@ public class AuthController {
     private final UserRepository userRepo;  // ✅ Inject repository here
     private final GoogleContactService googleContactService;
 
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
+
     // =========================
     // Register Endpoint
     // =========================
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
+        log.info("Incoming request: {}", request);
         if (!request.getPassword().equals(request.getConfirmPassword())) {
+            log.warn("❌ Passwords do not match for email: {}", request.getEmail());
             return ResponseEntity.badRequest().body(
                     new AuthResponse(null, null, null, "Passwords do not match")
             );
         }
 
         AuthResponse response = authService.register(request);
-
+        log.info("✅ Successfully registered user ID: {}", response.getUserId());
         // Sync Google contacts if provided
         if (request.getGoogleToken() != null && !request.getGoogleToken().isBlank()) {
             Long userId = response.getUserId();
@@ -67,7 +73,7 @@ public class AuthController {
     // Refresh Token Endpoint
     // =========================
     @PostMapping("/refresh")
-    public ResponseEntity<AuthResponse> refreshToken(@Valid @RequestBody RefreshRequest request) {
+    public ResponseEntity<AuthResponse> refreshToken(@Valid @RequestBody RefreshRequest request) throws RuntimeException {
         AuthResponse authResponse = authService.refreshToken(request.getRefreshToken());
         return ResponseEntity.ok(authResponse);
     }

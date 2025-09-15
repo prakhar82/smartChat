@@ -1,9 +1,49 @@
-<div class="h-screen bg-gray-100">
-  <h2 class="text-xl font-bold p-4">Chats</h2>
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
 
-  <div *ngFor="let contact of contacts" class="p-4 border-b hover:bg-gray-200 cursor-pointer"
-       (click)="openChat(contact)">
-    <p class="font-semibold">{{ contact.contactName || 'Unknown' }}</p>
-    <p class="text-sm text-gray-600">{{ contact.phoneNormalized }}</p>
-  </div>
+<div class="chat-list-container">
+  <input
+    type="text"
+    [(ngModel)]="searchQuery"
+    (input)="filterContacts()"
+    placeholder="🔍 Search contacts..."
+  />
+
+  <div *ngIf="loading">⏳ Loading contacts...</div>
+  <div *ngIf="error" class="error">{{ error }}</div>
+
+  <!-- Recent Chats -->
+  <h3 *ngIf="recentChats.length">Recent Chats</h3>
+  <ul>
+    <li *ngFor="let c of recentChats" (click)="openChat(c)">
+      <span>{{ c.contactName ? c.contactName : c.phoneNormalized }}</span>
+      <button (click)="openChat(c); $event.stopPropagation()">💬 Continue</button>
+    </li>
+  </ul>
+
+  <!-- Registered Contacts -->
+  <h3 *ngIf="registeredContacts.length">Chats on SmartChat</h3>
+  <ul>
+    <li *ngFor="let c of registeredContacts" (click)="openChat(c)">
+      <span>{{ c.contactName ? c.contactName : c.phoneNormalized }}</span>
+      <button (click)="openChat(c); $event.stopPropagation()">💬 Chat</button>
+    </li>
+  </ul>
+
+  <!-- Divider -->
+  <hr *ngIf="registeredContacts.length && unregisteredContacts.length"/>
+
+  <!-- Unregistered Contacts -->
+  <h3 *ngIf="unregisteredContacts.length">Invite to SmartChat</h3>
+  <ul>
+    <li *ngFor="let c of unregisteredContacts">
+      <span>{{ c.contactName ? c.contactName : c.phoneNormalized }}</span>
+      <button (click)="sendInvite(c); $event.stopPropagation()">✉️ Invite</button>
+    </li>
+  </ul>
 </div>

@@ -33,7 +33,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.userDetailsService = userDetailsService;
     }
 
-    @Override
+    /*@Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
         // ✅ Only skip token validation for public endpoints
@@ -41,7 +41,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 || path.equals("/api/auth/login")
                 || path.equals("/api/auth/refresh")
                 || path.equals("/actuator/health");
-    }
+    }*/
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,

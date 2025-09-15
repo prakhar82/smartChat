@@ -8,12 +8,17 @@
 
 package com.smartchat.backend.service;
 
+import com.smartchat.backend.dto.RecentChatResponse;
 import com.smartchat.backend.model.ChatMessage;
+import com.smartchat.backend.model.User;
 import com.smartchat.backend.repository.ChatMessageRepository;
+import com.smartchat.backend.repository.UserRepository;
 import com.smartchat.backend.service.cache.ChatCacheServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -21,32 +26,45 @@ public class ChatService {
 
     private final ChatMessageRepository chatRepo;
     private final ChatCacheServiceImpl chatCache;
+    private final UserRepository userRepo;
+
+    /**
+     * Get WhatsApp-style recent chat list
+     */
+    public List<RecentChatResponse> getRecentChats(Long userId) {
+        List<ChatMessage> latest = chatRepo.findLatestMessagesByUser(userId);
+
+        return latest.stream().map(msg -> {
+            Long contactId = msg.getSenderId().equals(userId) ? msg.getReceiverId() : msg.getSenderId();
+            User contact = userRepo.findById(contactId).orElse(null);
+
+            return new RecentChatResponse(
+                    String.valueOf(contactId),
+                    contact != null ? contact.getFirstName() : "Unknown",
+                    contact != null ? contact.getMobileNormalized() : null,
+                    contact != null,
+                    msg.getMessage(),
+                    msg.getTimestamp()
+            );
+        }).toList();
+    }
 
     @Transactional
     public ChatMessage saveAndSend(ChatMessage msg) {
-        // 1. Save to DB
         ChatMessage saved = chatRepo.save(msg);
-
-        // 2. Evict cache for both directions
         chatCache.evict(saved.getSenderId(), saved.getReceiverId());
-
         return saved;
     }
 
-    /**
-     * Update the status of a message (e.g., SENT, DELIVERED, READ).
-     */
     @Transactional
     public ChatMessage updateStatus(Long messageId, String status) {
         ChatMessage message = chatRepo.findById(messageId)
                 .orElseThrow(() -> new IllegalArgumentException("Message not found: " + messageId));
 
-        message.setStatus(status); // Assuming ChatMessage has a `status` field
+        message.setStatus(status);
         ChatMessage updated = chatRepo.save(message);
 
-        // Optional: Update cache with the new status
         chatCache.updateMessageStatusInCache(updated);
-
         return updated;
     }
 }

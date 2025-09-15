@@ -1,8 +1,16 @@
-import {Component, Input, OnInit} from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { Router, RouterOutlet } from '@angular/router';
-import { ChatListComponent } from './../list/chat-list.component';
+/*
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
+ */
 
+import {Component, OnInit} from '@angular/core';
+import {CommonModule} from '@angular/common';
+import {Router, RouterOutlet} from '@angular/router';
+import {ChatListComponent} from './../list/chat-list.component';
+import {AuthService} from '../../auth/auth.service';
 
 @Component({
   selector: 'app-chats-page',
@@ -21,17 +29,19 @@ import { ChatListComponent } from './../list/chat-list.component';
   styleUrls: ['./chats-page.component.css']
 })
 export class ChatsPageComponent implements OnInit {
-  @Input() userId!: string; // expecting string
-  constructor(private router: Router) {}
+  userId!: number;
+
+  constructor(private auth: AuthService, private router: Router) {
+  }
 
   ngOnInit(): void {
-    const storedUserId = localStorage.getItem('userId');
+    const storedUserId = this.auth.getUserId(); // typically string from localStorage
 
     if (!storedUserId) {
       this.router.navigate(['/login']);
       return;
     }
 
-    this.userId = storedUserId; // ✅ Directly assign as string
+    this.userId = Number(storedUserId); // ✅ always convert to number
   }
 }

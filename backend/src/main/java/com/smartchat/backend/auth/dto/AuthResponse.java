@@ -8,6 +8,8 @@
 
 package com.smartchat.backend.auth.dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -15,9 +17,10 @@ import lombok.NoArgsConstructor;
  * AuthResponse is returned after login/register.
  * Contains tokens, userId, and optionally a message for errors.
  */
-
 @Data
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class AuthResponse {
     private String accessToken;
     private String refreshToken;
@@ -27,6 +30,7 @@ public class AuthResponse {
     private String email;
     private String message;
 
+    // Optional custom constructors
     public AuthResponse(String accessToken, String refreshToken, Long userId, String message) {
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
@@ -40,7 +44,7 @@ public class AuthResponse {
         this.userId = userId;
     }
 
-    public AuthResponse(String accessToken, String refreshToken, Long id, String firstName, String registrationSuccessful) {
+    public AuthResponse(String accessToken, String refreshToken, Long userId, String firstName, String message) {
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
         this.userId = userId;

@@ -1,7 +1,15 @@
-import { Injectable } from '@angular/core';
+/*
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
+ */
+
+import {Injectable} from '@angular/core';
 import {HttpClient, HttpEventType, HttpRequest} from '@angular/common/http';
 import {BehaviorSubject, map, Observable} from 'rxjs';
-import { Client, IMessage } from '@stomp/stompjs';
+import {Client, IMessage} from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import {filter} from 'rxjs/operators';
 import imageCompression from 'browser-image-compression';
@@ -18,6 +26,15 @@ export interface ChatMessage {
   status?: 'SENT' | 'DELIVERED' | 'READ';
 }
 
+export interface RecentChat {
+  contactId: string;
+  contactName: string;
+  phoneNormalized: string;
+  registered: boolean;
+  lastMessage: string;
+  lastMessageTime: string;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -26,7 +43,8 @@ export class ChatService {
   private messagesSubject = new BehaviorSubject<ChatMessage | null>(null);
   messages$ = this.messagesSubject.asObservable();
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) {
+  }
 
   /**
    * Establish WebSocket (STOMP over SockJS) connection
@@ -102,36 +120,41 @@ export class ChatService {
    * Upload file and return an Observable
    */
   uploadFile(senderId: number, receiverId: number, file: File): Observable<ChatMessage> {
-    return new Observable<ChatMessage>(observer => {
-      this.compressFile(file).then(compressedFile => {
-        const formData = new FormData();
-        formData.append('senderId', String(senderId));
-        formData.append('receiverId', String(receiverId));
-        formData.append('file', compressedFile, compressedFile.name);
+    return new Observable<ChatMessage>((observer) => {
+      this.compressFile(file)
+        .then((compressedFile) => {
+          const formData = new FormData();
+          formData.append('senderId', String(senderId));
+          formData.append('receiverId', String(receiverId));
+          formData.append('file', compressedFile, compressedFile.name);
 
-        const req = new HttpRequest('POST', '/api/chat/upload', formData, {
-          reportProgress: true,
-        });
+          const req = new HttpRequest('POST', '/api/chat/upload', formData, {
+            reportProgress: true,
+          });
 
-        this.http.request<ChatMessage>(req).pipe(
-          map(event => {
-            if (event.type === HttpEventType.Response) {
-              return event.body as ChatMessage;
-            }
-            return null as any;
-          }),
-          filter(msg => msg != null)
-        ).subscribe({
-          next: msg => observer.next(msg),
-          error: err => observer.error(err),
-          complete: () => observer.complete()
-        });
-      }).catch(err => observer.error(err));
+          this.http
+            .request<ChatMessage>(req)
+            .pipe(
+              map((event) => {
+                if (event.type === HttpEventType.Response) {
+                  return event.body as ChatMessage;
+                }
+                return null as any;
+              }),
+              filter((msg) => msg != null)
+            )
+            .subscribe({
+              next: (msg) => observer.next(msg),
+              error: (err) => observer.error(err),
+              complete: () => observer.complete(),
+            });
+        })
+        .catch((err) => observer.error(err));
     });
   }
 
   /**
-   * REST API: Get chat history
+   * REST API: Get chat history with a contact
    */
   getChatHistory(contactId: number, userId: number): Observable<ChatMessage[]> {
     return this.http.get<ChatMessage[]>(`/api/chats/${contactId}?userId=${userId}`);
@@ -141,6 +164,13 @@ export class ChatService {
    * REST API: Update message status (DELIVERED/READ)
    */
   updateStatus(messageId: number, status: 'READ' | 'DELIVERED'): Observable<any> {
-    return this.http.patch(`/api/chats/status/${messageId}`, { status });
+    return this.http.patch(`/api/chats/status/${messageId}`, {status});
+  }
+
+  /**
+   * REST API: Get recent chats (WhatsApp-style list)
+   */
+  getRecentChats(userId: number): Observable<RecentChat[]> {
+    return this.http.get<RecentChat[]>(`/api/chats/recent?userId=${userId}`);
   }
 }
