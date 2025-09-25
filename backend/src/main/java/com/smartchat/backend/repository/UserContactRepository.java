@@ -16,5 +16,12 @@ import java.util.Optional;
 
 public interface UserContactRepository extends JpaRepository<UserContact, Long> {
     Optional<UserContact> findByOwnerUserIdAndPhoneNormalized(Long ownerUserId, String phoneNormalized);
+
+    Optional<UserContact> findByOwnerUserIdAndEmailIgnoreCase(Long ownerUserId, String email);
+
     List<UserContact> findByOwnerUserId(Long ownerUserId);
+
+    boolean existsByOwnerUserId(Long userId);
+
+    Optional<UserContact> findByOwnerUserIdAndPhoneRaw(Long ownerUserId, String phoneRaw);
 }

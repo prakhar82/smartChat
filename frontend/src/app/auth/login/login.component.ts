@@ -1,53 +1,53 @@
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
-import { HttpClient, HttpErrorResponse, HttpClientModule } from '@angular/common/http';
-import { trigger, transition, style, animate } from '@angular/animations';
+/*
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
+ */
+
+import {Component} from '@angular/core';
+import {Router} from '@angular/router';
+import {FormsModule, NgForm} from '@angular/forms';
+import {CommonModule} from '@angular/common';
+import {AuthService} from '../auth.service';
+import {ContactService} from '../../contacts/contact.service';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, HttpClientModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './login.component.html',
-  styleUrls: ['./login.component.css'],
-  animations: [
-    trigger('fadeIn', [
-      transition(':enter', [
-        style({ opacity: 0 }),
-        animate('600ms ease-in', style({ opacity: 1 }))
-      ])
-    ])
-  ]
+  styleUrls: ['./login.component.css']
 })
 export class LoginComponent {
   mobileNumber = '';
   password = '';
+  loading = false;
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(
+    private auth: AuthService,
+    private router: Router,
+    private contactService: ContactService
+  ) {
+  }
 
-  async login() {
-    try {
-      const res: any = await this.http.post('/api/auth/login', {
-        mobileNumber: this.mobileNumber,
-        password: this.password
-      }).toPromise();
+  login(form: NgForm) {
+    if (form.invalid) return;
+    this.loading = true;
 
-      if (res?.accessToken && res?.userId) {
-        localStorage.setItem('accessToken', res.accessToken);
-        localStorage.setItem('refreshToken', res.refreshToken || '');
-        localStorage.setItem('userId', String(res.userId));
-
-        // Navigate to chats page after login
-        this.router.navigate(['/chats']);
-      } else {
-        alert('Login failed: Invalid response from server');
+    this.auth.login(this.mobileNumber, this.password).subscribe({
+      next: () => {
+        this.loading = false;
+        this.router.navigate(['/chats']).then(() => {
+          //this.contactService.notifyContactsUpdated();
+        });
+      },
+      error: err => {
+        this.loading = false;
+        console.error('Login failed', err);
+        alert(err?.error?.message || 'Login failed');
       }
-    } catch (err) {
-      const error = err as HttpErrorResponse;
-      const msg = error.error?.message || error.message || 'Unknown error';
-      alert('Login failed: ' + msg);
-      console.error('Login error:', error);
-    }
+    });
   }
 }

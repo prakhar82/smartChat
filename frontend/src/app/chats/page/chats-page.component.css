@@ -1,15 +1,127 @@
-.chats-container {
-  display: flex;
-  height: 100vh;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
+/*
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
+ */
 
-.chat-list {
-  width: 350px;
-}
-
-.chat-window {
-  flex: 1;
+/* 🔄 Spinner while syncing */
+.syncing-container {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.spinner {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #34a853; /* Google green */
+  border-right: 3px solid #4285f4; /* Google blue */
+  border-bottom: 3px solid #fbbc05; /* Google yellow */
+  border-left: 3px solid #ea4335; /* Google red */
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  animation: spin 1s linear infinite;
+  margin: 12px auto;
+}
+
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* ✅ Full-width green header */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #4caf50;
+  color: white;
+  padding: 10px 15px;
+  box-sizing: border-box;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-title {
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.app-subtitle {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* ▶ Right-side icon button (Google sync) */
+.header-actions {
+  display: flex;
+  align-items: center;
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  transition: background 0.2s ease;
+}
+
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.icon-btn img {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+
+/* ✔ Success checkmark popup */
+.success-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.checkmark {
+  font-size: 2.5rem;
+  color: #34a853;
+  animation: pop 0.4s ease-in-out;
+}
+
+.success-text {
+  margin-top: 10px;
+  font-size: 1rem;
+  color: #34a853;
+  font-weight: bold;
+  text-align: center;
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
 }

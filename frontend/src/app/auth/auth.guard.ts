@@ -6,25 +6,19 @@
  * Author: $USER_NAME
  */
 
-/*
- * AuthGuard: prevents routing to protected pages if not authenticated
- */
-
-import {Injectable} from '@angular/core';
-import {CanActivate, Router, UrlTree,} from '@angular/router';
+import {inject} from '@angular/core';
+import {CanActivateFn, Router} from '@angular/router';
 import {AuthService} from './auth.service';
 
-@Injectable({providedIn: 'root'})
-export class AuthGuard implements CanActivate {
-  constructor(private authService: AuthService, private router: Router) {
-  }
+export const AuthGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
 
-  canActivate(): boolean | UrlTree {
-    if (this.authService.isLoggedIn()) {
-      // ✅ Redirect logged-in users to contacts sync page
-      return true;
-    }
-    return this.router.parseUrl('/login');
+  if (auth.isLoggedIn()) {
+    return true; // ✅ Allow access
+  } else {
+    console.warn('🔒 AuthGuard blocked access. Redirecting to /login');
+    router.navigate(['/login']);
+    return false;
   }
-}
-
+};

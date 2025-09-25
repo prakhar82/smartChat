@@ -10,9 +10,14 @@ package com.smartchat.backend.dto;
 
 import lombok.Data;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
 public class Contect {
     private String phoneNormalized;
     private String contactName;
     private String phoneRaw;
+    private List<String> emails = new ArrayList<>(); // ✅ add this
+
 }

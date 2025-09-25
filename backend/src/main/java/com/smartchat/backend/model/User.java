@@ -12,62 +12,66 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.Set;
 
 @Entity
 @Table(name = "users")
 @Getter
 @Setter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 50)
+    @Column(name = "first_name", nullable = false)
     private String firstName;
 
-    @Column(nullable = false, length = 50)
+    @Column(name = "last_name", nullable = false)
     private String lastName;
 
-    @Column(nullable = false, length = 10)
-    private String countryCode;
-
-    @Column(nullable = false, unique = true, length = 15)
-    private String mobileNumber;
-
-    @Column(nullable = false, unique = true, length = 20)
-    private String mobileNormalized;
-
-    @Column(nullable = true, unique = true)
+    @Column(name = "email", nullable = false, unique = true)
     private String email;
 
-    @Column(nullable = false)
+    @Column(name = "country_code", nullable = false)
+    private String countryCode;
+
+    @Column(name = "mobile_number", nullable = false)
+    private String mobileNumber;
+
+    @Column(name = "mobile_normalized", nullable = false, unique = true)
+    private String mobileNormalized;
+
+    @Column(name = "password", nullable = false)
     private String password;
 
-    @Column(nullable = false, length = 20)
+    @Column(name = "role", nullable = false)
     private String role;
 
-    @Column(nullable = false)
-    private Instant createdAt;
+    @Column(name = "created_at", updatable = false)
+    private Instant createdAt = Instant.now();
 
-    @Column(nullable = false)
-    private Instant updatedAt;
 
-    /**
-     * ✅ Add inviter relationship
-     */
+    @Column(name = "updated_at")
+    private Instant updatedAt = Instant.now();
+
+    // Optional: referral relation
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "referred_by_id")
     private User referredBy;
 
     /**
-     * ✅ Optional: track who this user invited
+     * Normalize mobile before insert/update
      */
-    @OneToMany(mappedBy = "referredBy", fetch = FetchType.LAZY)
-    private Set<User> referrals = new HashSet<>();
+    @PrePersist
+    @PreUpdate
+    public void normalizeMobile() {
+        if (this.countryCode != null && this.mobileNumber != null) {
+            this.mobileNormalized =
+                    this.countryCode.replace("+", "") +
+                            this.mobileNumber.replaceAll("\\D+", "");
+        }
+    }
 }

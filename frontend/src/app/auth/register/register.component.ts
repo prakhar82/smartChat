@@ -7,78 +7,58 @@
  */
 
 import {Component} from '@angular/core';
-import {CommonModule} from '@angular/common';
+import {Router} from '@angular/router';
 import {FormsModule, NgForm} from '@angular/forms';
-import {ActivatedRoute, Router} from '@angular/router';
+import {CommonModule} from '@angular/common';
 import {AuthService, RegisterRequest} from '../auth.service';
 
 @Component({
   selector: 'app-register',
-  templateUrl: './register.component.html',
-  styleUrls: ['./register.component.css'],
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule, CommonModule],
+  templateUrl: './register.component.html',
+  styleUrls: ['./register.component.css']
 })
 export class RegisterComponent {
-  model: RegisterRequest = {
+  user: RegisterRequest = {
     firstName: '',
     lastName: '',
     countryCode: '+91',
     mobileNumber: '',
+    email: '',
     password: '',
     confirmPassword: '',
-    email: '',
     googleToken: null,
     referralToken: ''
   };
 
+  isLoading = false;
+  loadingMessage = '';
 
-  errorMsg = '';
-  loading = false;
-
-  constructor(private auth: AuthService,
-              private router: Router,
-              private route: ActivatedRoute
-  ) {
+  constructor(private auth: AuthService, private router: Router) {
   }
 
-  ngOnInit(): void {
-    // ✅ Capture referral token from URL if present
-    const ref = this.route.snapshot.queryParamMap.get('ref');
-    if (ref) {
-      this.model.referralToken = ref;
-      console.log('Referral token detected:', ref);
-    }
-  }
+  register(form: NgForm) {
+    if (form.invalid) return;
 
-  /** Simple Register Handler */
-  onRegister(form: NgForm) {
-    if (form.invalid) {
-      this.errorMsg = '⚠️ Please fill all required fields';
+    if (this.user.password !== this.user.confirmPassword) {
+      alert('Passwords do not match');
       return;
     }
 
-    if (this.model.password !== this.model.confirmPassword) {
-      this.errorMsg = '⚠️ Passwords do not match';
-      return;
-    }
+    this.isLoading = true;
+    this.loadingMessage = 'Registering...';
 
-    this.loading = true;
-    this.auth.register(this.model).subscribe({
-      next: (res) => {
-        this.loading = false;
-  
-        // ✅ Save tokens and user details
-        this.auth.setSession(res);
-
-        // ✅ Redirect to Sync Contacts screen
-        this.router.navigate(['/sync-contacts']);
+    this.auth.register(this.user).subscribe({
+      next: () => {
+        this.isLoading = false;
+        this.router.navigate(['/chats'], {queryParams: {showGooglePopup: 'true'}});
       },
-      error: (err) => {
-        this.loading = false;
-        this.errorMsg = err.error?.message || '❌ Registration failed: Unknown error';
+      error: err => {
+        console.error('Register failed', err);
+        this.isLoading = false;
+        alert(err?.error?.message || 'Registration failed');
       }
     });
   }
-
 }

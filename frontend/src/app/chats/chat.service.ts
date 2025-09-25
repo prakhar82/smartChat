@@ -3,7 +3,7 @@
  * All rights reserved.
  * Unauthorized copying or distribution of this file,
  * via any medium, is strictly prohibited unless permitted by license.
- * Author: $USER_NAME
+ * Author: Prakhar Dwivedi
  */
 
 import {Injectable} from '@angular/core';

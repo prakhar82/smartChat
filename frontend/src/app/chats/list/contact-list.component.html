@@ -1,0 +1,91 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<div class="contact-list">
+  <input
+    type="text"
+    placeholder="🔍 Search contacts..."
+    [(ngModel)]="searchQuery"
+    class="search-box"
+  />
+
+  <h3>Contacts</h3>
+  <ul>
+    <li
+      *ngFor="let c of filteredContacts()"
+      [ngClass]="{
+        registered: c.registered,
+        disabled: !c.registered && !c.canInvite,
+        invitable: !c.registered && c.canInvite
+      }"
+      (click)="c.registered ? openChat(c) : null"
+    >
+      <!-- Top row -->
+      <div class="contact-row">
+        <div class="contact-info">
+          <span class="name">{{ c.contactName || 'Unknown' }}</span>
+        </div>
+
+        <div class="contact-actions">
+          <!-- Expand/collapse arrow -->
+          <button
+            *ngIf="(c.phones?.length || 0) > 0 || (c.emails?.length || 0) > 0"
+            class="arrow-btn"
+            (click)="toggleExpand(c, $event)"
+          >
+            <span [ngClass]="{ expanded: isExpanded(c) }">▼</span>
+          </button>
+
+          <!-- Chat button only if registered -->
+          <button *ngIf="c.registered" class="btn btn-primary">Chat</button>
+
+          <!-- Invite button only if invite allowed -->
+          <button
+            *ngIf="c.canInvite"
+            class="btn btn-secondary"
+            (click)="openInvitePopup(c, $event)"
+          >
+            Invite
+          </button>
+        </div>
+      </div>
+
+      <!-- Expandable details -->
+      <div class="contact-details" *ngIf="isExpanded(c)">
+        <ng-container *ngFor="let p of c.phones">
+          <small [class.registered-phone]="p.registered">
+            <span class="label phone-{{ p.label || 'other' }}">{{ p.label }}:</span>
+            {{ p.value }}
+            <span *ngIf="p.registered" class="registered-icon">✔</span>
+          </small>
+        </ng-container>
+
+        <ng-container *ngFor="let e of c.emails">
+          <small>
+            <span class="label email-{{ e.label || 'other' }}">{{ e.label }}:</span>
+            {{ e.value }}
+          </small>
+        </ng-container>
+      </div>
+    </li>
+  </ul>
+</div>
+
+<!-- Invite Modal -->
+<app-modal
+  [title]="'Invite ' + (selectedContact?.contactName || '')"
+  [show]="showInvitePopup"
+  (closed)="closeInvitePopup()"
+>
+  <p>Send an invitation email to join SmartChat.</p>
+
+  <div class="popup-actions">
+    <button class="btn btn-primary" (click)="sendInvite()">Send Invite</button>
+    <button class="btn btn-secondary" (click)="closeInvitePopup()">Cancel</button>
+  </div>
+</app-modal>

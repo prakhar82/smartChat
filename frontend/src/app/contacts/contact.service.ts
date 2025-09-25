@@ -6,88 +6,90 @@
  * Author: $USER_NAME
  */
 
-/*
- * ContactService (Angular)
- *
- * Handles syncing device + Google contacts with backend,
- * fetching matched contacts, and sending invites.
- *
- */
-
+// src/app/contacts/contact.service.ts
 import {Injectable} from '@angular/core';
 import {HttpClient} from '@angular/common/http';
-import {Contacts, GetContactsOptions} from '@capacitor-community/contacts';
-import {AuthService} from '../auth/auth.service';
+import {BehaviorSubject, Observable} from 'rxjs';
 
+// Payload for device/manual contact sync
 export interface ContactPayload {
-  contactName: string;
-  phoneNormalized: string;
-  phoneRaw: string;
+  contactName?: string;
+  phoneNormalized?: string;
+  phoneRaw?: string;
+  email?: string;
 }
 
+// Backend response model for matched contacts
 export interface MatchedContact {
+  contactId: string | null;
   contactName: string;
-  contactId: string;
-  phoneNormalized: string;
   registered: boolean;
-  email?: string;
+  canInvite: boolean;
+  phones: { label: string; value: string; registered: boolean }[];
+  emails: { label: string; value: string }[];
 }
 
 @Injectable({providedIn: 'root'})
 export class ContactService {
-  private baseUrl = '/api/contacts';
+  private cachedContacts: MatchedContact[] = [];
+  private contactsUpdated = new BehaviorSubject<void>(undefined);
 
-  constructor(private http: HttpClient, private auth: AuthService) {
+  contactsUpdated$ = this.contactsUpdated.asObservable();
+
+  constructor(private http: HttpClient) {
   }
 
-  /** 📱 Sync device contacts (backend expects { ownerUserId, contacts[] }) */
-  syncContacts(contacts: ContactPayload[]) {
-    const ownerUserId = this.auth.getUserId();
-    return this.http.post(`${this.baseUrl}/sync`, {
-      ownerUserId,
-      contacts,
-    });
+  //  Manual/device contact sync
+  syncContacts(userId: number, contacts: ContactPayload[]): Observable<any> {
+    const payload = {
+      ownerUserId: userId,
+      contacts: contacts,
+    };
+    return this.http.post('/api/contacts/sync', payload);
   }
 
-  /** 🔑 Sync Google contacts (backend expects { accessToken }) */
-  syncGoogleContacts(userId: number, googleAccessToken: string) {
-    return this.http.post(`${this.baseUrl}/google/sync?userId=${userId}`, {
-      accessToken: googleAccessToken,
-    });
+  // Google contact sync
+  syncGoogleContacts(accessToken: string): Observable<any> {
+    return this.http.post('/api/contacts/google/sync', {accessToken});
   }
 
-  /** ✅ Get matched contacts from backend */
-  getMatchedContacts(userId: number) {
-    return this.http.get<MatchedContact[]>(`${this.baseUrl}/matched?userId=${userId}`);
-  }
-
-  /** 📱 Fetch contacts from device using Capacitor plugin */
-  async getPhoneContacts(): Promise<ContactPayload[]> {
-    try {
-      const options: GetContactsOptions = {projection: 'all' as any};
-      const result = await Contacts.getContacts(options);
-
-      const contacts: ContactPayload[] = [];
-      (result.contacts || []).forEach((c: any) => {
-        if (c.phoneNumbers && c.phoneNumbers.length > 0) {
-          contacts.push({
-            contactName: c.name || '',
-            phoneNormalized: c.phoneNumbers[0].number || '',
-            phoneRaw: c.phoneNumbers[0].number || '',
-          });
-        }
-      });
-
-      return contacts;
-    } catch (err) {
-      console.error('Error fetching device contacts', err);
-      return [];
+  // Fetch matched contacts
+  getMatchedContacts(force = false): Observable<MatchedContact[]> {
+    if (!force && this.cachedContacts.length > 0) {
+      return new BehaviorSubject(this.cachedContacts).asObservable();
     }
+
+    return new Observable<MatchedContact[]>((observer) => {
+      this.http.get<MatchedContact[]>('/api/contacts/matched').subscribe({
+        next: (list) => {
+          this.cachedContacts = list;
+          observer.next(list);
+          observer.complete();
+        },
+        error: (err) => {
+          observer.error(err);
+        },
+      });
+    });
   }
 
-  /** 📧 Send invite email */
-  sendInviteEmail(contactEmail: string, contactName: string) {
-    return this.http.post(`${this.baseUrl}/invite/send`, {
+  // Local cache access
+  getCachedContacts(): MatchedContact[] {
+    return this.cachedContacts;
+  }
+
+  setCachedContacts(list: MatchedContact[]) {
+    this.cachedContacts = list;
+  }
+
+  // Notify subscribers (e.g. ContactListComponent) to reload
+  notifyContactsUpdated() {
+    this.contactsUpdated.next();
+  }
+
+  // ✅ Send invite email
+  sendInviteEmail(contactEmail: string, contactName: string): Observable<any> {
+    return this.http.post('/api/contacts/google/invite/send', {
       contactEmail,
       contactName,
     });

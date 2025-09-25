@@ -1,16 +1,22 @@
-<div class="auth-container" @fadeIn>
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: Prakhar Dwivedi
+  -->
+
+<!-- src/app/auth/login/login.component.html -->
+<div class="auth-container">
   <h2>Login</h2>
-  <form (ngSubmit)="login()">
+  <form #f="ngForm" (ngSubmit)="login(f)">
     <label>Mobile Number</label>
     <input [(ngModel)]="mobileNumber" name="mobile" required />
 
     <label>Password</label>
     <input type="password" [(ngModel)]="password" name="password" required />
 
-    <button type="submit">Login</button>
+    <button type="submit" [disabled]="loading">{{ loading ? 'Logging in...' : 'Login' }}</button>
   </form>
-  <p>
-    Don't have an account?
-    <a routerLink="/register">Register</a>
-  </p>
+  <p>Don't have an account? <a routerLink="/register">Register</a></p>
 </div>

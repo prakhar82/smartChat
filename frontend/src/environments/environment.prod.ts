@@ -8,5 +8,7 @@
 
 export const environment = {
   production: true,
-  apiUrl: '/api'  // Always route through Nginx
+  apiUrl: '/api', // nginx proxy handles backend
+  googleRedirectUri: 'http://localhost/chats/oauth2/callback'
+  // 👆 Must exactly match what you added in Google Cloud Console
 };

@@ -1,1 +1,90 @@
-.synced{ color: green; font-weight: bold; }
+/*
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
+ */
+
+.sync-container {
+  max-width: 500px;
+  margin: 2rem auto;
+  text-align: center;
+}
+
+.title {
+  font-size: 1.6rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+  color: #666;
+}
+
+.btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.btn {
+  padding: 0.8rem;
+  font-size: 1rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.phone-btn {
+  background: #007bff;
+  color: white;
+}
+
+.phone-btn:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.google-btn {
+  background: #db4437;
+  color: white;
+}
+
+.google-btn:hover:not(:disabled) {
+  background: #b23224;
+}
+
+.skip-btn {
+  background: #ddd;
+  color: #333;
+}
+
+.skip-btn:hover:not(:disabled) {
+  background: #bbb;
+}
+
+.loading {
+  margin-top: 1rem;
+  color: #007bff;
+  font-weight: 500;
+}
+
+.error {
+  margin-top: 1rem;
+  color: #d9534f;
+  font-weight: 500;
+}
+
+.success {
+  margin-top: 1rem;
+  color: #28a745;
+  font-weight: 500;
+}

@@ -8,6 +8,7 @@
 
 package com.smartchat.backend.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartchat.backend.dto.ContactSyncRequest;
 import com.smartchat.backend.dto.MatchedContactResponse;
 import com.smartchat.backend.model.User;
@@ -22,10 +23,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,12 +33,12 @@ public class ContactServiceImpl implements ContactService {
 
     private final UserContactRepository userContactRepository;
     private final UserRepository userRepository;
-
-    // ✅ Typed RedisTemplate for matched contacts
     private final RedisTemplate<String, List<MatchedContactResponse>> redisTemplate;
 
     private static final String MATCHED_CACHE_PREFIX = "matched_contacts:";
     private static final Duration CACHE_TTL = Duration.ofMinutes(10);
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public void syncContacts(ContactSyncRequest request) {
@@ -49,14 +47,25 @@ public class ContactServiceImpl implements ContactService {
         List<UserContact> toSave = new ArrayList<>();
 
         for (var c : request.getContacts()) {
-            userContactRepository.findByOwnerUserIdAndPhoneNormalized(
-                    request.getOwnerUserId(),
-                    c.getPhoneNormalized()
-            ).ifPresentOrElse(existing -> {
+            if (c.getPhoneNormalized() == null && c.getPhoneRaw() == null) {
+                continue;
+            }
+
+            Optional<UserContact> existingOpt = Optional.empty();
+            if (c.getPhoneNormalized() != null) {
+                existingOpt = userContactRepository.findByOwnerUserIdAndPhoneNormalized(
+                        request.getOwnerUserId(), c.getPhoneNormalized());
+            } else if (c.getPhoneRaw() != null) {
+                existingOpt = userContactRepository.findByOwnerUserIdAndPhoneRaw(
+                        request.getOwnerUserId(), c.getPhoneRaw());
+            }
+
+            if (existingOpt.isPresent()) {
+                UserContact existing = existingOpt.get();
                 existing.setContactName(c.getContactName());
                 existing.setUpdatedAt(Instant.now());
                 toSave.add(existing);
-            }, () -> {
+            } else {
                 UserContact uc = new UserContact();
                 uc.setOwnerUserId(request.getOwnerUserId());
                 uc.setContactName(c.getContactName());
@@ -66,7 +75,7 @@ public class ContactServiceImpl implements ContactService {
                 uc.setCreatedAt(Instant.now());
                 uc.setUpdatedAt(Instant.now());
                 toSave.add(uc);
-            });
+            }
         }
 
         if (!toSave.isEmpty()) {
@@ -79,45 +88,101 @@ public class ContactServiceImpl implements ContactService {
     public List<MatchedContactResponse> getMatchedContacts(Long ownerUserId) {
         String cacheKey = MATCHED_CACHE_PREFIX + ownerUserId;
 
-        // ✅ Check Redis first
         List<MatchedContactResponse> cached = redisTemplate.opsForValue().get(cacheKey);
         if (cached != null) {
-            return cached;
+            return refreshRegisteredState(cached);
         }
 
         List<UserContact> contacts = userContactRepository.findByOwnerUserId(ownerUserId);
         if (contacts.isEmpty()) return List.of();
 
+        List<MatchedContactResponse> result = buildMatchedList(contacts);
+
+        redisTemplate.opsForValue().set(cacheKey, result, CACHE_TTL);
+        return result;
+    }
+
+    private List<MatchedContactResponse> refreshRegisteredState(List<MatchedContactResponse> contacts) {
+        if (contacts == null || contacts.isEmpty()) return contacts;
+
+        List<String> numbers = contacts.stream()
+                .flatMap(c -> c.getPhones().stream().map(MatchedContactResponse.PhoneEntry::getValue))
+                .filter(Objects::nonNull)
+                .toList();
+
+        Set<String> matchedSet;
+        if (!numbers.isEmpty()) {
+            matchedSet = userRepository.findByMobileNormalizedIn(numbers)
+                    .stream()
+                    .map(User::getMobileNormalized)
+                    .collect(Collectors.toSet());
+        } else {
+            matchedSet = Collections.emptySet();
+        }
+
+        return contacts.stream().peek(c -> {
+            boolean hasRegistered = false;
+            for (MatchedContactResponse.PhoneEntry p : c.getPhones()) {
+                boolean registered = matchedSet.contains(p.getValue());
+                p.setRegistered(registered);
+                if (registered) hasRegistered = true;
+            }
+            c.setRegistered(hasRegistered);
+        }).toList();
+    }
+
+    private List<MatchedContactResponse> buildMatchedList(List<UserContact> contacts) {
         List<String> numbers = contacts.stream()
                 .map(UserContact::getPhoneNormalized)
                 .filter(Objects::nonNull)
                 .toList();
 
-        if (numbers.isEmpty()) return List.of();
-
-        // ✅ Load all SmartChat users who match phone numbers
-        List<User> matchedUsers = userRepository.findByMobileNormalizedIn(numbers);
-        Set<String> matchedSet = matchedUsers.stream()
+        Set<String> matchedSet = numbers.isEmpty()
+                ? Collections.emptySet()
+                : userRepository.findByMobileNormalizedIn(numbers)
+                .stream()
                 .map(User::getMobileNormalized)
                 .collect(Collectors.toSet());
 
-        // ✅ Build response DTOs
-        List<MatchedContactResponse> result = contacts.stream()
-                .map(c -> new MatchedContactResponse(
-                        c.getContactName() != null ? c.getContactName() : c.getPhoneNormalized(),
-                        c.getId() != null ? c.getId().toString() : null, // 👈 directly use MongoDB ObjectId (String)
+        Map<String, MatchedContactResponse> grouped = new LinkedHashMap<>();
+
+        for (UserContact c : contacts) {
+            String key = (c.getContactName() != null ? c.getContactName()
+                    : (c.getPhoneNormalized() != null ? c.getPhoneNormalized()
+                    : (c.getEmail() != null ? c.getEmail() : UUID.randomUUID().toString())));
+
+            MatchedContactResponse existing = grouped.computeIfAbsent(key, k -> {
+                MatchedContactResponse res = new MatchedContactResponse();
+                res.setContactId(c.getId() != null ? c.getId().toString() : UUID.randomUUID().toString());
+                res.setContactName(c.getContactName() != null ? c.getContactName() : "Unknown");
+                res.setPhones(new ArrayList<>());
+                res.setEmails(new ArrayList<>());
+                res.setRegistered(false);
+                res.setCanInvite(false);
+                return res;
+            });
+
+            if (c.getPhoneNormalized() != null) {
+                boolean isRegistered = matchedSet.contains(c.getPhoneNormalized());
+                existing.getPhones().add(new MatchedContactResponse.PhoneEntry(
+                        c.getLabel() != null ? c.getLabel() : "mobile",
                         c.getPhoneNormalized(),
-                        matchedSet.contains(c.getPhoneNormalized()),
+                        isRegistered
+                ));
+                if (isRegistered) existing.setRegistered(true);
+            }
+
+            if (c.getEmail() != null && !c.getEmail().isBlank()) {
+                existing.getEmails().add(new MatchedContactResponse.EmailEntry(
+                        c.getLabel() != null ? c.getLabel() : "home",
                         c.getEmail()
-                ))
-                .toList();
+                ));
+                existing.setCanInvite(true);
+            }
+        }
 
-        // ✅ Cache result with TTL
-        redisTemplate.opsForValue().set(cacheKey, result, CACHE_TTL);
-
-        return result;
+        return new ArrayList<>(grouped.values());
     }
-
 
     @Override
     public void evictMatchedCache(Long userId) {
@@ -126,5 +191,10 @@ public class ContactServiceImpl implements ContactService {
         } catch (Exception e) {
             log.warn("Failed to evict matched contacts cache for user {}", userId, e);
         }
+    }
+
+    @Override
+    public boolean userHasContacts(Long userId) {
+        return userContactRepository.existsByOwnerUserId(userId);
     }
 }

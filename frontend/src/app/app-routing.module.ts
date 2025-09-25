@@ -6,24 +6,28 @@
  * Author: $USER_NAME
  */
 
+// src/app/app-routing.module.ts
 import {NgModule} from '@angular/core';
 import {RouterModule, Routes} from '@angular/router';
+
 import {RegisterComponent} from './auth/register/register.component';
 import {LoginComponent} from './auth/login/login.component';
 import {SyncContactsComponent} from './contacts/sync/sync.component';
-import {ChatListComponent} from './chats/list/chat-list.component';
+import {ContactListComponent} from './chats/list/contact-list.component';
 import {ChatWindowComponent} from './chats/window/chat-window.component';
-import {AuthGuard} from './auth/auth.guard';
+
+import {AuthGuard} from './auth/auth.guard'; // ✅ class guard
+import {LoginGuard} from './auth/login/login.guard'; // ✅ function guard
 
 const routes: Routes = [
-  {path: 'register', component: RegisterComponent},
-  {path: 'login', component: LoginComponent},
-  {path: 'sync-contacts', component: SyncContactsComponent, canActivate: [AuthGuard]},
+  {path: 'register', component: RegisterComponent, canActivate: [LoginGuard]},
+  {path: 'login', component: LoginComponent, canActivate: [LoginGuard]},
+  {path: 'sync', component: SyncContactsComponent, canActivate: [AuthGuard]},
   {
     path: 'chats',
     canActivate: [AuthGuard],
     children: [
-      {path: '', component: ChatListComponent},
+      {path: '', component: ContactListComponent},
       {path: ':id', component: ChatWindowComponent},
     ],
   },

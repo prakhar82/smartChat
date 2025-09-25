@@ -8,5 +8,6 @@
 
 export const environment = {
   production: false,
-  apiUrl: 'http://localhost:8080/api'  // direct backend call for local dev
+  apiUrl: 'http://localhost:8080/api', // backend in dev
+  googleRedirectUri: 'http://localhost:4200/oauth2/callback'
 };

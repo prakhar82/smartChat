@@ -7,13 +7,48 @@
   -->
 
 <div class="sync-container">
-  <h2>👋 Hi {{ firstName || 'Friend' }},</h2>
-  <p>Let’s sync your contacts so you can start chatting!</p>
+  <h2 class="title">Sync Your Contacts</h2>
+  <p class="subtitle">
+    Hi {{ firstName }}, choose how you want to sync your contacts:
+  </p>
 
-  <button (click)="syncPhoneContacts()" [disabled]="syncing">📱 Sync Phone Contacts</button>
-  <button (click)="syncGoogleContacts()" [disabled]="syncing">🔑 Sync Google Contacts</button>
-  <button class="skip-btn" (click)="skipSync()">⏭ Skip</button>
+  <div class="btn-group">
+    <!-- Phone Contacts -->
+    <button
+      class="btn phone-btn"
+      (click)="syncDeviceContacts()"
+      [disabled]="syncing"
+    >
+      📱 Sync Phone Contacts
+    </button>
 
-  <p *ngIf="syncing">⏳ Syncing contacts...</p>
-  <p class="error" *ngIf="errorMsg">{{ errorMsg }}</p>
+    <!-- Google Contacts -->
+    <button
+      class="btn google-btn"
+      (click)="syncGoogleContacts()"
+      [disabled]="syncing"
+    >
+      🔑 Sync Google Contacts
+    </button>
+
+    <!-- Skip -->
+    <button class="btn skip-btn" (click)="skipSync()" [disabled]="syncing">
+      ⏭️ Skip for Now
+    </button>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="syncing" class="loading">
+    ⏳ Syncing contacts... please wait
+  </div>
+
+  <!-- Error -->
+  <div *ngIf="errorMsg" class="error">
+    ❌ {{ errorMsg }}
+  </div>
+
+  <!-- Success -->
+  <div *ngIf="!syncing && !errorMsg && userId" class="success">
+    ✅ Contacts synced successfully!
+  </div>
 </div>

@@ -1,89 +1,53 @@
-/* Container */
-.auth-container {
-  max-width: 400px;
-  margin: 80px auto;
-  padding: 30px;
-  background-color: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: #111;
-}
+/*
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
+ */
 
-/* Headings */
-.auth-container h2 {
-  text-align: center;
-  margin-bottom: 25px;
-  font-weight: 600;
-  color: #075e54; /* WhatsApp green */
-}
-
-/* Form */
-.auth-container form {
+/* basic whatsapp-like chat window */
+.chat-window {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  height: 100%;
 }
 
-/* Labels */
-.auth-container label {
-  font-size: 0.9rem;
-  font-weight: 500;
-  margin-bottom: 5px;
+.messages {
+  flex: 1;
+  padding: 16px;
+  overflow: auto;
+  background: #efeae2;
 }
 
-/* Inputs */
-.auth-container input {
-  padding: 10px 15px;
-  font-size: 1rem;
+.msg {
+  display: inline-block;
+  padding: 10px 14px;
+  border-radius: 16px;
+  margin: 6px 0;
+  max-width: 70%;
+}
+
+.mine {
+  background: #dcf8c6;
+  margin-left: auto;
+}
+
+.theirs {
+  background: #fff;
+  margin-right: auto;
+}
+
+.chat-input {
+  display: flex;
+  padding: 12px;
+  gap: 8px;
+  border-top: 1px solid #ddd;
+}
+
+.chat-input input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 20px;
   border: 1px solid #ccc;
-  border-radius: 8px;
-  outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.auth-container input:focus {
-  border-color: #25d366; /* WhatsApp focus green */
-  box-shadow: 0 0 5px rgba(37, 211, 102, 0.5);
-}
-
-/* Buttons */
-.auth-container button {
-  padding: 12px 20px;
-  font-size: 1rem;
-  background-color: #25d366; /* WhatsApp green */
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background-color 0.2s;
-}
-
-.auth-container button:hover {
-  background-color: #128c7e; /* Darker green on hover */
-}
-
-/* Links */
-.auth-container a {
-  color: #25d366;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.auth-container a:hover {
-  text-decoration: underline;
-}
-
-/* Small paragraph below form */
-.auth-container p {
-  text-align: center;
-  margin-top: 20px;
-  font-size: 0.9rem;
-}
-
-/* Animations */
-:host ::ng-deep .fadeIn,
-:host ::ng-deep .slideInLeft {
-  animation-fill-mode: forwards;
 }

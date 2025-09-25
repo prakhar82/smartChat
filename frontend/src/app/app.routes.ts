@@ -2,28 +2,35 @@
  * Copyright (c) 2025 SmartChat Contributors
  * All rights reserved.
  * Unauthorized copying or distribution of this file,
- * via any me dium, is strictly prohibited unless permitted by license.
- * Author: Prakhar Dwivedi
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
  */
 
-import { Routes } from '@angular/router';
-import { LoginComponent } from './auth/login/login.component';
-import { RegisterComponent } from './auth/register/register.component';
-import { ChatsPageComponent } from './chats/page/chats-page.component';
-import { ChatWindowComponent } from './chats/window/chat-window.component';
+// src/app/app-routing.module.ts
+import {NgModule} from '@angular/core';
+import {RouterModule, Routes} from '@angular/router';
 
 export const routes: Routes = [
-  { path: '', redirectTo: '/login', pathMatch: 'full' },
-  { path: 'login', component: LoginComponent },
-  { path: 'register', component: RegisterComponent },
-
+  {path: '', loadComponent: () => import('./home/home.component').then(m => m.HomeComponent)}, // 👈 show HomeComponent
+  {path: 'register', loadComponent: () => import('./auth/register/register.component').then(m => m.RegisterComponent)},
+  {path: 'login', loadComponent: () => import('./auth/login/login.component').then(m => m.LoginComponent)},
   {
     path: 'chats',
-    component: ChatsPageComponent,
+    loadComponent: () => import('./chats/page/chats-page.component').then(m => m.ChatsPageComponent),
     children: [
-      { path: ':id', component: ChatWindowComponent } // nested outlet
+      {path: '', loadComponent: () => import('./chats/list/contact-list.component').then(m => m.ContactListComponent)},
+      {
+        path: ':id',
+        loadComponent: () => import('./chats/window/chat-window.component').then(m => m.ChatWindowComponent),
+        outlet: 'chat'
+      }
     ]
-  },
-
-  { path: '**', redirectTo: '/login' },
+  }
 ];
+
+@NgModule({
+  imports: [RouterModule.forRoot(routes, {useHash: false})],
+  exports: [RouterModule]
+})
+export class AppRoutingModule {
+}

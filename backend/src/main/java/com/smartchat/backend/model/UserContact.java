@@ -15,9 +15,13 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 
 @Entity
-@Table(name = "user_contacts", indexes = {
-        @Index(name = "idx_owner_phone", columnList = "owner_user_id, phone_normalized")
-})
+@Table(
+        name = "user_contacts",
+        indexes = {
+                @Index(name = "idx_owner_phone", columnList = "owner_user_id, phone_normalized"),
+                @Index(name = "idx_owner_email", columnList = "owner_user_id, email")
+        }
+)
 @Data
 @NoArgsConstructor
 public class UserContact {
@@ -45,8 +49,10 @@ public class UserContact {
     private String source;
 
     @Column(name = "email")
-    private String email;   // 👈 required for invite
+    private String email;
 
+    @Column(name = "label")
+    private String label;
 
     @Column(name = "created_at")
     private Instant createdAt = Instant.now();

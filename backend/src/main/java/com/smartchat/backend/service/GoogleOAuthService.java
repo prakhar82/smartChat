@@ -33,7 +33,6 @@ public class GoogleOAuthService {
     private final WebClient webClient = WebClient.builder().build();
     private final ObjectMapper mapper = new ObjectMapper();
     private final GoogleOAuthTokenRepository tokenRepository;
-    private final PhoneNumberService phoneNumberService;
 
     @Value("${google.client.id:}")
     private String clientId;
@@ -46,9 +45,6 @@ public class GoogleOAuthService {
 
     private static final String TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 
-    /**
-     * Convert a Map<String, String> into MultiValueMap<String, String>
-     */
     private MultiValueMap<String, String> toFormData(Map<String, String> map) {
         MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
         map.forEach(formData::add);
@@ -56,12 +52,22 @@ public class GoogleOAuthService {
     }
 
     /**
-     * Exchange authorization code for tokens and persist them for the owner user.
-     *
-     * The client should obtain the authorization code using Google OAuth
-     * with scope including https://www.googleapis.com/auth/contacts.readonly
-     * and then POST the code here along with ownerUserId.
+     * ✅ Save latest Google access token so we can later refresh or use for invite
      */
+    @Transactional
+    public void saveAccessToken(Long ownerUserId, String accessToken) {
+        GoogleOAuthToken token = tokenRepository.findByOwnerUserId(ownerUserId)
+                .orElseGet(GoogleOAuthToken::new);
+
+        token.setOwnerUserId(ownerUserId);
+        token.setAccessToken(accessToken);
+        // We don’t know exact expiry here, so set a short default TTL (~1h)
+        token.setExpiresAt(Instant.now().getEpochSecond() + 3600);
+        token.setUpdatedAt(Instant.now());
+
+        tokenRepository.save(token);
+    }
+
     @Transactional
     public void exchangeCodeForTokens(Long ownerUserId, String code) {
         try {
@@ -109,8 +115,7 @@ public class GoogleOAuthService {
     }
 
     /**
-     * Return a valid access token for the owner user. If the stored access token is expired
-     * and a refresh token exists, attempt to refresh it.
+     * ✅ Return a valid Google access token for invites
      */
     public String getValidAccessToken(Long ownerUserId) {
         Optional<GoogleOAuthToken> opt = tokenRepository.findByOwnerUserId(ownerUserId);

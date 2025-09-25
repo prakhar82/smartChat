@@ -21,4 +21,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByMobileNormalized(String mobileNormalized);
 
     List<User> findByMobileNormalizedIn(List<String> mobiles);
+
+    boolean existsByMobileNormalized(String phoneNormalized);
 }

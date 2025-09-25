@@ -45,6 +45,64 @@ JWT_EXPIRATION_MS=3600000
 
 #### This is often used during development to reset the environment completely.
 
+#### want to redploy only web
+
+```bash
+docker compose rm -sf web
+docker compose up -d --build web
+```
+
+#### if you want data safty of postgress then keep data saparate in volume
+
+```bash
+volumes:
+- pgdata:/var/lib/postgresql/data
+```
+
+And run below command
+
+```bash
+docker compose up -d --build postgres
+```
+
+This recreates only the postgres container, reattaches the existing volume.
+
+#### 🔹 Option 1: Stop container, delete volume, restart (clean DB)
+
+```bash
+
+# Stop postgres
+docker compose stop postgres
+
+# Remove its volume (this wipes ALL data)
+docker volume rm <project_name>_pgdata
+
+# project_name - smartchat_pgdata
+docker volume ls
+
+# Or
+docker exec -it pg bash
+rm -rf /var/lib/postgresql/data/*
+exit
+
+
+# Access DataBase Client
+ docker exec -it pg psql -U smartchat -d smartchat
+
+# Clear Table Data
+docker exec -it pg psql -U smartchat -d smartchat -c "TRUNCATE TABLE \"User\" RESTART IDENTITY CASCADE;"
+
+# Start postgres again, new empty DB
+docker compose up -d postgres
+```
+
+#### 🔹 If you delete only the api container
+
+```bash
+docker compose rm -sf api
+docker compose up -d --build api
+```
+
 ```bash
 docker compose down -v --rmi all
 docker compose build --no-cache

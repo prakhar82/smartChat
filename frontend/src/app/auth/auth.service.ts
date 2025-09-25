@@ -6,19 +6,10 @@
  * Author: $USER_NAME
  */
 
+// src/app/auth/auth.service.ts
 import {Injectable} from '@angular/core';
 import {HttpClient} from '@angular/common/http';
-import {catchError, Observable, tap, throwError} from 'rxjs';
-
-export interface AuthResponse {
-  userId: number;
-  accessToken: string;
-  refreshToken: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  message?: string;
-}
+import {Observable, tap} from 'rxjs';
 
 export interface RegisterRequest {
   firstName: string;
@@ -32,80 +23,99 @@ export interface RegisterRequest {
   referralToken?: string;
 }
 
+export interface AuthResponse {
+  accessToken: string;
+  refreshToken?: string;
+  userId: number;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  message?: string;
+}
+
 @Injectable({
-  providedIn: 'root',
+  providedIn: 'root'
 })
 export class AuthService {
-  private apiUrl = 'http://localhost:8080/api/auth';
+  private apiUrl = '/api/auth';
 
   constructor(private http: HttpClient) {
   }
 
-  register(model: RegisterRequest): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.apiUrl}/register`, model).pipe(
-      tap((res) => this.setSession(res)),
-      catchError((error) => {
-        console.error('❌ Registration failed', error);
-        return throwError(() => error);
-      })
+  register(data: RegisterRequest): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${this.apiUrl}/register`, data).pipe(
+      tap(res => this.setSession(res))
     );
   }
 
   login(mobileNumber: string, password: string): Observable<AuthResponse> {
-    return this.http
-      .post<AuthResponse>(`${this.apiUrl}/login`, {mobileNumber, password})
-      .pipe(
-        tap((res) => this.setSession(res)),
-        catchError((error) => {
-          console.error('❌ Login failed', error);
-          return throwError(() => error);
-        })
-      );
+    return this.http.post<AuthResponse>(`${this.apiUrl}/login`, {mobileNumber, password})
+      .pipe(tap(res => this.setSession(res)));
   }
 
-  refreshToken(): Observable<{ accessToken: string }> {
-    return this.http.post<{ accessToken: string }>(
-      `${this.apiUrl}/refresh`,
-      {}
-    );
-  }
-
-  /**
-   * ✅ Single method to save tokens + user info
-   */
-  setSession(res: AuthResponse) {
+  /** Save tokens + user info */
+  private setSession(res: AuthResponse): void {
     if (!res) return;
-    localStorage.setItem('smartchat.accessToken', res.accessToken || '');
-    localStorage.setItem('smartchat.refreshToken', res.refreshToken || '');
-    localStorage.setItem('smartchat.userId', res.userId?.toString() || '');
-    localStorage.setItem('smartchat.firstName', res.firstName || '');
-    localStorage.setItem('smartchat.lastName', res.lastName || '');
-    localStorage.setItem('smartchat.email', res.email || '');
+    this.setToken(res.accessToken);
+    if (res.refreshToken) this.setRefreshToken(res.refreshToken);
+    localStorage.setItem('smartchat.userId', String(res.userId));
+    if (res.firstName) localStorage.setItem('smartchat.firstName', res.firstName);
+    if (res.lastName) localStorage.setItem('smartchat.lastName', res.lastName);
+    if (res.email) localStorage.setItem('smartchat.email', res.email);
   }
 
-  getToken(): string | null {
-    return localStorage.getItem('smartchat.accessToken');
-  }
-
-  getUserId(): number {
-    const uid = localStorage.getItem('smartchat.userId');
-    return uid ? Number(uid) : 0;
-  }
-
+  /** Clear session */
   logout(): void {
-    localStorage.removeItem('smartchat.accessToken');
-    localStorage.removeItem('smartchat.refreshToken');
+    this.clearToken();
     localStorage.removeItem('smartchat.userId');
     localStorage.removeItem('smartchat.firstName');
     localStorage.removeItem('smartchat.lastName');
     localStorage.removeItem('smartchat.email');
   }
 
-  isLoggedIn(): boolean {
-    return !!this.getToken();
+  /** 🔑 Access Token helpers */
+  getToken(): string | null {
+    return localStorage.getItem('smartchat.accessToken');
+  }
+
+  setToken(token: string): void {
+    localStorage.setItem('smartchat.accessToken', token);
+  }
+
+  clearToken(): void {
+    localStorage.removeItem('smartchat.accessToken');
+    localStorage.removeItem('smartchat.refreshToken');
+  }
+
+  /** 🔄 Refresh Token helpers */
+  private setRefreshToken(token: string): void {
+    localStorage.setItem('smartchat.refreshToken', token);
+  }
+
+  getRefreshToken(): string | null {
+    return localStorage.getItem('smartchat.refreshToken');
+  }
+
+  /** 🔄 API call to refresh tokens */
+  refreshToken() {
+    return this.http.post<AuthResponse>(`${this.apiUrl}/refresh-token`, {
+      refreshToken: this.getRefreshToken()
+    }).pipe(
+      tap(res => this.setSession(res)) // update both tokens
+    );
+  }
+
+  /** User info helpers */
+  getUserId(): number | null {
+    const id = localStorage.getItem('smartchat.userId');
+    return id ? Number(id) : null;
   }
 
   getFirstName(): string | null {
     return localStorage.getItem('smartchat.firstName');
+  }
+
+  isLoggedIn(): boolean {
+    return !!this.getToken();
   }
 }

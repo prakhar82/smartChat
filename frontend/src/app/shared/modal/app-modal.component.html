@@ -1,0 +1,20 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<div class="modal-backdrop" *ngIf="show">
+  <div class="modal-box">
+    <header>
+      <h3>{{ title }}</h3>
+      <button class="close-btn" (click)="close()">✖</button>
+    </header>
+
+    <section class="modal-body">
+      <ng-content></ng-content>
+    </section>
+  </div>
+</div>

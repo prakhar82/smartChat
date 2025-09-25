@@ -112,12 +112,10 @@ management:
 # =========================
 logging:
   level:
+    org.hibernate.SQL: OFF
+    org.hibernate.type.descriptor.sql: OFF
+    org.springframework: INFO
     root: INFO
-    org.springframework.web: INFO
-    org.springframework.security: INFO
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-    org.mongodb.driver: ERROR
 
 # =========================
 # Google Contacts Config

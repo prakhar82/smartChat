@@ -1,0 +1,69 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<div class="chats-grid">
+  <aside class="left-panel">
+    <!-- Left Header (green row, full width) -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="app-title">SmartChat</div>
+        <div class="app-subtitle">Hi, {{ firstName }}</div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" (click)="openGooglePopup()">
+          <img src="assets/google-icon.png" alt="Google Sync"/>
+        </button>
+      </div>
+    </header>
+
+    <!-- Contacts area -->
+    <nav class="contacts-area">
+      <router-outlet></router-outlet>
+    </nav>
+  </aside>
+
+  <main class="right-panel">
+    <router-outlet name="chat"></router-outlet>
+
+    <!-- Empty state -->
+    <div class="empty-state" *ngIf="contactsEmpty()">
+      <h3>Welcome to SmartChat</h3>
+      <p>Select a conversation or sync contacts to get started.</p>
+    </div>
+  </main>
+</div>
+
+<!-- Reusable modal -->
+<app-modal
+  [title]="'Sync Google Contacts'"
+  [show]="showGooglePopup"
+  (closed)="closePopup()"
+>
+  <p>Connect to your Google account to import your contacts.</p>
+
+  <!-- Normal state -->
+  <div *ngIf="!syncing && !success && !errorMsg">
+    <button class="btn btn-primary" (click)="connectWithGoogle()">Connect with Google</button>
+    <button class="btn btn-secondary" (click)="closePopup()">Cancel</button>
+  </div>
+
+  <!-- 🔄 Spinner while syncing -->
+  <div *ngIf="syncing" class="syncing-container">
+    <div class="spinner"></div>
+    <p>Syncing your contacts...</p>
+  </div>
+
+  <!-- ✔ Success with animated checkmark -->
+  <div *ngIf="success" class="success-container">
+    <div class="checkmark">✔</div>
+    <p class="success-text">Contacts synced successfully!</p>
+  </div>
+
+  <!-- ❌ Error -->
+  <div *ngIf="errorMsg" class="status error">{{ errorMsg }}</div>
+</app-modal>

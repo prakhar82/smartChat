@@ -1,99 +1,32 @@
-<div class="flex flex-col h-screen">
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
 
-  <!-- Messages -->
-  <div class="flex-1 overflow-y-auto p-4 space-y-2 bg-gray-50">
+<div class="chat-window">
+  <div class="messages" #messagesContainer>
+    <div *ngFor="let m of messages" [ngClass]="{'mine': m.senderId === 1, 'theirs': m.senderId !== 1}" class="msg">
+      {{ m.text }}
+    </div>
+  </div>
+
+  <div class="chat-input">
+    <textarea
+      [(ngModel)]="newMessage"
+      (input)="checkOverflow($event)"
+      placeholder="Type a message..."
+    ></textarea>
+    <button (click)="sendMessage()">Send</button>
+
     <div
-      *ngFor="let msg of messages"
-      (contextmenu)="openContextMenu($event, msg)"
-      (swipeleft)="onSwipeLeft(msg)"
-      (swiperight)="onSwipeRight(msg)"
-      class="relative"
-      [ngClass]="{
-        'text-right': msg.senderId === userId,
-        'text-left': msg.senderId !== userId
-      }"
+      class="typing-tooltip"
+      [class.visible]="showTypingTooltip"
+      [title]="newMessage"
     >
-      <div
-        class="inline-block px-3 py-2 rounded-lg max-w-xs break-words"
-        [ngClass]="{
-          'bg-green-200': msg.senderId === userId,
-          'bg-gray-200': msg.senderId !== userId
-        }"
-      >
-        <div *ngIf="msg.message" class="whitespace-pre-line">{{ msg.message }}</div>
-
-        <!-- Show image preview -->
-        <img *ngIf="isImage(msg.fileUrl)"
-             [src]="msg.fileUrl || ''"
-             class="rounded mt-2 max-w-[200px] cursor-pointer"
-             (click)="openFile(msg.fileUrl)" />
-
-
-        <!-- Show video preview -->
-        <video *ngIf="isVideo(msg.fileUrl)" controls class="rounded mt-2 max-w-[200px]">
-          <source [src]="msg.fileUrl || ''" type="video/mp4" />
-        </video>
-
-        <a *ngIf="msg.fileUrl && !isImage(msg.fileUrl) && !isVideo(msg.fileUrl)"
-           [href]="msg.fileUrl"
-           target="_blank"
-           class="text-blue-600 underline mt-2 block">
-          📎 {{ msg.fileName || 'Attachment' }}
-        </a>
-
-        <!-- Status -->
-        <div *ngIf="msg.senderId === userId" class="text-xs text-gray-600 mt-1">
-          {{ getStatusIcon(msg) }}
-        </div>
-      </div>
+      {{ truncatedMessage }}
     </div>
-  </div>
-
-  <!-- Context Menu -->
-  <div *ngIf="contextMenuVisible"
-       [style.left.px]="contextMenuX"
-       [style.top.px]="contextMenuY"
-       class="absolute bg-white border rounded shadow-md z-50">
-    <button (click)="copyMessage()" class="block w-full px-4 py-2 hover:bg-gray-100">📋 Copy</button>
-    <button (click)="forwardMessage()" class="block w-full px-4 py-2 hover:bg-gray-100">➡️ Forward</button>
-    <button (click)="deleteMessage()" class="block w-full px-4 py-2 text-red-600 hover:bg-gray-100">🗑 Delete</button>
-  </div>
-
-  <!-- Reply banner -->
-  <div *ngIf="replyTo" class="p-2 bg-yellow-100 border-b flex items-center">
-    Replying to: <span class="ml-2 font-semibold">{{ replyTo.message }}</span>
-    <button class="ml-auto text-red-600" (click)="replyTo = null">✖</button>
-  </div>
-
-  <!-- File Preview -->
-  <div *ngIf="selectedFile" class="p-3 border-t bg-gray-100">
-    <div class="flex items-center space-x-3">
-      <img *ngIf="filePreviewUrl && selectedFile.type.startsWith('image/')"
-           [src]="filePreviewUrl" class="w-24 h-24 object-cover rounded" />
-      <video *ngIf="filePreviewUrl && selectedFile.type.startsWith('video/')" class="w-32 rounded" controls>
-        <source [src]="filePreviewUrl" type="video/mp4" />
-      </video>
-      <div *ngIf="!filePreviewUrl" class="text-gray-700">📎 {{ selectedFile.name }}</div>
-
-      <div class="flex space-x-2 ml-auto">
-        <button (click)="cancelPreview()" class="px-3 py-1 rounded bg-red-500 text-white">❌ Cancel</button>
-        <button (click)="sendFile()" [disabled]="uploading" class="px-3 py-1 rounded bg-green-500 text-white">
-          {{ uploading ? 'Uploading...' : '✅ Send' }}
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Input -->
-  <div class="p-3 flex items-center border-t space-x-2">
-    <label class="cursor-pointer">
-      📎
-      <input type="file" hidden (change)="onFileSelected($event)" />
-    </label>
-    <input [(ngModel)]="newMessage" (keyup.enter)="sendMessage()"
-           placeholder="Type a message..." class="flex-1 border rounded px-3 py-2" />
-    <button (click)="sendMessage()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
-      Send
-    </button>
   </div>
 </div>

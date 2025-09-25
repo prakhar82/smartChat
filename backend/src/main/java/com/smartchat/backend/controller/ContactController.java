@@ -6,19 +6,12 @@
  * Author: $USER_NAME
  */
 
-/*
- * ContactController (Handles local/manual contacts (non-Google).)
- *
- * Purpose:
- *  - /api/contacts/sync        → accept device contacts and persist
- *  - /api/contacts/matched     → validate contact exist in DB
- */
-
 package com.smartchat.backend.controller;
 
 import com.smartchat.backend.auth.JwtUtil;
 import com.smartchat.backend.dto.ContactSyncRequest;
 import com.smartchat.backend.dto.MatchedContactResponse;
+import com.smartchat.backend.dto.MatchedContactResponse.PhoneEntry;
 import com.smartchat.backend.repository.UserRepository;
 import com.smartchat.backend.service.ContactService;
 import lombok.RequiredArgsConstructor;
@@ -37,17 +30,56 @@ public class ContactController {
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
 
-
     @PostMapping("/sync")
-    public ResponseEntity<?> syncContacts(@RequestBody ContactSyncRequest request,
-                                          @RequestHeader("Authorization") String authHeader) {
-        Long userId = extractUserId(authHeader); // implement this
-        if (!userId.equals(request.getOwnerUserId())) {
-            return ResponseEntity.status(401).body(Map.of("message", "Unauthorized"));
-        }
+    public ResponseEntity<?> syncContacts(
+            @RequestBody ContactSyncRequest request,
+            @RequestHeader("Authorization") String authHeader
+    ) {
+        Long userId = extractUserId(authHeader);
+
+        // ✅ secure: always enforce the userId from JWT
+        request.setOwnerUserId(userId);
 
         contactService.syncContacts(request);
+
         return ResponseEntity.ok(Map.of("status", "success"));
+    }
+
+    @GetMapping("/matched")
+    public ResponseEntity<List<MatchedContactResponse>> getMatchedContacts(
+            @RequestHeader("Authorization") String authHeader
+    ) {
+        Long callerId = extractUserId(authHeader);
+
+        List<MatchedContactResponse> matched = contactService.getMatchedContacts(callerId);
+
+        // ✅ Guarantee registration status is always fresh (for each phone entry)
+        matched.forEach(c -> {
+            boolean anyRegistered = false;
+            if (c.getPhones() != null) {
+                for (PhoneEntry phone : c.getPhones()) {
+                    if (phone.getValue() != null &&
+                            userRepository.existsByMobileNormalized(phone.getValue())) {
+                        phone.setRegistered(true);
+                        anyRegistered = true;
+                    } else {
+                        phone.setRegistered(false);
+                    }
+                }
+            }
+            c.setRegistered(anyRegistered);
+        });
+
+        return ResponseEntity.ok(matched);
+    }
+
+    @GetMapping("/has-contacts")
+    public ResponseEntity<Map<String, Boolean>> hasContacts(
+            @RequestHeader("Authorization") String authHeader
+    ) {
+        Long userId = extractUserId(authHeader);
+        boolean hasContacts = contactService.userHasContacts(userId);
+        return ResponseEntity.ok(Map.of("hasContacts", hasContacts));
     }
 
     private Long extractUserId(String authHeader) {
@@ -60,14 +92,4 @@ public class ContactController {
                 .map(u -> u.getId())
                 .orElseThrow(() -> new RuntimeException("User not found for token"));
     }
-
-
-    @GetMapping("/matched")
-    public ResponseEntity<List<MatchedContactResponse>> getMatchedContacts(@RequestParam Long userId) {
-
-        List<MatchedContactResponse> matched = contactService.getMatchedContacts(userId);
-        return ResponseEntity.ok(matched);
-    }
-
-
 }

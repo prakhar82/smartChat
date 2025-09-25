@@ -6,21 +6,15 @@
  * Author: $USER_NAME
  */
 
-/*
- * SyncContactsComponent
- *
- * Handles syncing phone + Google contacts after registration/login.
- */
-
 import {Component, OnInit} from '@angular/core';
 import {CommonModule} from '@angular/common';
-import {firstValueFrom} from 'rxjs';
+import {catchError, firstValueFrom, of} from 'rxjs';
 import {Router} from '@angular/router';
-import {ContactPayload, ContactService} from '../contact.service';
+import {ContactPayload, ContactService} from '../../contacts/contact.service';
 import {AuthService} from '../../auth/auth.service';
 import {Contacts, GetContactsOptions} from '@capacitor-community/contacts';
 
-// Google Identity
+// Google Identity Services
 declare const google: any;
 
 @Component({
@@ -50,32 +44,41 @@ export class SyncContactsComponent implements OnInit {
       this.errorMsg = 'User not logged in';
       return;
     }
-    this.userId = uid;
+    this.userId = Number(uid);
   }
 
   /** 📱 Sync phone/device contacts */
-  async syncPhoneContacts() {
+  async syncDeviceContacts() {
     if (this.userId === null) return;
     this.syncing = true;
 
     try {
-      const options: GetContactsOptions = {projection: 'all' as any};
+      const options: GetContactsOptions = {
+        projection: {
+          name: true,
+          phones: true,
+        },
+      };
+
       const result = await Contacts.getContacts(options);
 
-      const contacts: ContactPayload[] = (result.contacts || []).map((c: any) => ({
-        contactName: c.name || '',
-        phoneNormalized: c.phoneNumbers?.[0]?.number || '',
-        phoneRaw: c.phoneNumbers?.[0]?.number || '',
-      }));
+      const contacts: ContactPayload[] =
+        result.contacts.map((c) => ({
+          contactName: c.name?.display ?? 'Unknown',
+          phoneRaw: c.phones?.[0]?.number ?? '',
+          phoneNormalized: (c.phones?.[0]?.number ?? '').replace(/\D/g, ''), // keep digits only
+        })) ?? [];
 
-      await firstValueFrom(this.contactService.syncContacts(contacts));
+      await firstValueFrom(
+        this.contactService.syncContacts(this.userId!, contacts)
+      );
 
       this.syncing = false;
-      this.router.navigate(['/chats']); // ✅ redirect after sync
+      this.router.navigate(['/chats']);
     } catch (err) {
-      console.error('syncPhoneContacts error', err);
+      console.error('syncDeviceContacts error', err);
+      this.errorMsg = 'Failed to sync device contacts';
       this.syncing = false;
-      this.errorMsg = 'Failed to sync phone contacts';
     }
   }
 
@@ -86,13 +89,14 @@ export class SyncContactsComponent implements OnInit {
 
     try {
       const client = google.accounts.oauth2.initTokenClient({
-        client_id: '804357637525-auufm7hjj51mtsugsgnlqkudptiln1ba.apps.googleusercontent.com', // 👈 your Google Client ID
+        client_id:
+          '804357637525-auufm7hjj51mtsugsgnlqkudptiln1ba.apps.googleusercontent.com',
         scope: 'https://www.googleapis.com/auth/contacts.readonly',
         callback: async (response: any) => {
           if (response && response.access_token) {
             try {
               await firstValueFrom(
-                this.contactService.syncGoogleContacts(this.userId!, response.access_token)
+                this.contactService.syncGoogleContacts(response.access_token)
               );
               this.syncing = false;
               this.router.navigate(['/chats']);
@@ -116,8 +120,32 @@ export class SyncContactsComponent implements OnInit {
     }
   }
 
-  /** Skip syncing */
-  skipSync() {
-    this.router.navigate(['/chats']);
+
+  /** Skip syncing → go to chats and open Google popup if no contacts */
+  async skipSync() {
+    this.router.navigate(['/chats'], {queryParams: {showGooglePopup: 'true'}}).then(async () => {
+      try {
+        const contacts = await firstValueFrom(
+          this.contactService.getMatchedContacts(true).pipe(
+            catchError((err) => {
+              console.error('❌ Failed to load contacts after skip', err);
+              return of([]);
+            })
+          )
+        );
+
+        // If contacts exist → notify components & remove popup flag
+        if (contacts && contacts.length > 0) {
+          this.contactService.notifyContactsUpdated();
+          this.router.navigate([], {
+            queryParams: {showGooglePopup: null},
+            queryParamsHandling: 'merge',
+          });
+        }
+      } catch (err) {
+        console.error('❌ Silent reload after skip failed', err);
+      }
+    });
   }
+
 }

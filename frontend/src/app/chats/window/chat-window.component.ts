@@ -1,189 +1,96 @@
-import { Component, OnInit } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { ChatService, ChatMessage } from '../chat.service';
-import {window} from 'rxjs';
+/*
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
+ */
+
+import {AfterViewChecked, Component, ElementRef, OnInit, ViewChild} from '@angular/core';
+import {ActivatedRoute} from '@angular/router';
+import {CommonModule} from '@angular/common';
+import {FormsModule} from '@angular/forms';
+import {ChatService} from '../chat.service';
 
 @Component({
   selector: 'app-chat-window',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './chat-window.component.html',
-  styleUrls: ['./chat-window.component.css']
+  styleUrls: ['./chat-window.component.css'],
 })
-export class ChatWindowComponent implements OnInit {
+export class ChatWindowComponent implements OnInit, AfterViewChecked {
   contactId!: number;
-  userId = Number(localStorage.getItem('userId')) || null;
-
-  messages: ChatMessage[] = [];
+  messages: any[] = [];
   newMessage = '';
+  showTypingTooltip = false;
+  truncatedMessage = '';
 
-  // Reply
-  replyTo: ChatMessage | null = null;
+  typingTimeout: any;
 
-  // File preview
-  selectedFile: File | null = null;
-  filePreviewUrl: string | null = null;
-  uploading = false;
+  @ViewChild('messagesContainer') private messagesContainer!: ElementRef;
 
-  // Context menu
-  contextMenuVisible = false;
-  contextMenuX = 0;
-  contextMenuY = 0;
-  selectedMsg: ChatMessage | null = null;
-
-  constructor(
-    private route: ActivatedRoute,
-    private chatService: ChatService
-  ) {}
+  constructor(private route: ActivatedRoute, private chatService: ChatService) {
+  }
 
   ngOnInit(): void {
     this.contactId = Number(this.route.snapshot.paramMap.get('id'));
-    if (this.userId) {
-      this.chatService.connectWebSocket(this.userId);
-      this.chatService.messages$.subscribe(msg => {
-        if (
-          msg &&
-          ((msg.senderId === this.contactId && msg.receiverId === this.userId) ||
-            (msg.senderId === this.userId && msg.receiverId === this.contactId))
-        ) {
-          this.messages.unshift(msg);
-        }
-      });
+    this.messages = [
+      {senderId: 1, text: 'Hello'},
+      {senderId: 2, text: 'Hi there'},
+    ];
+  }
+
+  ngAfterViewChecked() {
+    this.scrollToBottom();
+  }
+
+  private scrollToBottom() {
+    try {
+      this.messagesContainer.nativeElement.scrollTop =
+        this.messagesContainer.nativeElement.scrollHeight;
+    } catch (err) {
     }
-    this.loadHistory();
-
-    document.addEventListener('click', () => (this.contextMenuVisible = false));
   }
 
-  loadHistory(): void {
-    if (!this.userId) return;
-    this.chatService.getChatHistory(this.contactId, this.userId).subscribe({
-      next: data => (this.messages = data.reverse()),
-      error: err => console.error('Failed to fetch messages', err),
-    });
-  }
-
-  sendMessage(): void {
-    if (!this.newMessage.trim() || !this.userId) return;
-
-    const msg: ChatMessage = {
-      senderId: this.userId,
-      receiverId: this.contactId,
-      message: this.replyTo ? `↩️ ${this.replyTo.message}\n${this.newMessage}` : this.newMessage,
-      timestamp: new Date().toISOString(),
-      status: 'SENT',
-    };
-
-    this.chatService.sendMessage(msg.senderId, msg.receiverId, msg.message!);
-    this.messages.unshift(msg);
+  sendMessage() {
+    if (!this.newMessage.trim()) return;
+    this.messages.push({senderId: 1, text: this.newMessage});
     this.newMessage = '';
-    this.replyTo = null;
+    this.showTypingTooltip = false;
   }
 
-  // ✅ File handling
-  onFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      this.selectedFile = input.files[0];
-      if (
-        this.selectedFile.type.startsWith('image/') ||
-        this.selectedFile.type.startsWith('video/')
-      ) {
-        this.filePreviewUrl = URL.createObjectURL(this.selectedFile);
-      } else {
-        this.filePreviewUrl = null;
-      }
-    }
-  }
+  checkOverflow(event: any) {
+    const textarea = event.target as HTMLTextAreaElement;
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
 
-  cancelPreview(): void {
-    this.selectedFile = null;
-    this.filePreviewUrl = null;
-  }
-
-  sendFile(): void {
-    if (!this.selectedFile || !this.userId) return;
-    this.uploading = true;
-    this.chatService.uploadFile(this.userId, this.contactId, this.selectedFile).subscribe({
-      next: msg => {
-        this.messages.unshift(msg);
-        this.cancelPreview();
-        this.uploading = false;
-      },
-      error: err => {
-        console.error('Upload failed', err);
-        this.uploading = false;
-      },
-    });
-  }
-
-  // ✅ Context menu
-  openContextMenu(event: MouseEvent, msg: ChatMessage): void {
-    event.preventDefault();
-    this.contextMenuVisible = true;
-    this.contextMenuX = event.clientX;
-    this.contextMenuY = event.clientY;
-    this.selectedMsg = msg;
-  }
-
-  copyMessage(): void {
-    if (this.selectedMsg?.message) {
-      navigator.clipboard.writeText(this.selectedMsg.message);
-      alert('📋 Message copied!');
-    }
-    this.contextMenuVisible = false;
-  }
-
-  forwardMessage(): void {
-    if (this.selectedMsg) {
-      this.newMessage = this.selectedMsg.message || '';
-    }
-    this.contextMenuVisible = false;
-  }
-
-  deleteMessage(): void {
-    if (this.selectedMsg) {
-      this.messages = this.messages.filter(m => m !== this.selectedMsg);
-    }
-    this.contextMenuVisible = false;
-  }
-
-  // ✅ Swipe actions (mobile)
-  onSwipeLeft(msg: ChatMessage): void {
-    this.replyTo = msg;
-  }
-
-  onSwipeRight(msg: ChatMessage): void {
-    this.messages = this.messages.filter(m => m !== msg);
-  }
-
-  // ✅ Delivery/Read status icon
-  getStatusIcon(msg: ChatMessage): string {
-    if (msg.status === 'READ') return '👁'; // eye open
-    if (msg.status === 'DELIVERED') return '👁‍🗨'; // eye closed
-    return '✔✔'; // sent
-  }
-
-  protected readonly window = window;
-
-  isImage(fileUrl: string | undefined): boolean {
-    return !!fileUrl && /\.(jpg|jpeg|png|gif)$/i.test(fileUrl);
-  }
-
-  isVideo(fileUrl: string | undefined): boolean {
-    return !!fileUrl && /\.(mp4|webm)$/i.test(fileUrl);
-  }
-
-  openFile(fileUrl: string | undefined) {
-    // Check if URL is provided and valid
-    if (!fileUrl || fileUrl.trim() === '') {
-      console.warn('No file URL provided to open.');
+    if (!this.newMessage.trim()) {
+      this.showTypingTooltip = false;
+      clearTimeout(this.typingTimeout);
       return;
     }
 
-    // Safely open the file in a new browser tab
-    globalThis.open(fileUrl, '_blank');
+    if (textarea.scrollHeight > 60) {
+      this.showTypingTooltip = true;
+
+      const screenWidth = window.innerWidth;
+      let truncateLength = 50;
+      if (screenWidth < 600) truncateLength = 20;
+      else if (screenWidth < 1024) truncateLength = 35;
+
+      this.truncatedMessage =
+        this.newMessage.length > truncateLength
+          ? this.newMessage.substring(0, truncateLength) + '...'
+          : this.newMessage;
+
+      clearTimeout(this.typingTimeout);
+      this.typingTimeout = setTimeout(() => {
+        this.showTypingTooltip = false;
+      }, 3000);
+    } else {
+      this.showTypingTooltip = false;
+      clearTimeout(this.typingTimeout);
+    }
   }
 }

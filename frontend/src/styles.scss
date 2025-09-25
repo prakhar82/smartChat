@@ -3,30 +3,44 @@
  * All rights reserved.
  * Unauthorized copying or distribution of this file,
  * via any medium, is strictly prohibited unless permitted by license.
- * Author: Prakhar Dwivedi
+ * Author: $USER_NAME
  */
 
-/* You can add global styles to this file, and also import other style files */
-/* === General App Styling === */
-
-/* === General App Styling === */
-body, html {
+/* === Reset & Global === */
+html, body {
   margin: 0;
   padding: 0;
+  height: 100%;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  background-color: #ece5dd; /* WhatsApp background */
+
+  /* ✅ Global wallpaper */
+  background: url('/assets/chat-bg.svg') no-repeat center center fixed;
+  background-size: cover;
 }
 
-/* === Buttons === */
+/* Ensure Angular root takes full height */
+app-root {
+  display: block;
+  min-height: 100vh;
+}
+
+/* === Buttons (global) === */
 button {
-  cursor: pointer;
-  border: none;
-  border-radius: 20px;
+  padding: 10px 25px;
+  font-size: 1rem;
+  border: 2px solid #27ae60;
+  border-radius: 25px;
+  background: transparent;
+  color: #27ae60;
   font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
 }
 
 button:hover {
-  opacity: 0.9;
+  background: #27ae60;
+  color: #fff;
+  opacity: 1;
 }
 
 /* === Inputs === */
@@ -48,9 +62,9 @@ input:focus, textarea:focus {
   max-width: 450px;
   margin: 50px auto;
   padding: 20px;
-  background-color: #fff;
+  background-color: rgba(255, 255, 255, 0.9); /* ✅ slight transparency */
   border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .auth-container h2 {
@@ -63,6 +77,7 @@ input:focus, textarea:focus {
   display: flex;
   height: 100vh;
   overflow: hidden;
+  background: rgba(255, 255, 255, 0.8); /* ✅ overlay for readability */
 }
 
 /* Chat list panel */
@@ -80,90 +95,205 @@ input:focus, textarea:focus {
   flex-direction: column-reverse;
   padding: 12px;
   overflow-y: auto;
-  background-color: #ece5dd;
+  background-color: rgba(236, 229, 221, 0.9); /* ✅ keep WhatsApp feel */
 }
 
-/* === Chat List === */
-.chat-list ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
+/* === Shared Popup Styles (Google Sync + Invite) === */
 
-.chat-list li {
+/* nice centered popup */
+.popup-backdrop {
+  position: fixed;
+  inset: 0;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 10px 12px;
-  border-bottom: 1px solid #eee;
-  cursor: pointer;
-  border-radius: 10px;
-  transition: background 0.2s;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 2000;
 }
 
-.chat-list li:hover {
-  background-color: #f0f0f0;
-}
-
-.contact-name {
-  font-weight: bold;
-}
-
-/* Invite button */
-.invite-btn {
-  background-color: #34b7f1;
-  color: #fff;
-  padding: 6px 12px;
+.popup-box {
+  width: 420px;
+  background: #fff;
+  padding: 22px;
   border-radius: 12px;
-  font-size: 12px;
+  text-align: center;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.2);
 }
 
-/* === Chat Messages === */
-.chat-window div {
-  max-width: 70%;
-  padding: 10px 14px;
-  margin-bottom: 6px;
-  border-radius: 20px;
-  position: relative;
-  word-wrap: break-word;
-}
-
-.chat-window div.self {
-  background-color: #dcf8c6;
-  margin-left: auto;
-}
-
-.chat-window div:not(.self) {
-  background-color: #fff;
-  margin-right: auto;
-}
-
-.chat-window small {
-  display: block;
-  font-size: 10px;
-  color: #999;
-  text-align: right;
-}
-
-/* Chat input */
-.chat-input {
+.popup-actions {
+  margin-top: 18px;
   display: flex;
-  padding: 8px;
-  background-color: #f0f0f0;
-  border-top: 1px solid #ddd;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
 }
 
-.chat-input input {
-  flex: 1;
+.popup-box .checkmark {
+  color: #27ae60;
+  font-size: 18px;
+  display: inline-block;
+  animation: pop 420ms ease-out;
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ✅ All buttons look consistent (green outline, hover fill) */
+button {
+  padding: 10px 20px;
+  border-radius: 25px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 2px solid #25d366;
+  background: #fff;
+  color: #25d366;
+  transition: all 0.2s ease-in-out;
+}
+
+button:hover:not(:disabled) {
+  background: #25d366;
+  color: #fff;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+/*****************************************************/
+chats-page.component.css
+  /****************************************************/
+  /* Empty state centered in chat window */
+.right-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #efeae2;
+  overflow: hidden;
+}
+
+.empty-state {
+  text-align: center;
+  color: #444;
+  max-width: 300px;
+}
+
+/* Mobile: hide empty state until contact clicked */
+@media (max-width: 768px) {
+  .empty-state {
+    display: none;
+  }
+}
+
+.chats-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  height: 100vh;
+  overflow: hidden; /* prevent double scrollbar */
+}
+
+.left-panel {
+  overflow-y: auto;
+}
+
+.right-panel {
+  overflow-y: auto;
+}
+
+
+/***************Scroll bar******************/
+/* Global: prevent unwanted horizontal scroll */
+html, body {
+  overflow-x: hidden;
+  height: 100%;
+}
+
+/* Contact list (left panel) - vertical only */
+.left-panel {
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  /* keeps layout stable when scrollbar appears/disappears */
+  scrollbar-gutter: stable;
+}
+
+/* Right panel - no horizontal scroll */
+.right-panel {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Custom Webkit scrollbar (Chrome, Edge, Safari) */
+.left-panel::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.left-panel::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+  visibility: hidden; /* hidden by default */
+}
+
+.left-panel:hover::-webkit-scrollbar-thumb {
+  visibility: visible; /* show only when hovering/scrolling */
+}
+
+/* Firefox scrollbar auto-hide */
+.left-panel {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+}
+
+
+/* Shared button styles */
+.btn {
+  cursor: pointer;
   border-radius: 20px;
-  border: 1px solid #ccc;
-  padding: 10px;
-  outline: none;
+  padding: 8px 16px;
+  font-weight: bold;
+  border: 2px solid #25d366;
+  background: transparent;
+  color: #25d366;
+  transition: all 0.2s ease-in-out;
+  margin: 4px;
 }
 
-.chat-input button {
-  margin-left: 6px;
-  background-color: #25d366;
-  color: white;
-  padding: 10px 16px;
+.btn:hover {
+  background: #25d366;
+  color: #fff;
 }
+
+.btn-primary {
+  border-color: #25d366;
+  color: #25d366;
+}
+
+.btn-secondary {
+  border-color: #999;
+  color: #999;
+}
+
+
+.status.success {
+  color: #25d366;
+}
+
+.status.error {
+  color: #e53935;
+}
+
+/* ... keep your other rules (chat list, input, custom-btn etc.) ... */
