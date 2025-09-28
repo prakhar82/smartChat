@@ -11,16 +11,17 @@ package com.smartchat.backend.controller;
 import com.smartchat.backend.auth.JwtUtil;
 import com.smartchat.backend.dto.ContactSyncRequest;
 import com.smartchat.backend.dto.MatchedContactResponse;
-import com.smartchat.backend.dto.MatchedContactResponse.PhoneEntry;
 import com.smartchat.backend.repository.UserRepository;
 import com.smartchat.backend.service.ContactService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/contacts")
 @RequiredArgsConstructor
@@ -37,10 +38,12 @@ public class ContactController {
     ) {
         Long userId = extractUserId(authHeader);
 
-        // ✅ secure: always enforce the userId from JWT
+        // ✅ Always enforce JWT userId
         request.setOwnerUserId(userId);
 
+        log.info("[ContactController] ▶ Sync request received for userId={}", userId);
         contactService.syncContacts(request);
+        log.info("[ContactController] ✅ Contacts synced successfully for userId={}", userId);
 
         return ResponseEntity.ok(Map.of("status", "success"));
     }
@@ -51,24 +54,9 @@ public class ContactController {
     ) {
         Long callerId = extractUserId(authHeader);
 
+        log.info("[ContactController] ▶ Fetching matched contacts for userId={}", callerId);
         List<MatchedContactResponse> matched = contactService.getMatchedContacts(callerId);
-
-        // ✅ Guarantee registration status is always fresh (for each phone entry)
-        matched.forEach(c -> {
-            boolean anyRegistered = false;
-            if (c.getPhones() != null) {
-                for (PhoneEntry phone : c.getPhones()) {
-                    if (phone.getValue() != null &&
-                            userRepository.existsByMobileNormalized(phone.getValue())) {
-                        phone.setRegistered(true);
-                        anyRegistered = true;
-                    } else {
-                        phone.setRegistered(false);
-                    }
-                }
-            }
-            c.setRegistered(anyRegistered);
-        });
+        log.info("[ContactController] ✅ Found {} matched contacts for userId={}", matched.size(), callerId);
 
         return ResponseEntity.ok(matched);
     }
@@ -79,6 +67,7 @@ public class ContactController {
     ) {
         Long userId = extractUserId(authHeader);
         boolean hasContacts = contactService.userHasContacts(userId);
+        log.info("[ContactController] ▶ hasContacts check for userId={} → {}", userId, hasContacts);
         return ResponseEntity.ok(Map.of("hasContacts", hasContacts));
     }
 

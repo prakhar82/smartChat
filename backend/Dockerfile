@@ -1,9 +1,10 @@
 ###############################################################################
 # Dockerfile for SmartChat Backend (Spring Boot API)
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # - Multi-stage build for smaller runtime image.
-# - Fully configurable ports via .env (API_PORT & DEBUG_PORT).
-# - Debugging support (enable with ENABLE_DEBUG=true).
+# - Configurable ports via .env (API_PORT & DEBUG_PORT).
+# - Debugging support (ENABLE_DEBUG=true).
+# - Log directory mapped to host (backend/logs/api).
 ###############################################################################
 
 # ---------- Build stage ----------
@@ -34,6 +35,9 @@ ENV API_PORT=8080
 
 # Copy built JAR from build stage
 COPY --from=build /app/target/*.jar app.jar
+
+# Create log directory inside container and allow writing
+RUN mkdir -p /var/log/api && chmod -R 777 /var/log/api
 
 # Expose ports dynamically:
 # - API_PORT → REST API

@@ -6,16 +6,14 @@
  * Author: $USER_NAME
  */
 
-/* Root chat window layout */
 .chat-window {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #ece5dd; /* WhatsApp background */
+  background: #ece5dd;
   font-family: Arial, sans-serif;
 }
 
-/* Messages area */
 .messages {
   flex: 1;
   overflow-y: auto;
@@ -24,8 +22,7 @@
   flex-direction: column;
 }
 
-/* Each message bubble */
-.msg {
+.message-bubble {
   max-width: 70%;
   margin: 6px 0;
   padding: 8px 12px;
@@ -34,27 +31,71 @@
   line-height: 1.4;
   word-wrap: break-word;
   white-space: pre-wrap;
+  position: relative;
 }
 
-/* My messages */
-.msg.mine {
-  background: #dcf8c6; /* WhatsApp green */
+.message-bubble.me {
+  background: #dcf8c6;
   margin-left: auto;
   text-align: right;
-  border-bottom-right-radius: 2px;
+  border-bottom-right-radius: 4px;
 }
 
-/* Their messages */
-.msg.theirs {
+.message-bubble.other {
   background: #f1f0f0;
   margin-right: auto;
   text-align: left;
-  border-bottom-left-radius: 2px;
+  border-bottom-left-radius: 4px;
 }
 
-/* Input area */
-.chat-input {
-  position: relative;
+.file-link {
+  color: #0b57d0;
+  text-decoration: underline;
+  font-size: 14px;
+}
+
+.deleted-msg {
+  font-style: italic;
+  font-size: 13px;
+  color: #777;
+  margin: 4px 0;
+}
+
+.status {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #777;
+  text-align: right;
+}
+
+.tick {
+  font-size: 12px;
+  margin-left: 3px;
+  color: #999;
+}
+
+.tick.read {
+  color: #34b7f1;
+}
+
+.msg-actions {
+  margin-top: 2px;
+  text-align: right;
+}
+
+.msg-actions button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  color: #888;
+}
+
+.msg-actions button:hover {
+  color: #d11a2a;
+}
+
+.input-container {
   display: flex;
   align-items: flex-end;
   padding: 10px;
@@ -63,8 +104,7 @@
   gap: 8px;
 }
 
-/* Input text area */
-.chat-input textarea {
+.input-container textarea {
   flex: 1;
   min-height: 40px;
   max-height: 120px;
@@ -78,23 +118,20 @@
   overflow-y: auto;
 }
 
-/* Send button */
-.chat-input button {
+.input-container button {
   padding: 8px 14px;
   border: none;
   border-radius: 16px;
-  background: #128c7e; /* WhatsApp green */
+  background: #128c7e;
   color: white;
   font-size: 14px;
   cursor: pointer;
-  transition: background 0.2s;
 }
 
-.chat-input button:hover {
+.input-container button:hover {
   background: #0d6e63;
 }
 
-/* Typing tooltip */
 .typing-tooltip {
   position: absolute;
   bottom: 50px;
@@ -111,18 +148,29 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
+  z-index: 10;
 }
 
 .typing-tooltip.visible {
   opacity: 1;
 }
 
-/* Scrollbar styling */
-.messages::-webkit-scrollbar {
-  width: 6px;
+/* Deleted message style */
+.deleted-text {
+  font-style: italic;
+  color: #999;
 }
 
-.messages::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 3px;
+/* Delete button */
+.delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: #c0392b;
+  margin-left: 6px;
+}
+
+.delete-btn:hover {
+  color: #e74c3c;
 }

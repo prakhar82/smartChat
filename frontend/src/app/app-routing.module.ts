@@ -6,7 +6,6 @@
  * Author: $USER_NAME
  */
 
-// src/app/app-routing.module.ts
 import {NgModule} from '@angular/core';
 import {RouterModule, Routes} from '@angular/router';
 
@@ -16,8 +15,9 @@ import {SyncContactsComponent} from './contacts/sync/sync.component';
 import {ContactListComponent} from './chats/list/contact-list.component';
 import {ChatWindowComponent} from './chats/window/chat-window.component';
 
-import {AuthGuard} from './auth/auth.guard'; // ✅ class guard
-import {LoginGuard} from './auth/login/login.guard'; // ✅ function guard
+import {AuthGuard} from './auth/auth.guard';
+import {LoginGuard} from './auth/login/login.guard';
+import {ChatsPageComponent} from './chats/page/chats-page.component';
 
 const routes: Routes = [
   {path: 'register', component: RegisterComponent, canActivate: [LoginGuard]},
@@ -25,13 +25,23 @@ const routes: Routes = [
   {path: 'sync', component: SyncContactsComponent, canActivate: [AuthGuard]},
   {
     path: 'chats',
+    component: ChatsPageComponent,
     canActivate: [AuthGuard],
     children: [
-      {path: '', component: ContactListComponent},
-      {path: ':id', component: ChatWindowComponent},
+      {
+        path: '',
+        component: ContactListComponent, // loads into primary (left <router-outlet>)
+      },
+      {
+        path: ':id',
+        component: ChatWindowComponent,
+        outlet: 'chat', // ✅ goes into right <router-outlet name="chat">
+      },
     ],
   },
   {path: '', redirectTo: '/login', pathMatch: 'full'},
+  // optional catch-all route for invalid URLs
+  {path: '**', redirectTo: '/login'}
 ];
 
 @NgModule({

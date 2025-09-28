@@ -11,7 +11,6 @@ package com.smartchat.backend.config;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.smartchat.backend.dto.MatchedContactResponse;
 import com.smartchat.backend.model.ChatMessage;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,8 +18,6 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
-
-import java.util.List;
 
 @Configuration
 public class RedisConfig {
@@ -47,37 +44,21 @@ public class RedisConfig {
      * RedisTemplate for MatchedContactResponse list caching.
      */
     @Bean
-    public RedisTemplate<String, List<MatchedContactResponse>> matchedContactRedisTemplate(RedisConnectionFactory connectionFactory) {
-        RedisTemplate<String, List<MatchedContactResponse>> template = new RedisTemplate<>();
-        template.setConnectionFactory(connectionFactory);
-
-        template.setKeySerializer(new StringRedisSerializer());
-        template.setHashKeySerializer(new StringRedisSerializer());
-
-        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(redisObjectMapper());
-        template.setValueSerializer(serializer);
-        template.setHashValueSerializer(serializer);
-
-        return template;
-    }
-
-    /**
-     * Generic RedisTemplate for Object caching (e.g., Google contacts, arbitrary JSON).
-     */
-    @Bean
-    public RedisTemplate<String, Object> genericRedisTemplate(RedisConnectionFactory connectionFactory) {
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
         template.setKeySerializer(new StringRedisSerializer());
         template.setHashKeySerializer(new StringRedisSerializer());
 
-        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(redisObjectMapper());
+        GenericJackson2JsonRedisSerializer serializer =
+                new GenericJackson2JsonRedisSerializer(redisObjectMapper());
         template.setValueSerializer(serializer);
         template.setHashValueSerializer(serializer);
 
         return template;
     }
+
 
     /**
      * Dedicated ObjectMapper for Redis serialization only.

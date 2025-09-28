@@ -6,11 +6,14 @@
  * Author: $USER_NAME
  */
 
-import {AfterViewChecked, Component, ElementRef, OnInit, ViewChild} from '@angular/core';
-import {ActivatedRoute} from '@angular/router';
+// chat-window.component.ts
+import {AfterViewChecked, Component, ElementRef, OnDestroy, OnInit, ViewChild,} from '@angular/core';
+import {ActivatedRoute, ParamMap} from '@angular/router';
 import {CommonModule} from '@angular/common';
 import {FormsModule} from '@angular/forms';
-import {ChatService} from '../chat.service';
+import {Subscription} from 'rxjs';
+import {ChatMessage, ChatService} from '../chat.service';
+import {AuthService} from '../../auth/auth.service';
 
 @Component({
   selector: 'app-chat-window',
@@ -19,48 +22,145 @@ import {ChatService} from '../chat.service';
   templateUrl: './chat-window.component.html',
   styleUrls: ['./chat-window.component.css'],
 })
-export class ChatWindowComponent implements OnInit, AfterViewChecked {
-  contactId!: number;
-  messages: any[] = [];
+export class ChatWindowComponent
+  implements OnInit, AfterViewChecked, OnDestroy {
+  myUserId!: number;
+  otherUserId!: number;
+
+  messages: ChatMessage[] = [];
   newMessage = '';
+  typingTimeout: any;
   showTypingTooltip = false;
   truncatedMessage = '';
 
-  typingTimeout: any;
+  private routeSub!: Subscription;
+  private wsSub!: Subscription;
 
   @ViewChild('messagesContainer') private messagesContainer!: ElementRef;
 
-  constructor(private route: ActivatedRoute, private chatService: ChatService) {
+  constructor(
+    private route: ActivatedRoute,
+    private chatService: ChatService,
+    private authService: AuthService
+  ) {
   }
 
   ngOnInit(): void {
-    this.contactId = Number(this.route.snapshot.paramMap.get('id'));
-    this.messages = [
-      {senderId: 1, text: 'Hello'},
-      {senderId: 2, text: 'Hi there'},
-    ];
+    // ✅ logged-in user
+    const uid = this.authService.getUserId();
+    if (!uid) {
+      console.error('[ChatWindow] ⚠️ User not logged in');
+      return;
+    }
+    this.myUserId = Number(uid);
+
+    // ✅ connect WebSocket
+    this.chatService.connectWebSocket(this.myUserId);
+
+    // ✅ subscribe to incoming messages + delete events
+    this.wsSub = this.chatService.messages$.subscribe((msg) => {
+      if (!msg) return;
+
+      if (msg.type === 'DELETE' && msg.messageId) {
+        const target = this.messages.find((m) => m.id === msg.messageId);
+        if (target) {
+          target.message = 'This message was deleted';
+          target.fileUrl = null;
+          target.fileName = null;
+          target.emoji = null;
+        }
+        return;
+      }
+
+      if (msg.senderId === this.otherUserId) {
+        this.messages.push(msg);
+        this.scrollToBottom();
+      }
+    });
+
+    // ✅ route param changes (switch chat)
+    this.routeSub = this.route.paramMap.subscribe((pm: ParamMap) => {
+      const idStr = pm.get('id');
+      this.otherUserId = idStr ? Number(idStr) : NaN;
+      this.loadConversation();
+    });
   }
 
   ngAfterViewChecked() {
     this.scrollToBottom();
   }
 
+  ngOnDestroy(): void {
+    clearTimeout(this.typingTimeout);
+    this.routeSub?.unsubscribe();
+    this.wsSub?.unsubscribe();
+  }
+
+  private loadConversation() {
+    if (!this.otherUserId || !this.myUserId) {
+      this.messages = [];
+      return;
+    }
+
+    this.chatService.getChatHistory(this.otherUserId).subscribe({
+      next: (msgs) => {
+        this.messages = msgs || [];
+        this.scrollToBottom();
+      },
+      error: (err) => {
+        console.error('[ChatWindow] ❌ Failed to load messages', err);
+        this.messages = [];
+      },
+    });
+  }
+
   private scrollToBottom() {
     try {
-      this.messagesContainer.nativeElement.scrollTop =
-        this.messagesContainer.nativeElement.scrollHeight;
-    } catch (err) {
+      const el = this.messagesContainer?.nativeElement;
+      if (el) el.scrollTop = el.scrollHeight;
+    } catch {
     }
   }
 
   sendMessage() {
-    if (!this.newMessage.trim()) return;
-    this.messages.push({senderId: 1, text: this.newMessage});
+    const text = this.newMessage.trim();
+    if (!text || !this.otherUserId) return;
+
+    // Optimistic UI
+    const localMsg: ChatMessage = {
+      senderId: this.myUserId,
+      receiverId: this.otherUserId,
+      message: text,
+      timestamp: new Date().toISOString(),
+      status: 'SENT',
+    };
+    this.messages.push(localMsg);
+    this.scrollToBottom();
+
+    // WebSocket send
+    this.chatService.sendMessage(this.myUserId, this.otherUserId, text);
+
     this.newMessage = '';
     this.showTypingTooltip = false;
   }
 
-  checkOverflow(event: any) {
+  deleteMessage(messageId: number) {
+    this.chatService.deleteMessage(messageId).subscribe({
+      next: (updated) => {
+        const target = this.messages.find((m) => m.id === updated.id);
+        if (target) {
+          target.message = updated.message;
+          target.fileUrl = null;
+          target.fileName = null;
+          target.emoji = null;
+        }
+      },
+      error: (err) =>
+        console.error('[ChatWindow] ❌ Failed to delete message', err),
+    });
+  }
+
+  onInput(event: any) {
     const textarea = event.target as HTMLTextAreaElement;
     textarea.style.height = 'auto';
     textarea.style.height = textarea.scrollHeight + 'px';
@@ -73,24 +173,23 @@ export class ChatWindowComponent implements OnInit, AfterViewChecked {
 
     if (textarea.scrollHeight > 60) {
       this.showTypingTooltip = true;
-
-      const screenWidth = window.innerWidth;
-      let truncateLength = 50;
-      if (screenWidth < 600) truncateLength = 20;
-      else if (screenWidth < 1024) truncateLength = 35;
-
       this.truncatedMessage =
-        this.newMessage.length > truncateLength
-          ? this.newMessage.substring(0, truncateLength) + '...'
+        this.newMessage.length > 50
+          ? this.newMessage.substring(0, 50) + '...'
           : this.newMessage;
 
       clearTimeout(this.typingTimeout);
-      this.typingTimeout = setTimeout(() => {
-        this.showTypingTooltip = false;
-      }, 3000);
+      this.typingTimeout = setTimeout(
+        () => (this.showTypingTooltip = false),
+        3000
+      );
     } else {
       this.showTypingTooltip = false;
       clearTimeout(this.typingTimeout);
     }
+  }
+
+  trackByIdx(index: number): number {
+    return index;
   }
 }

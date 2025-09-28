@@ -6,19 +6,6 @@
  * Author: $USER_NAME
  */
 
-/*
- * GoogleContactController (Handles Google contacts only.)
- *
- * Purpose:
- *   Expose endpoint to sync Google contacts with SmartChat backend.
- *   - Requires SmartChat JWT in Authorization header
- *   - Requires Google OAuth access token in request body
- *
- * Endpoints:
- *   POST /api/contacts/google/sync
- *   POST /api/contacts/google/invite/send
- */
-
 package com.smartchat.backend.controller;
 
 import com.smartchat.backend.auth.JwtUtil;
@@ -29,6 +16,7 @@ import com.smartchat.backend.service.GmailService;
 import com.smartchat.backend.service.GoogleContactService;
 import com.smartchat.backend.service.GoogleOAuthService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,6 +24,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/contacts/google")
 @RequiredArgsConstructor
@@ -50,11 +39,6 @@ public class GoogleContactController {
 
     /**
      * Sync Google contacts with SmartChat backend.
-     * <p>
-     * Request:
-     * POST /api/contacts/google/sync
-     * Header: Authorization: Bearer <SmartChatJWT>
-     * Body: { "accessToken": "<googleAccessToken>" }
      */
     @PostMapping("/sync")
     public ResponseEntity<?> syncGoogleContacts(
@@ -64,18 +48,23 @@ public class GoogleContactController {
         try {
             String accessToken = payload.get("accessToken");
             if (accessToken == null || accessToken.isBlank()) {
+                log.warn("[GoogleContactController] ❌ Missing accessToken in request");
                 return ResponseEntity.badRequest()
                         .body(Map.of("message", "accessToken is required"));
             }
 
             Long userId = extractUserId(authHeader);
+            log.info("[GoogleContactController] ▶ Starting Google contact sync for userId={}", userId);
+
             googleContactService.fetchAndSync(userId, accessToken);
 
+            log.info("[GoogleContactController] ✅ Google contacts synced successfully for userId={}", userId);
             return ResponseEntity.ok(Map.of(
                     "status", "success",
                     "message", "Google contacts synced"
             ));
         } catch (Exception e) {
+            log.error("[GoogleContactController] ❌ Failed to sync Google contacts: {}", e.getMessage(), e);
             return ResponseEntity.status(500)
                     .body(Map.of("status", "error", "message", e.getMessage()));
         }
@@ -83,11 +72,6 @@ public class GoogleContactController {
 
     /**
      * Send invite email using inviter’s Google OAuth token.
-     * <p>
-     * Request:
-     * POST /api/contacts/google/invite/send
-     * Header: Authorization: Bearer <SmartChatJWT>
-     * Body: { "contactEmail": "...", "contactName": "..." }
      */
     @PostMapping("/invite/send")
     public ResponseEntity<?> sendInviteEmail(
@@ -97,15 +81,18 @@ public class GoogleContactController {
         String contactEmail = payload.get("contactEmail");
         String contactName = payload.getOrDefault("contactName", "");
         if (contactEmail == null || contactEmail.isBlank()) {
+            log.warn("[GoogleContactController] ❌ Missing contactEmail in invite request");
             return ResponseEntity.badRequest()
                     .body(Map.of("message", "contactEmail is required"));
         }
 
         Long inviterUserId = extractUserId(authHeader);
+        log.info("[GoogleContactController] ▶ Sending invite to {} from inviterUserId={}", contactEmail, inviterUserId);
 
         // Fetch Google access token from DB (from last sync)
         String accessToken = googleOAuthService.getValidAccessToken(inviterUserId);
         if (accessToken == null) {
+            log.warn("[GoogleContactController] ❌ No valid Google token found for inviterUserId={}", inviterUserId);
             return ResponseEntity.badRequest()
                     .body(Map.of("message", "google_sync_required"));
         }
@@ -122,32 +109,29 @@ public class GoogleContactController {
 
         String inviteLink = "/register?ref=" + inviteToken;
 
-        // Fetch inviter email (for display only)
+        // Sender email
         String inviterEmail = userRepository.findById(inviterUserId)
                 .map(u -> u.getEmail() != null ? u.getEmail() : "no-reply@smartchat.local")
                 .orElse("no-reply@smartchat.local");
 
-        // Email content (append inviter info)
+        // Email content
         String subject = "[SmartChat] Join me on SmartChat";
         String body = String.format(
                 "Hi %s,\n\nI am using SmartChat — a secure Indian messaging app.\n" +
-                        "Join here: %s\n\n" +
-                        "Invited by: %s\n\n" +
-                        "- Sent via SmartChat",
-                contactName.isBlank() ? "there" : contactName, inviteLink, inviterEmail
+                        "Join here: %s\n\n- Sent via SmartChat",
+                contactName.isBlank() ? "there" : contactName, inviteLink
         );
 
-        // Always use "me" as sender
         boolean ok = gmailService.sendEmail(accessToken, "me", contactEmail, subject, body);
-
         if (ok) {
+            log.info("[GoogleContactController] ✅ Invite sent successfully to {}", contactEmail);
             return ResponseEntity.ok(Map.of("status", "success", "message", "Invite sent"));
         } else {
+            log.error("[GoogleContactController] ❌ Failed to send invite to {}", contactEmail);
             return ResponseEntity.status(500)
                     .body(Map.of("status", "error", "message", "Failed to send invite via Gmail"));
         }
     }
-
 
     private Long extractUserId(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {

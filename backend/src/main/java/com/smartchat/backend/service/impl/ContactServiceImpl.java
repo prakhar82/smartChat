@@ -8,193 +8,198 @@
 
 package com.smartchat.backend.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartchat.backend.dto.ContactSyncRequest;
 import com.smartchat.backend.dto.MatchedContactResponse;
+import com.smartchat.backend.model.Contact;
 import com.smartchat.backend.model.User;
-import com.smartchat.backend.model.UserContact;
-import com.smartchat.backend.repository.UserContactRepository;
+import com.smartchat.backend.repository.ContactRepository;
 import com.smartchat.backend.repository.UserRepository;
 import com.smartchat.backend.service.ContactService;
+import com.smartchat.backend.util.ContactUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class ContactServiceImpl implements ContactService {
 
-    private final UserContactRepository userContactRepository;
+    private final ContactRepository contactRepository;
     private final UserRepository userRepository;
-    private final RedisTemplate<String, List<MatchedContactResponse>> redisTemplate;
+    private final RedisTemplate<String, Object> redisTemplate;
 
-    private static final String MATCHED_CACHE_PREFIX = "matched_contacts:";
-    private static final Duration CACHE_TTL = Duration.ofMinutes(10);
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final String CACHE_PREFIX = "contacts:matched:";
 
     @Override
+    @Transactional
     public void syncContacts(ContactSyncRequest request) {
-        if (request == null || request.getContacts() == null) return;
-
-        List<UserContact> toSave = new ArrayList<>();
-
-        for (var c : request.getContacts()) {
-            if (c.getPhoneNormalized() == null && c.getPhoneRaw() == null) {
-                continue;
-            }
-
-            Optional<UserContact> existingOpt = Optional.empty();
-            if (c.getPhoneNormalized() != null) {
-                existingOpt = userContactRepository.findByOwnerUserIdAndPhoneNormalized(
-                        request.getOwnerUserId(), c.getPhoneNormalized());
-            } else if (c.getPhoneRaw() != null) {
-                existingOpt = userContactRepository.findByOwnerUserIdAndPhoneRaw(
-                        request.getOwnerUserId(), c.getPhoneRaw());
-            }
-
-            if (existingOpt.isPresent()) {
-                UserContact existing = existingOpt.get();
-                existing.setContactName(c.getContactName());
-                existing.setUpdatedAt(Instant.now());
-                toSave.add(existing);
-            } else {
-                UserContact uc = new UserContact();
-                uc.setOwnerUserId(request.getOwnerUserId());
-                uc.setContactName(c.getContactName());
-                uc.setPhoneNormalized(c.getPhoneNormalized());
-                uc.setPhoneRaw(c.getPhoneRaw());
-                uc.setSource("device");
-                uc.setCreatedAt(Instant.now());
-                uc.setUpdatedAt(Instant.now());
-                toSave.add(uc);
-            }
+        Long ownerUserId = request.getOwnerUserId();
+        if (ownerUserId == null) {
+            throw new IllegalArgumentException("Owner userId is required for syncing contacts");
         }
 
-        if (!toSave.isEmpty()) {
-            userContactRepository.saveAll(toSave);
-            evictMatchedCache(request.getOwnerUserId());
-        }
+        List<Contact> entities = request.toEntities(ownerUserId);
+        contactRepository.saveAll(entities);
+
+        log.info("[ContactServiceImpl] 📥 Synced {} contacts for userId={}", entities.size(), ownerUserId);
+
+        refreshMatchedCache(ownerUserId);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<MatchedContactResponse> getMatchedContacts(Long ownerUserId) {
-        String cacheKey = MATCHED_CACHE_PREFIX + ownerUserId;
+        String key = CACHE_PREFIX + ownerUserId;
 
-        List<MatchedContactResponse> cached = redisTemplate.opsForValue().get(cacheKey);
-        if (cached != null) {
-            return refreshRegisteredState(cached);
+        // ✅ Try Redis cache first
+        Set<Object> cached = redisTemplate.opsForSet().members(key);
+        if (cached != null && !cached.isEmpty()) {
+            log.info("[ContactServiceImpl] ✅ Returning {} matched contacts from Redis cache for userId={}",
+                    cached.size(), ownerUserId);
+            return cached.stream()
+                    .filter(MatchedContactResponse.class::isInstance)
+                    .map(MatchedContactResponse.class::cast)
+                    .toList();
         }
 
-        List<UserContact> contacts = userContactRepository.findByOwnerUserId(ownerUserId);
-        if (contacts.isEmpty()) return List.of();
-
-        List<MatchedContactResponse> result = buildMatchedList(contacts);
-
-        redisTemplate.opsForValue().set(cacheKey, result, CACHE_TTL);
-        return result;
-    }
-
-    private List<MatchedContactResponse> refreshRegisteredState(List<MatchedContactResponse> contacts) {
-        if (contacts == null || contacts.isEmpty()) return contacts;
-
-        List<String> numbers = contacts.stream()
-                .flatMap(c -> c.getPhones().stream().map(MatchedContactResponse.PhoneEntry::getValue))
-                .filter(Objects::nonNull)
-                .toList();
-
-        Set<String> matchedSet;
-        if (!numbers.isEmpty()) {
-            matchedSet = userRepository.findByMobileNormalizedIn(numbers)
-                    .stream()
-                    .map(User::getMobileNormalized)
-                    .collect(Collectors.toSet());
+        // ❌ Cache miss → fetch from DB
+        List<MatchedContactResponse> fromDb = fetchFromDatabase(ownerUserId);
+        if (!fromDb.isEmpty()) {
+            fromDb.forEach(resp -> redisTemplate.opsForSet().add(key, resp));
+            redisTemplate.expire(key, 30, TimeUnit.MINUTES);
+            log.info("[ContactServiceImpl] 💾 Cached {} matched contacts from DB into Redis for userId={}",
+                    fromDb.size(), ownerUserId);
         } else {
-            matchedSet = Collections.emptySet();
+            log.info("[ContactServiceImpl] ⚠️ No matched contacts found for userId={}", ownerUserId);
         }
 
-        return contacts.stream().peek(c -> {
-            boolean hasRegistered = false;
-            for (MatchedContactResponse.PhoneEntry p : c.getPhones()) {
-                boolean registered = matchedSet.contains(p.getValue());
-                p.setRegistered(registered);
-                if (registered) hasRegistered = true;
-            }
-            c.setRegistered(hasRegistered);
-        }).toList();
-    }
-
-    private List<MatchedContactResponse> buildMatchedList(List<UserContact> contacts) {
-        List<String> numbers = contacts.stream()
-                .map(UserContact::getPhoneNormalized)
-                .filter(Objects::nonNull)
-                .toList();
-
-        Set<String> matchedSet = numbers.isEmpty()
-                ? Collections.emptySet()
-                : userRepository.findByMobileNormalizedIn(numbers)
-                .stream()
-                .map(User::getMobileNormalized)
-                .collect(Collectors.toSet());
-
-        Map<String, MatchedContactResponse> grouped = new LinkedHashMap<>();
-
-        for (UserContact c : contacts) {
-            String key = (c.getContactName() != null ? c.getContactName()
-                    : (c.getPhoneNormalized() != null ? c.getPhoneNormalized()
-                    : (c.getEmail() != null ? c.getEmail() : UUID.randomUUID().toString())));
-
-            MatchedContactResponse existing = grouped.computeIfAbsent(key, k -> {
-                MatchedContactResponse res = new MatchedContactResponse();
-                res.setContactId(c.getId() != null ? c.getId().toString() : UUID.randomUUID().toString());
-                res.setContactName(c.getContactName() != null ? c.getContactName() : "Unknown");
-                res.setPhones(new ArrayList<>());
-                res.setEmails(new ArrayList<>());
-                res.setRegistered(false);
-                res.setCanInvite(false);
-                return res;
-            });
-
-            if (c.getPhoneNormalized() != null) {
-                boolean isRegistered = matchedSet.contains(c.getPhoneNormalized());
-                existing.getPhones().add(new MatchedContactResponse.PhoneEntry(
-                        c.getLabel() != null ? c.getLabel() : "mobile",
-                        c.getPhoneNormalized(),
-                        isRegistered
-                ));
-                if (isRegistered) existing.setRegistered(true);
-            }
-
-            if (c.getEmail() != null && !c.getEmail().isBlank()) {
-                existing.getEmails().add(new MatchedContactResponse.EmailEntry(
-                        c.getLabel() != null ? c.getLabel() : "home",
-                        c.getEmail()
-                ));
-                existing.setCanInvite(true);
-            }
-        }
-
-        return new ArrayList<>(grouped.values());
+        return fromDb;
     }
 
     @Override
     public void evictMatchedCache(Long userId) {
-        try {
-            redisTemplate.delete(MATCHED_CACHE_PREFIX + userId);
-        } catch (Exception e) {
-            log.warn("Failed to evict matched contacts cache for user {}", userId, e);
-        }
+        redisTemplate.delete(CACHE_PREFIX + userId);
+        log.info("[ContactServiceImpl] 🗑️ Evicted matched contacts cache for userId={}", userId);
     }
 
     @Override
     public boolean userHasContacts(Long userId) {
-        return userContactRepository.existsByOwnerUserId(userId);
+        boolean has = !contactRepository.findByOwnerUserId(userId).isEmpty();
+        log.debug("[ContactServiceImpl] 🔍 userId={} hasContacts={}", userId, has);
+        return has;
+    }
+
+    @Override
+    public void refreshMatchedCache(Long userId) {
+        List<Contact> contacts = contactRepository.findByOwnerUserId(userId);
+
+        if (contacts.isEmpty()) {
+            log.info("[ContactServiceImpl] ⚠️ No contacts found for userId={}, cache not refreshed", userId);
+            return;
+        }
+
+        List<MatchedContactResponse> responses = fetchFromDatabase(userId);
+
+        String keyPrefix = "matched_contacts:" + userId + ":";
+        int count = 0;
+        for (MatchedContactResponse dto : responses) {
+            redisTemplate.opsForValue().set(keyPrefix + dto.getContactId(), dto);
+            count++;
+        }
+
+        log.info("[ContactServiceImpl] 🔄 Refreshed matched cache for userId={}, total={} contacts cached",
+                userId, count);
+    }
+
+    /**
+     * Build matched contacts enriched with registered User info.
+     */
+    private List<MatchedContactResponse> fetchFromDatabase(Long ownerUserId) {
+        List<Contact> contacts = contactRepository.findByOwnerUserId(ownerUserId);
+        if (contacts.isEmpty()) {
+            log.info("[ContactServiceImpl] ⚠️ No contacts in DB for userId={}", ownerUserId);
+            return List.of();
+        }
+
+        List<User> allUsers = userRepository.findAll();
+        int matchedCount = 0;
+
+        List<MatchedContactResponse> responses = new ArrayList<>();
+        for (Contact contact : contacts) {
+            boolean matched = false;
+            Long matchedUserId = null;
+            User matchedUser = null;
+
+            // Build phone entries
+            List<MatchedContactResponse.PhoneEntry> phoneEntries = new ArrayList<>();
+            if (contact.getPhones() != null) {
+                for (ContactSyncRequest.PhoneEntry phone : contact.getPhones()) {
+                    Optional<User> userOpt = ContactUtil.matchPhoneToUser(phone.getValue(), allUsers);
+                    boolean isRegistered = userOpt.isPresent();
+
+                    if (isRegistered && matchedUser == null) {
+                        matched = true;
+                        matchedUser = userOpt.get();
+                        matchedUserId = matchedUser.getId();
+                        matchedCount++;
+                        log.debug("[ContactServiceImpl] 📌 Phone {} matched to userId={}",
+                                phone.getValue(), matchedUserId);
+                    }
+
+                    phoneEntries.add(new MatchedContactResponse.PhoneEntry(
+                            phone.getLabel(),
+                            phone.getValue(),
+                            isRegistered
+                    ));
+                }
+            }
+
+            // Build email entries
+            List<MatchedContactResponse.EmailEntry> emailEntries = new ArrayList<>();
+            if (contact.getEmails() != null) {
+                emailEntries.addAll(
+                        contact.getEmails().stream()
+                                .map(e -> new MatchedContactResponse.EmailEntry(e.getLabel(), e.getValue()))
+                                .toList()
+                );
+            }
+
+            // ✅ If matched user found, enrich with their account email
+            if (matchedUser != null && matchedUser.getEmail() != null) {
+                User finalMatchedUser = matchedUser;
+                boolean alreadyPresent = emailEntries.stream()
+                        .anyMatch(e -> e.getValue().equalsIgnoreCase(finalMatchedUser.getEmail()));
+                if (!alreadyPresent) {
+                    emailEntries.add(new MatchedContactResponse.EmailEntry("account", matchedUser.getEmail()));
+                    log.debug("[ContactServiceImpl] 📧 Added matched user's email={} to contactId={}",
+                            matchedUser.getEmail(), contact.getId());
+                }
+            }
+
+            MatchedContactResponse dto = new MatchedContactResponse(
+                    String.valueOf(contact.getId()),
+                    contact.getContactName(),
+                    phoneEntries,
+                    emailEntries,
+                    matched,
+                    !matched, // ✅ canInvite = true only if not registered
+                    matchedUserId
+            );
+            responses.add(dto);
+        }
+
+        log.info("[ContactServiceImpl] 📊 Matched contacts build complete for userId={}: total={}, matched={}",
+                ownerUserId, responses.size(), matchedCount);
+
+        return responses;
     }
 }

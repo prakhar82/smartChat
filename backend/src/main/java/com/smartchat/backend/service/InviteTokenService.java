@@ -12,6 +12,7 @@ import com.smartchat.backend.model.InviteToken;
 import com.smartchat.backend.model.User;
 import com.smartchat.backend.repository.InviteTokenRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
@@ -19,6 +20,7 @@ import java.util.Base64;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class InviteTokenService {
 
     private final InviteTokenRepository inviteTokenRepository;
@@ -35,7 +37,12 @@ public class InviteTokenService {
                 .used(false)
                 .build();
 
-        return inviteTokenRepository.save(token);
+        InviteToken saved = inviteTokenRepository.save(token);
+
+        log.info("[InviteTokenService] 🎟 Generated new invite token for inviterId={} (token={}...)",
+                inviter.getId(), tokenValue.substring(0, 8));
+
+        return saved;
     }
 
     /**
@@ -43,21 +50,31 @@ public class InviteTokenService {
      */
     public InviteToken useToken(String tokenValue) {
         InviteToken token = inviteTokenRepository.findByToken(tokenValue)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid invite token"));
+                .orElseThrow(() -> {
+                    log.warn("[InviteTokenService] ❌ Invalid invite token attempted: {}...", tokenValue.substring(0, 8));
+                    return new IllegalArgumentException("Invalid invite token");
+                });
 
         if (token.isUsed()) {
+            log.warn("[InviteTokenService] ⚠ Attempted reuse of already used token={}...", tokenValue.substring(0, 8));
             throw new IllegalStateException("Invite token already used");
         }
 
         token.markUsed();
-        return inviteTokenRepository.save(token);
+        InviteToken updated = inviteTokenRepository.save(token);
+
+        log.info("[InviteTokenService] ✅ Invite token={}... successfully marked as used", tokenValue.substring(0, 8));
+
+        return updated;
     }
 
     /**
      * Check if token exists and is not yet used.
      */
     public boolean isValid(String tokenValue) {
-        return inviteTokenRepository.existsByTokenAndUsedFalse(tokenValue);
+        boolean valid = inviteTokenRepository.existsByTokenAndUsedFalse(tokenValue);
+        log.debug("[InviteTokenService] 🔎 Token={}... valid={}", tokenValue.substring(0, 8), valid);
+        return valid;
     }
 
     /**

@@ -7,6 +7,7 @@
   -->
 
 <div class="contact-list">
+  <!-- 🔍 Search -->
   <input
     type="text"
     placeholder="🔍 Search contacts..."
@@ -29,6 +30,20 @@
       <div class="contact-row">
         <div class="contact-info">
           <span class="name">{{ c.contactName || 'Unknown' }}</span>
+
+          <!-- ✅ Status badge -->
+          <span
+            *ngIf="c.registered"
+            class="badge badge-registered"
+          >
+            ✔ On SmartChat
+          </span>
+          <span
+            *ngIf="!c.registered && c.canInvite"
+            class="badge badge-invite"
+          >
+            ✉ Invite
+          </span>
         </div>
 
         <div class="contact-actions">
@@ -41,12 +56,18 @@
             <span [ngClass]="{ expanded: isExpanded(c) }">▼</span>
           </button>
 
-          <!-- Chat button only if registered -->
-          <button *ngIf="c.registered" class="btn btn-primary">Chat</button>
-
-          <!-- Invite button only if invite allowed -->
+          <!-- Chat button (only if registered) -->
           <button
-            *ngIf="c.canInvite"
+            *ngIf="c.registered"
+            class="btn btn-primary"
+            (click)="openChat(c)"
+          >
+            Chat
+          </button>
+
+          <!-- Invite button (only if invitable) -->
+          <button
+            *ngIf="c.canInvite && !c.registered"
             class="btn btn-secondary"
             (click)="openInvitePopup(c, $event)"
           >
@@ -57,20 +78,26 @@
 
       <!-- Expandable details -->
       <div class="contact-details" *ngIf="isExpanded(c)">
-        <ng-container *ngFor="let p of c.phones">
+        <!-- Phones -->
+        <div *ngFor="let p of c.phones" class="phone-entry">
           <small [class.registered-phone]="p.registered">
-            <span class="label phone-{{ p.label || 'other' }}">{{ p.label }}:</span>
+            <span class="label phone-{{ p.label || 'other' }}">
+              {{ p.label || 'phone' }}:
+            </span>
             {{ p.value }}
             <span *ngIf="p.registered" class="registered-icon">✔</span>
           </small>
-        </ng-container>
+        </div>
 
-        <ng-container *ngFor="let e of c.emails">
+        <!-- Emails -->
+        <div *ngFor="let e of c.emails" class="email-entry">
           <small>
-            <span class="label email-{{ e.label || 'other' }}">{{ e.label }}:</span>
+            <span class="label email-{{ e.label || 'other' }}">
+              {{ e.label || 'email' }}:
+            </span>
             {{ e.value }}
           </small>
-        </ng-container>
+        </div>
       </div>
     </li>
   </ul>

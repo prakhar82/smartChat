@@ -127,6 +127,10 @@ google:
   people:
     personFields: names,phoneNumbers,emailAddresses
     pageSize: 1000
+  oauth:
+    client-id: ${GOOGLE_CLIENT_ID}
+    client-secret: ${GOOGLE_CLIENT_SECRET}
+    redirect-uri: http://localhost:8080/api/oauth/callback
 
 contacts:
   fallbackRegions: ${CONTACT_FALLBACK_REGIONS:US,IN,GB}

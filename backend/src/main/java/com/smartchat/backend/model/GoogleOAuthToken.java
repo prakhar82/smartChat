@@ -9,45 +9,44 @@
 package com.smartchat.backend.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.Instant;
 
 @Entity
-@Table(name = "google_oauth_tokens", indexes = {
-        @Index(name = "idx_owner", columnList = "owner_user_id")
-})
-@Data
+@Table(name = "google_oauth_tokens")
+@Getter
+@Setter
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 public class GoogleOAuthToken {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "owner_user_id", nullable = false, unique = true)
+    @Column(name = "owner_user_id", nullable = false)
     private Long ownerUserId;
 
-    @Column(name = "access_token", length = 2048)
+    @Column(name = "access_token", columnDefinition = "TEXT")
     private String accessToken;
 
-    @Column(name = "refresh_token", length = 2048)
+    @Column(name = "refresh_token", columnDefinition = "TEXT")
     private String refreshToken;
 
     @Column(name = "token_type")
     private String tokenType;
 
-    @Column(name = "expires_at") // epoch seconds when access token expires
-    private Long expiresAt;
-
     @Column(name = "scope")
     private String scope;
 
+    @Column(name = "expires_at")
+    private Instant expiresAt;
+
     @Column(name = "created_at")
-    private Instant createdAt = Instant.now();
+    private Instant createdAt;
 
     @Column(name = "updated_at")
-    private Instant updatedAt = Instant.now();
+    private Instant updatedAt;
 }
-

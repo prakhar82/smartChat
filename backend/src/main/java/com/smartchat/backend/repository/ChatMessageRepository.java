@@ -6,10 +6,6 @@
  * Author: $USER_NAME
  */
 
-/*TODO: For speed on large tables
-         CREATE INDEX idx_sender_receiver ON chat_messages(sender_id, receiver_id);
-         CREATE INDEX idx_timestamp ON chat_messages(timestamp); */
-
 package com.smartchat.backend.repository;
 
 import com.smartchat.backend.model.ChatMessage;
@@ -23,20 +19,37 @@ import java.util.List;
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
 
     @Query("""
-                SELECT cm
-                FROM ChatMessage cm
-                WHERE cm.senderId = :userId OR cm.receiverId = :userId
-                ORDER BY cm.timestamp DESC
+            SELECT cm
+            FROM ChatMessage cm
+            WHERE cm.senderId = :userId OR cm.receiverId = :userId
+            ORDER BY cm.timestamp DESC
             """)
     List<ChatMessage> findLatestMessagesByUser(@Param("userId") Long userId);
 
-    List<ChatMessage> findBySenderIdAndReceiverIdOrderByTimestampDesc(
-            Long senderId, Long receiverId, Pageable pageable
+    @Query("""
+            SELECT cm
+            FROM ChatMessage cm
+            WHERE cm.senderId = :senderId AND cm.receiverId = :receiverId
+            ORDER BY cm.timestamp DESC
+            """)
+    List<ChatMessage> findBySenderAndReceiver(
+            @Param("senderId") Long senderId,
+            @Param("receiverId") Long receiverId,
+            Pageable pageable
     );
 
-    List<ChatMessage> findBySenderIdAndReceiverIdOrSenderIdAndReceiverIdOrderByTimestampDesc(
-            Long sender1, Long receiver1,
-            Long sender2, Long receiver2,
+    @Query("""
+            SELECT cm
+            FROM ChatMessage cm
+            WHERE (cm.senderId = :sender1 AND cm.receiverId = :receiver1)
+               OR (cm.senderId = :sender2 AND cm.receiverId = :receiver2)
+            ORDER BY cm.timestamp DESC
+            """)
+    List<ChatMessage> findConversationMessages(
+            @Param("sender1") Long sender1,
+            @Param("receiver1") Long receiver1,
+            @Param("sender2") Long sender2,
+            @Param("receiver2") Long receiver2,
             Pageable pageable
     );
 }

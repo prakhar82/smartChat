@@ -17,15 +17,10 @@ import org.springframework.stereotype.Controller;
 @Controller
 @RequiredArgsConstructor
 public class ChatWebSocketController {
-
     private final SimpMessagingTemplate messagingTemplate;
 
-    /**
-     * Handle incoming WebSocket messages from Angular
-     */
     @MessageMapping("/chat.send")
     public void processMessage(ChatMessage message) {
-        // Send to the recipient’s private queue
         messagingTemplate.convertAndSendToUser(
                 String.valueOf(message.getReceiverId()),
                 "/queue/messages",
@@ -33,4 +28,3 @@ public class ChatWebSocketController {
         );
     }
 }
-

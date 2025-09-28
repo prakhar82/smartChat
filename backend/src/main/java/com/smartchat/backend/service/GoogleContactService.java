@@ -10,14 +10,16 @@ package com.smartchat.backend.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smartchat.backend.dto.ContactSyncRequest;
+import com.smartchat.backend.model.Contact;
 import com.smartchat.backend.model.User;
-import com.smartchat.backend.model.UserContact;
-import com.smartchat.backend.repository.UserContactRepository;
+import com.smartchat.backend.repository.ContactRepository;
 import com.smartchat.backend.repository.UserRepository;
+import com.smartchat.backend.util.ContactUtil;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,19 +27,18 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GoogleContactService {
 
     private final WebClient webClient = WebClient.builder().build();
     private final ObjectMapper mapper = new ObjectMapper();
-    private final PhoneNumberService phoneNumberService;
     private final UserRepository userRepository;
-    private final UserContactRepository userContactRepository;
-    private final MongoTemplate mongoTemplate;
+    private final ContactRepository contactRepository;
     private final GoogleOAuthService oauthService;
     private final ContactService contactService;
     private final RedisTemplate<String, Object> redisTemplate;
@@ -68,9 +69,13 @@ public class GoogleContactService {
 
     @Transactional
     public void fetchAndSync(Long ownerUserId, String accessToken) {
+        log.info("[GoogleContactService] 🚀 Starting Google sync for userId={}", ownerUserId);
+
         validateGoogleToken(accessToken);
 
         List<GoogleContactDto> contacts = fetchFromGoogleApi(accessToken);
+        log.info("[GoogleContactService] 📥 Google API returned {} contacts for userId={}", contacts.size(), ownerUserId);
+
         saveContactsToDb(ownerUserId, contacts);
 
         try {
@@ -79,10 +84,13 @@ public class GoogleContactService {
                     mapper.writeValueAsString(contacts),
                     Duration.ofMinutes(cacheTtlMinutes)
             );
-        } catch (Exception ignored) {
+            log.info("[GoogleContactService] 💾 Cached {} contacts in Redis for userId={}", contacts.size(), ownerUserId);
+        } catch (Exception e) {
+            log.warn("[GoogleContactService] ⚠️ Failed to cache Google contacts in Redis for userId={}: {}", ownerUserId, e.getMessage());
         }
 
         oauthService.saveAccessToken(ownerUserId, accessToken);
+        log.info("[GoogleContactService] ✅ Google sync complete for userId={}", ownerUserId);
     }
 
     private void validateGoogleToken(String accessToken) {
@@ -104,7 +112,9 @@ public class GoogleContactService {
                     throw new RuntimeException("Google token audience mismatch");
                 }
             }
+            log.debug("[GoogleContactService] 🔑 Google token validated successfully");
         } catch (Exception ex) {
+            log.error("[GoogleContactService] ❌ Google token validation failed: {}", ex.getMessage());
             throw new RuntimeException("Google token validation failed", ex);
         }
     }
@@ -138,20 +148,22 @@ public class GoogleContactService {
                             dto.setName(conn.get("names").get(0).get("displayName").asText(null));
                         }
 
-                        if (conn.has("phoneNumbers") && conn.get("phoneNumbers").isArray()) {
+                        if (conn.has("phoneNumbers")) {
                             for (JsonNode phone : conn.get("phoneNumbers")) {
-                                if (phone.has("value")) {
+                                String raw = phone.path("value").asText(null);
+                                if (raw != null) {
                                     String type = phone.has("type") ? phone.get("type").asText("mobile") : "mobile";
-                                    dto.getPhoneNumbers().add(type + ":" + phone.get("value").asText());
+                                    dto.getPhoneNumbers().add(type + ":" + raw);
                                 }
                             }
                         }
 
-                        if (conn.has("emailAddresses") && conn.get("emailAddresses").isArray()) {
+                        if (conn.has("emailAddresses")) {
                             for (JsonNode email : conn.get("emailAddresses")) {
-                                if (email.has("value")) {
+                                String raw = email.path("value").asText(null);
+                                if (raw != null) {
                                     String type = email.has("type") ? email.get("type").asText("home") : "home";
-                                    dto.getEmails().add(type + ":" + email.get("value").asText());
+                                    dto.getEmails().add(type + ":" + raw);
                                 }
                             }
                         }
@@ -161,6 +173,7 @@ public class GoogleContactService {
                 }
                 nextPageToken = root.has("nextPageToken") ? root.get("nextPageToken").asText(null) : null;
             } catch (Exception e) {
+                log.error("[GoogleContactService] ❌ Failed to parse People API response: {}", e.getMessage());
                 throw new RuntimeException("Failed to parse People API response", e);
             }
         } while (nextPageToken != null);
@@ -169,40 +182,51 @@ public class GoogleContactService {
     }
 
     private void saveContactsToDb(Long ownerUserId, List<GoogleContactDto> contacts) {
-        Optional<User> ownerOpt = userRepository.findById(ownerUserId);
-        if (ownerOpt.isEmpty() || ownerOpt.get().getMobileNormalized() == null) {
-            throw new IllegalStateException("Owner user must have a normalized mobile number before syncing contacts");
-        }
-        String ownerMobileE164 = ownerOpt.get().getMobileNormalized();
+        List<User> allUsers = userRepository.findAll();
 
-        Map<String, UserContact> toUpsert = new LinkedHashMap<>();
+        Map<String, Contact> toUpsert = new LinkedHashMap<>();
+        int skipped = 0;
+        int saved = 0;
+        AtomicInteger matched = new AtomicInteger();
 
         for (GoogleContactDto dto : contacts) {
             String name = dto.getName();
 
+            // Phones
             for (String rawPhone : dto.getPhoneNumbers()) {
                 String[] parts = rawPhone.split(":", 2);
                 String label = parts[0];
                 String number = parts.length > 1 ? parts[1] : rawPhone;
 
-                String normalized = phoneNumberService.normalizeToE164(number, ownerMobileE164);
+                String normalized = ContactUtil.normalizePhone(number);
                 if (normalized != null) {
                     String key = "phone:" + normalized;
-                    UserContact uc = toUpsert.computeIfAbsent(key, k -> {
-                        UserContact newUc = new UserContact();
-                        newUc.setOwnerUserId(ownerUserId);
-                        newUc.setPhoneNormalized(normalized);
-                        newUc.setPhoneRaw(number);
-                        newUc.setLabel(label);
-                        newUc.setSource("google");
-                        newUc.setCreatedAt(Instant.now());
-                        return newUc;
+                    if (toUpsert.containsKey(key)) {
+                        skipped++;
+                        continue;
+                    }
+                    Contact contact = new Contact();
+                    contact.setOwnerUserId(ownerUserId);
+                    contact.setContactName(name);
+                    contact.setPhones(List.of(new ContactSyncRequest.PhoneEntry(label, normalized, false)));
+                    contact.setEmails(new ArrayList<>());
+                    contact.setSmartChatUserId(null);
+
+                    // Enrich if registered
+                    Optional<User> match = ContactUtil.matchPhoneToUser(normalized, allUsers);
+                    match.ifPresent(user -> {
+                        contact.setSmartChatUserId(user.getId());
+                        if (user.getEmail() != null) {
+                            contact.getEmails().add(new ContactSyncRequest.EmailEntry("account", user.getEmail()));
+                        }
+                        matched.getAndIncrement();
                     });
-                    uc.setContactName(name != null ? name : uc.getContactName());
-                    uc.setUpdatedAt(Instant.now());
+
+                    toUpsert.put(key, contact);
                 }
             }
 
+            // Emails
             for (String rawEmail : dto.getEmails()) {
                 String[] parts = rawEmail.split(":", 2);
                 String label = parts[0];
@@ -211,48 +235,43 @@ public class GoogleContactService {
                 if (email != null && !email.isBlank()) {
                     String normalizedEmail = email.trim().toLowerCase();
                     String key = "email:" + normalizedEmail;
-                    UserContact uc = toUpsert.computeIfAbsent(key, k -> {
-                        UserContact newUc = new UserContact();
-                        newUc.setOwnerUserId(ownerUserId);
-                        newUc.setEmail(normalizedEmail);
-                        newUc.setLabel(label);
-                        newUc.setSource("google");
-                        newUc.setCreatedAt(Instant.now());
-                        return newUc;
+                    if (toUpsert.containsKey(key)) {
+                        skipped++;
+                        continue;
+                    }
+                    Contact contact = new Contact();
+                    contact.setOwnerUserId(ownerUserId);
+                    contact.setContactName(name);
+                    contact.setEmails(List.of(new ContactSyncRequest.EmailEntry(label, normalizedEmail)));
+                    contact.setPhones(new ArrayList<>());
+                    contact.setSmartChatUserId(null);
+
+                    // Enrich if registered
+                    Optional<User> match = allUsers.stream()
+                            .filter(u -> u.getEmail() != null && u.getEmail().equalsIgnoreCase(normalizedEmail))
+                            .findFirst();
+                    match.ifPresent(user -> {
+                        contact.setSmartChatUserId(user.getId());
+                        matched.getAndIncrement();
                     });
-                    uc.setContactName(name != null ? name : uc.getContactName());
-                    uc.setUpdatedAt(Instant.now());
+
+                    toUpsert.put(key, contact);
                 }
             }
         }
 
         if (!toUpsert.isEmpty()) {
-            List<UserContact> finalList = new ArrayList<>();
-            for (UserContact uc : toUpsert.values()) {
-                Optional<UserContact> existingOpt = Optional.empty();
-
-                if (uc.getPhoneNormalized() != null) {
-                    existingOpt = userContactRepository.findByOwnerUserIdAndPhoneNormalized(ownerUserId, uc.getPhoneNormalized());
-                } else if (uc.getEmail() != null) {
-                    existingOpt = userContactRepository.findByOwnerUserIdAndEmailIgnoreCase(ownerUserId, uc.getEmail());
-                }
-
-                if (existingOpt.isPresent()) {
-                    UserContact existing = existingOpt.get();
-                    existing.setContactName(uc.getContactName());
-                    existing.setLabel(uc.getLabel());
-                    existing.setUpdatedAt(Instant.now());
-                    finalList.add(existing);
-                } else {
-                    finalList.add(uc);
-                }
-            }
-            userContactRepository.saveAll(finalList);
+            contactRepository.saveAll(toUpsert.values());
+            saved = toUpsert.size();
         }
+
+        log.info("[GoogleContactService] 📊 Sync summary for userId={}: fetched={}, skipped={}, saved={}, matched={}",
+                ownerUserId, contacts.size(), skipped, saved, matched);
 
         try {
             contactService.evictMatchedCache(ownerUserId);
         } catch (Exception ignored) {
+            log.warn("[GoogleContactService] ⚠️ Failed to evict cache after saving contacts for userId={}", ownerUserId);
         }
     }
 }

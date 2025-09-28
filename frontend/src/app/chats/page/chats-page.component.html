@@ -21,6 +21,21 @@
       </div>
     </header>
 
+    <!-- 🔌 Connection status banner -->
+    <div
+      class="connection-status"
+      [ngClass]="{ connected: isConnected, disconnected: !isConnected }"
+    >
+      <ng-container *ngIf="isConnected; else disconnectedTpl">
+        🟢 Connected
+      </ng-container>
+
+      <ng-template #disconnectedTpl>
+        🔴 Disconnected
+        <button class="reconnect-btn" (click)="reconnect()">🔄 Reconnect</button>
+      </ng-template>
+    </div>
+
     <!-- Contacts area -->
     <nav class="contacts-area">
       <router-outlet></router-outlet>

@@ -145,6 +145,25 @@
   background: #1976d2;
 }
 
+.badge {
+  margin-left: 8px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badge-registered {
+  background-color: #d4f4dd;
+  color: #1a7f37;
+}
+
+.badge-invite {
+  background-color: #e6f0ff;
+  color: #1d4ed8;
+}
+
+
 /* Responsive */
 @media (max-width: 600px) {
   .contact-row {

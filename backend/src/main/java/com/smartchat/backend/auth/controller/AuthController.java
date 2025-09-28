@@ -8,8 +8,8 @@
 
 package com.smartchat.backend.auth.controller;
 
-
 import com.smartchat.backend.auth.AuthService;
+import com.smartchat.backend.auth.JwtUtil;
 import com.smartchat.backend.auth.dto.AuthRequest;
 import com.smartchat.backend.auth.dto.AuthResponse;
 import com.smartchat.backend.auth.dto.RefreshRequest;
@@ -18,54 +18,62 @@ import com.smartchat.backend.repository.UserRepository;
 import com.smartchat.backend.service.GoogleContactService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+@Slf4j
 public class AuthController {
 
     private final AuthService authService;
-    private final UserRepository userRepo;  // ✅ Inject repository here
+    private final UserRepository userRepo;
     private final GoogleContactService googleContactService;
-
-    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
+    private final JwtUtil jwtUtil;
 
     // =========================
     // Register Endpoint
     // =========================
-
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
-        log.info("Incoming request: {}", request);
+        log.info("[AuthController] Incoming registration request for email={} mobile={}",
+                request.getEmail(), request.getMobileNumber());
+
         if (!request.getPassword().equals(request.getConfirmPassword())) {
-            log.warn("❌ Passwords do not match for email: {}", request.getEmail());
+            log.warn("[AuthController] ❌ Passwords do not match for mobile={}", request.getMobileNumber());
             return ResponseEntity.badRequest().body(
                     new AuthResponse(null, null, null, "Passwords do not match")
             );
         }
 
         AuthResponse response = authService.register(request);
-        log.info("✅ Successfully registered user ID: {}", response.getUserId());
-        // Sync Google contacts if provided
+        log.info("[AuthController] ✅ Registered userId={} mobile={}", response.getUserId(), request.getMobileNumber());
+
+        // Optionally sync Google contacts if token is provided
         if (request.getGoogleToken() != null && !request.getGoogleToken().isBlank()) {
-            Long userId = response.getUserId();
-            googleContactService.fetchAndSync(userId, request.getGoogleToken());
+            try {
+                log.info("[AuthController] Syncing Google contacts for userId={}", response.getUserId());
+                googleContactService.fetchAndSync(response.getUserId(), request.getGoogleToken());
+            } catch (Exception e) {
+                log.error("[AuthController] Failed to sync Google contacts for userId={}", response.getUserId(), e);
+            }
         }
 
         return ResponseEntity.ok(response);
     }
-
 
     // =========================
     // Login Endpoint
     // =========================
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody AuthRequest request) {
+        log.info("[AuthController] Login attempt for mobile={}", request.getMobileNumber());
         AuthResponse authResponse = authService.login(request.getMobileNumber(), request.getPassword());
+        log.info("[AuthController] ✅ Login successful for userId={}", authResponse.getUserId());
         return ResponseEntity.ok(authResponse);
     }
 
@@ -73,38 +81,33 @@ public class AuthController {
     // Refresh Token Endpoint
     // =========================
     @PostMapping("/refresh")
-    public ResponseEntity<AuthResponse> refreshToken(@Valid @RequestBody RefreshRequest request) throws RuntimeException {
+    public ResponseEntity<AuthResponse> refreshToken(@Valid @RequestBody RefreshRequest request) {
+        log.debug("[AuthController] Refreshing token...");
         AuthResponse authResponse = authService.refreshToken(request.getRefreshToken());
+        log.info("[AuthController] ✅ Token refreshed for userId={}", authResponse.getUserId());
         return ResponseEntity.ok(authResponse);
     }
 
-    /**
-     * Return current authenticated user details.
-     * The client can call this after login to refresh user profile.
-     * Expects Authorization: Bearer &lt;token&gt;
-     */
     @GetMapping("/me")
-    public ResponseEntity<com.smartchat.backend.model.User> me(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+    public ResponseEntity<?> me(
+            @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return ResponseEntity.status(401).build();
+            return ResponseEntity.status(401).body(Map.of("error", "Missing or invalid token"));
         }
-        String token = authHeader.replace("Bearer ", "");
-        // NOTE: rely on existing JWT service to extract subject (mobile number) if you have one.
-        // Fallback: if token contains "sub" in payload, try to decode
+
+        String token = authHeader.substring(7);
         try {
-            String[] parts = token.split("\\\\.");
-            if (parts.length < 2) return ResponseEntity.status(401).build();
-            String payload = new String(java.util.Base64.getUrlDecoder().decode(parts[1]));
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            com.fasterxml.jackson.databind.JsonNode node = mapper.readTree(payload);
-            String mobile = node.has("sub") ? node.get("sub").asText() : null;
-            if (mobile == null) return ResponseEntity.status(401).build();
-            return userRepo.findByMobileNumber(mobile)
-                    .map(ResponseEntity::ok)
+            String username = jwtUtil.extractUsername(token);
+
+            return userRepo.findByMobileNumber(username)
+                    .map(ResponseEntity::ok)  // ✅ return User entity directly
                     .orElse(ResponseEntity.notFound().build());
+
         } catch (Exception e) {
-            return ResponseEntity.status(401).build();
+            return ResponseEntity.status(401).body(Map.of("error", "Invalid token"));
         }
     }
+
 
 }

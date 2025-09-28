@@ -8,10 +8,10 @@
 
 package com.smartchat.backend.auth.service;
 
-
 import com.smartchat.backend.model.User;
 import com.smartchat.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -23,16 +23,26 @@ import java.util.Collections;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CustomUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;
 
     @Override
     public UserDetails loadUserByUsername(String mobileNumber) throws UsernameNotFoundException {
-        User user = (User) userRepository.findByMobileNumber(mobileNumber)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        log.debug("[CustomUserDetailsService] Loading user by mobileNumber={}", mobileNumber);
 
-        GrantedAuthority authority = new SimpleGrantedAuthority(user.getRole() != null ? user.getRole() : "ROLE_USER");
+        User user = userRepository.findByMobileNumber(mobileNumber)
+                .orElseThrow(() -> {
+                    log.error("[CustomUserDetailsService] User not found for mobileNumber={}", mobileNumber);
+                    return new UsernameNotFoundException("User not found");
+                });
+
+        GrantedAuthority authority = new SimpleGrantedAuthority(
+                user.getRole() != null ? user.getRole() : "ROLE_USER"
+        );
+
+        log.info("[CustomUserDetailsService] Loaded userId={} with role={}", user.getId(), authority.getAuthority());
 
         return new org.springframework.security.core.userdetails.User(
                 user.getMobileNumber(),
@@ -41,4 +51,3 @@ public class CustomUserDetailsService implements UserDetailsService {
         );
     }
 }
-

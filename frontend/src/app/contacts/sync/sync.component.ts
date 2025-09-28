@@ -57,17 +57,32 @@ export class SyncContactsComponent implements OnInit {
         projection: {
           name: true,
           phones: true,
+          emails: true,
         },
       };
 
       const result = await Contacts.getContacts(options);
 
       const contacts: ContactPayload[] =
-        result.contacts.map((c) => ({
-          contactName: c.name?.display ?? 'Unknown',
-          phoneRaw: c.phones?.[0]?.number ?? '',
-          phoneNormalized: (c.phones?.[0]?.number ?? '').replace(/\D/g, ''), // keep digits only
-        })) ?? [];
+        result.contacts.map((c) => {
+          const phones =
+            c.phones?.map((p) => ({
+              label: 'mobile',
+              value: (p.number ?? '').replace(/\D/g, ''), // keep digits only
+            })) ?? [];
+
+          const emails =
+            c.emails?.map((e) => ({
+              label: 'home',
+              value: e.address ?? '',
+            })) ?? [];
+
+          return {
+            contactName: c.name?.display ?? 'Unknown',
+            phones,
+            emails,
+          };
+        }) ?? [];
 
       await firstValueFrom(
         this.contactService.syncContacts(this.userId!, contacts)
@@ -120,32 +135,32 @@ export class SyncContactsComponent implements OnInit {
     }
   }
 
-
-  /** Skip syncing → go to chats and open Google popup if no contacts */
+  /** ⏭️ Skip syncing → go to chats and open Google popup if no contacts */
   async skipSync() {
-    this.router.navigate(['/chats'], {queryParams: {showGooglePopup: 'true'}}).then(async () => {
-      try {
-        const contacts = await firstValueFrom(
-          this.contactService.getMatchedContacts(true).pipe(
-            catchError((err) => {
-              console.error('❌ Failed to load contacts after skip', err);
-              return of([]);
-            })
-          )
-        );
+    this.router
+      .navigate(['/chats'], {queryParams: {showGooglePopup: 'true'}})
+      .then(async () => {
+        try {
+          const contacts = await firstValueFrom(
+            this.contactService.getMatchedContacts(true).pipe(
+              catchError((err) => {
+                console.error('❌ Failed to load contacts after skip', err);
+                return of([]);
+              })
+            )
+          );
 
-        // If contacts exist → notify components & remove popup flag
-        if (contacts && contacts.length > 0) {
-          this.contactService.notifyContactsUpdated();
-          this.router.navigate([], {
-            queryParams: {showGooglePopup: null},
-            queryParamsHandling: 'merge',
-          });
+          // If contacts exist → notify components & remove popup flag
+          if (contacts && contacts.length > 0) {
+            this.contactService.notifyContactsUpdated();
+            this.router.navigate([], {
+              queryParams: {showGooglePopup: null},
+              queryParamsHandling: 'merge',
+            });
+          }
+        } catch (err) {
+          console.error('❌ Silent reload after skip failed', err);
         }
-      } catch (err) {
-        console.error('❌ Silent reload after skip failed', err);
-      }
-    });
+      });
   }
-
 }

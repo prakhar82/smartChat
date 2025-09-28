@@ -8,70 +8,75 @@
 
 package com.smartchat.backend.service;
 
-import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
-import org.springframework.web.reactive.function.client.WebClient;
-import org.apache.commons.codec.binary.Base64;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
-import javax.mail.Session;
-import javax.mail.internet.InternetAddress;
-import javax.mail.internet.MimeMessage;
-import java.io.ByteArrayOutputStream;
-import java.util.Properties;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.Map;
 
-/**
- * GmailService - sends email using a user's Google OAuth access token.
- */
+@Slf4j
 @Service
 public class GmailService {
 
-    private final WebClient webClient = WebClient.builder().build();
+    private final RestTemplate restTemplate = new RestTemplate();
 
     /**
-     * Send an email as the authenticated user using Gmail API.
+     * Send an email using Gmail API.
      *
-     * @param ownerAccessToken OAuth2 access token for the owner (inviter)
-     * @param fromEmail sender email (the inviter)
-     * @param toEmail recipient email
-     * @param subject subject
-     * @param body plain text body
-     * @return true if sent
+     * @param accessToken Google OAuth access token (Bearer)
+     * @param from        sender email (usually "me")
+     * @param to          recipient email
+     * @param subject     subject line
+     * @param body        plain text body
+     * @return true if successfully sent
      */
-    public boolean sendEmail(String ownerAccessToken, String fromEmail, String toEmail, String subject, String body) {
+    public boolean sendEmail(String accessToken, String from, String to, String subject, String body) {
         try {
-            // Build MIME message
-            Properties props = new Properties();
-            Session session = Session.getDefaultInstance(props, null);
-            MimeMessage email = new MimeMessage(session);
-            email.setFrom(new InternetAddress(fromEmail));
-            email.addRecipient(javax.mail.Message.RecipientType.TO, new InternetAddress(toEmail));
-            email.setSubject(subject);
-            email.setText(body);
+            log.info("[GmailService] Preparing email → to={}, subject={}", to, subject);
 
-            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-            email.writeTo(buffer);
-            byte[] rawMessageBytes = buffer.toByteArray();
-            String encodedEmail = Base64.encodeBase64URLSafeString(rawMessageBytes);
+            // Build RFC 822 raw message
+            String rawMessage = "From: " + from + "\r\n" +
+                    "To: " + to + "\r\n" +
+                    "Subject: " + subject + "\r\n\r\n" +
+                    body;
 
-            String payload = "{\"raw\":\"" + encodedEmail + "\"}";
+            // Base64URL encode (Gmail requires URL-safe Base64, no padding)
+            String base64UrlEncoded = Base64.getUrlEncoder()
+                    .withoutPadding()
+                    .encodeToString(rawMessage.getBytes(StandardCharsets.UTF_8));
 
-            // Call Gmail API
-            var resp = webClient.post()
-                    .uri("https://gmail.googleapis.com/gmail/v1/users/me/messages/send")
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerAccessToken)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(payload)
-                    .retrieve()
-                    .toBodilessEntity()
-                    .block();
+            // Request body
+            Map<String, String> message = Map.of("raw", base64UrlEncoded);
 
-            if (resp != null && resp.getStatusCode().is2xxSuccessful()) {
-                return true;
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(accessToken);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<Map<String, String>> entity = new HttpEntity<>(message, headers);
+
+            log.debug("[GmailService] Sending POST to Gmail API for recipient {}", to);
+            ResponseEntity<String> response = restTemplate.exchange(
+                    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+                    HttpMethod.POST,
+                    entity,
+                    String.class
+            );
+
+            boolean success = response.getStatusCode().is2xxSuccessful();
+            if (success) {
+                log.info("[GmailService] ✅ Email successfully sent to {}", to);
             } else {
-                return false;
+                log.error("[GmailService] ❌ Failed to send email to {} → Status: {}, Body: {}",
+                        to, response.getStatusCode(), response.getBody());
             }
-        } catch (Exception ex) {
-            System.err.println("[GmailService] sendEmail failed: " + ex.getMessage());
+
+            return success;
+
+        } catch (Exception e) {
+            log.error("[GmailService] ❌ Exception while sending email to {}: {}", to, e.getMessage(), e);
             return false;
         }
     }

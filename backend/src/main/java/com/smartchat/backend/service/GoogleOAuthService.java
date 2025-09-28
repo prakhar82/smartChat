@@ -8,19 +8,16 @@
 
 package com.smartchat.backend.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.smartchat.backend.model.GoogleOAuthToken;
 import com.smartchat.backend.repository.GoogleOAuthTokenRepository;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.reactive.function.BodyInserters;
-import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
 import java.util.Map;
@@ -28,139 +25,168 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class GoogleOAuthService {
 
-    private final WebClient webClient = WebClient.builder().build();
-    private final ObjectMapper mapper = new ObjectMapper();
-    private final GoogleOAuthTokenRepository tokenRepository;
+    private final GoogleOAuthTokenRepository tokenRepo;
+    private final RestTemplate restTemplate = new RestTemplate();
 
-    @Value("${google.client.id:}")
+    @Value("${google.oauth.client-id}")
     private String clientId;
 
-    @Value("${google.client.secret:}")
+    @Value("${google.oauth.client-secret}")
     private String clientSecret;
 
-    @Value("${google.oauth.redirectUri:}")
+    @Value("${google.oauth.redirect-uri}")
     private String redirectUri;
 
-    private static final String TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
-
-    private MultiValueMap<String, String> toFormData(Map<String, String> map) {
-        MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
-        map.forEach(formData::add);
-        return formData;
-    }
-
     /**
-     * ✅ Save latest Google access token so we can later refresh or use for invite
+     * Returns a valid access token for the given user.
+     * Refreshes the token if expired.
      */
-    @Transactional
-    public void saveAccessToken(Long ownerUserId, String accessToken) {
-        GoogleOAuthToken token = tokenRepository.findByOwnerUserId(ownerUserId)
-                .orElseGet(GoogleOAuthToken::new);
-
-        token.setOwnerUserId(ownerUserId);
-        token.setAccessToken(accessToken);
-        // We don’t know exact expiry here, so set a short default TTL (~1h)
-        token.setExpiresAt(Instant.now().getEpochSecond() + 3600);
-        token.setUpdatedAt(Instant.now());
-
-        tokenRepository.save(token);
-    }
-
-    @Transactional
-    public void exchangeCodeForTokens(Long ownerUserId, String code) {
-        try {
-            var formData = toFormData(Map.of(
-                    "code", code,
-                    "client_id", clientId,
-                    "client_secret", clientSecret,
-                    "redirect_uri", redirectUri,
-                    "grant_type", "authorization_code"
-            ));
-
-            String resp = webClient.post()
-                    .uri(TOKEN_ENDPOINT)
-                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body(BodyInserters.fromFormData(formData))
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block();
-
-            JsonNode node = mapper.readTree(resp);
-            String accessToken = node.path("access_token").asText(null);
-            String refreshToken = node.path("refresh_token").asText(null);
-            String tokenType = node.path("token_type").asText(null);
-            long expiresIn = node.path("expires_in").asLong(0);
-            long expiresAt = expiresIn > 0 ? Instant.now().getEpochSecond() + expiresIn : 0;
-            String scope = node.path("scope").asText(null);
-
-            GoogleOAuthToken t = tokenRepository.findByOwnerUserId(ownerUserId)
-                    .orElseGet(GoogleOAuthToken::new);
-
-            t.setOwnerUserId(ownerUserId);
-            t.setAccessToken(accessToken);
-            if (refreshToken != null && !refreshToken.isBlank()) {
-                t.setRefreshToken(refreshToken);
-            }
-            t.setTokenType(tokenType);
-            t.setExpiresAt(expiresAt);
-            t.setScope(scope);
-            t.setUpdatedAt(Instant.now());
-
-            tokenRepository.save(t);
-        } catch (Exception ex) {
-            throw new RuntimeException("Failed to exchange code for tokens", ex);
-        }
-    }
-
-    /**
-     * ✅ Return a valid Google access token for invites
-     */
-    public String getValidAccessToken(Long ownerUserId) {
-        Optional<GoogleOAuthToken> opt = tokenRepository.findByOwnerUserId(ownerUserId);
-        if (opt.isEmpty()) return null;
-        GoogleOAuthToken t = opt.get();
-        long now = Instant.now().getEpochSecond();
-
-        if (t.getAccessToken() != null && t.getExpiresAt() != null && t.getExpiresAt() > now + 30) {
-            return t.getAccessToken();
-        }
-
-        // Try refresh
-        if (t.getRefreshToken() == null) return t.getAccessToken();
-        try {
-            var formData = toFormData(Map.of(
-                    "client_id", clientId,
-                    "client_secret", clientSecret,
-                    "refresh_token", t.getRefreshToken(),
-                    "grant_type", "refresh_token"
-            ));
-
-            String resp = webClient.post()
-                    .uri(TOKEN_ENDPOINT)
-                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body(BodyInserters.fromFormData(formData))
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block();
-
-            JsonNode node = mapper.readTree(resp);
-            String accessToken = node.path("access_token").asText(null);
-            long expiresIn = node.path("expires_in").asLong(0);
-            long expiresAt = expiresIn > 0 ? Instant.now().getEpochSecond() + expiresIn : 0;
-
-            if (accessToken != null) {
-                t.setAccessToken(accessToken);
-                t.setExpiresAt(expiresAt);
-                t.setUpdatedAt(Instant.now());
-                tokenRepository.save(t);
-                return accessToken;
-            } else {
-                return null;
-            }
-        } catch (Exception ex) {
+    public String getValidAccessToken(Long userId) {
+        Optional<GoogleOAuthToken> optToken = tokenRepo.findByOwnerUserId(userId);
+        if (optToken.isEmpty()) {
+            log.warn("[GoogleOAuthService] ⚠ No Google OAuth token found for userId={}", userId);
             return null;
         }
+
+        GoogleOAuthToken token = optToken.get();
+
+        // ✅ Still valid
+        if (token.getExpiresAt() != null && token.getExpiresAt().isAfter(Instant.now().plusSeconds(60))) {
+            log.debug("[GoogleOAuthService] ✅ Using cached access token for userId={} (expires at {})",
+                    userId, token.getExpiresAt());
+            return token.getAccessToken();
+        }
+
+        // ❌ Need refresh
+        if (token.getRefreshToken() == null) {
+            log.error("[GoogleOAuthService] ❌ No refresh token stored for userId={}, cannot refresh", userId);
+            return null;
+        }
+
+        try {
+            log.info("[GoogleOAuthService] 🔄 Refreshing Google access token for userId={}", userId);
+
+            String url = "https://oauth2.googleapis.com/token";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            String body = "client_id=" + clientId +
+                    "&client_secret=" + clientSecret +
+                    "&grant_type=refresh_token" +
+                    "&refresh_token=" + token.getRefreshToken();
+
+            HttpEntity<String> request = new HttpEntity<>(body, headers);
+
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, request, Map.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map<String, Object> res = response.getBody();
+
+                String newAccessToken = (String) res.get("access_token");
+                int expiresIn = ((Number) res.get("expires_in")).intValue();
+
+                token.setAccessToken(newAccessToken);
+                token.setExpiresAt(Instant.now().plusSeconds(expiresIn));
+                token.setUpdatedAt(Instant.now());
+
+                tokenRepo.save(token);
+
+                log.info("[GoogleOAuthService] ✅ Successfully refreshed access token for userId={} (expires in {}s)",
+                        userId, expiresIn);
+                return newAccessToken;
+            } else {
+                log.error("[GoogleOAuthService] ❌ Failed to refresh token for userId={}, response={}",
+                        userId, response);
+            }
+        } catch (Exception e) {
+            log.error("[GoogleOAuthService] ❌ Exception while refreshing token for userId=" + userId, e);
+        }
+
+        return null;
+    }
+
+    public void saveAccessToken(Long ownerUserId, String accessToken) {
+        GoogleOAuthToken token = tokenRepo.findByOwnerUserId(ownerUserId)
+                .orElseGet(() -> GoogleOAuthToken.builder()
+                        .ownerUserId(ownerUserId)
+                        .createdAt(Instant.now())
+                        .build()
+                );
+
+        token.setAccessToken(accessToken);
+        token.setUpdatedAt(Instant.now());
+
+        // ⚡ Default expiry 1 hour if not provided
+        if (token.getExpiresAt() == null) {
+            token.setExpiresAt(Instant.now().plusSeconds(3600));
+        }
+
+        tokenRepo.save(token);
+        log.info("[GoogleOAuthService] 💾 Saved access token for userId={} (expires at {})",
+                ownerUserId, token.getExpiresAt());
+    }
+
+    public void exchangeCodeForTokens(Long ownerUserId, String code) {
+        String tokenUrl = "https://oauth2.googleapis.com/token";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+        String body = "code=" + code +
+                "&client_id=" + clientId +
+                "&client_secret=" + clientSecret +
+                "&redirect_uri=" + redirectUri +
+                "&grant_type=authorization_code";
+
+        HttpEntity<String> request = new HttpEntity<>(body, headers);
+
+        ResponseEntity<TokenResponse> response = restTemplate.exchange(
+                tokenUrl, HttpMethod.POST, request, TokenResponse.class
+        );
+
+        if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+            log.error("[GoogleOAuthService] ❌ Failed to exchange code for tokens (userId={}) response={}",
+                    ownerUserId, response);
+            throw new RuntimeException("Failed to exchange code for tokens");
+        }
+
+        TokenResponse tokenResponse = response.getBody();
+
+        GoogleOAuthToken token = tokenRepo.findByOwnerUserId(ownerUserId)
+                .orElseGet(() -> GoogleOAuthToken.builder()
+                        .ownerUserId(ownerUserId)
+                        .createdAt(Instant.now())
+                        .build());
+
+        token.setAccessToken(tokenResponse.getAccessToken());
+        token.setRefreshToken(tokenResponse.getRefreshToken()); // might be null if already granted
+        token.setTokenType(tokenResponse.getTokenType());
+        token.setScope(tokenResponse.getScope());
+        token.setUpdatedAt(Instant.now());
+        token.setExpiresAt(Instant.now().plusSeconds(tokenResponse.getExpiresIn()));
+
+        tokenRepo.save(token);
+
+        log.info("[GoogleOAuthService] 🔑 Stored new OAuth tokens for userId={} (expires in {}s, scope={})",
+                ownerUserId, tokenResponse.getExpiresIn(), tokenResponse.getScope());
+    }
+
+    @Data
+    static class TokenResponse {
+        @JsonProperty("access_token")
+        private String accessToken;
+
+        @JsonProperty("refresh_token")
+        private String refreshToken;
+
+        @JsonProperty("expires_in")
+        private long expiresIn;
+
+        @JsonProperty("token_type")
+        private String tokenType;
+
+        private String scope;
     }
 }
