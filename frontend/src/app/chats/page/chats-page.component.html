@@ -6,9 +6,10 @@
   ~ Author: $USER_NAME
   -->
 
-<div class="chats-grid">
-  <aside class="left-panel">
-    <!-- Left Header (green row, full width) -->
+<div class="chats-grid" [ngClass]="{ mobile: isMobile }">
+  <!-- 📱 Left side: Contact list -->
+  <aside class="left-panel" *ngIf="showContactsList">
+    <!-- Header -->
     <header class="app-header">
       <div class="header-left">
         <div class="app-title">SmartChat</div>
@@ -21,7 +22,7 @@
       </div>
     </header>
 
-    <!-- 🔌 Connection status banner -->
+    <!-- 🔌 Connection status -->
     <div
       class="connection-status"
       [ngClass]="{ connected: isConnected, disconnected: !isConnected }"
@@ -29,56 +30,54 @@
       <ng-container *ngIf="isConnected; else disconnectedTpl">
         🟢 Connected
       </ng-container>
-
       <ng-template #disconnectedTpl>
         🔴 Disconnected
         <button class="reconnect-btn" (click)="reconnect()">🔄 Reconnect</button>
       </ng-template>
     </div>
 
-    <!-- Contacts area -->
-    <nav class="contacts-area">
-      <router-outlet></router-outlet>
-    </nav>
+    <!-- Contact list -->
+    <app-contact-list></app-contact-list>
   </aside>
 
-  <main class="right-panel">
+  <!-- 💬 Right side: Chat window (desktop only) -->
+  <main class="right-panel" *ngIf="!isMobile && (activeChatId || !isMobile)">
     <router-outlet name="chat"></router-outlet>
 
-    <!-- Empty state -->
-    <div class="empty-state" *ngIf="contactsEmpty()">
+    <!-- Empty state (desktop only) -->
+    <div class="empty-state" *ngIf="!activeChatId && !isMobile">
       <h3>Welcome to SmartChat</h3>
       <p>Select a conversation or sync contacts to get started.</p>
     </div>
   </main>
 </div>
 
-<!-- Reusable modal -->
+<!-- 📱 Bottom mini-panel (mobile only, always visible) -->
+<div class="mini-panel" *ngIf="isMobile">
+  <button class="mini-btn">⚙️ Settings</button>
+  <button class="mini-btn">🔔 Notifications</button>
+  <button class="mini-btn" (click)="openGooglePopup()">📥 Sync</button>
+</div>
+
+<!-- 🔄 Google Sync Modal -->
 <app-modal
   [title]="'Sync Google Contacts'"
   [show]="showGooglePopup"
   (closed)="closePopup()"
 >
-  <p>Connect to your Google account to import your contacts.</p>
+  <p>Connect your Google account to import contacts and start chatting.</p>
 
-  <!-- Normal state -->
-  <div *ngIf="!syncing && !success && !errorMsg">
-    <button class="btn btn-primary" (click)="connectWithGoogle()">Connect with Google</button>
+  <div *ngIf="errorMsg" class="error-msg">{{ errorMsg }}</div>
+  <div *ngIf="success" class="success-msg">✅ Contacts synced successfully!</div>
+
+  <div class="modal-actions">
+    <button
+      class="btn btn-primary"
+      (click)="connectWithGoogle()"
+      [disabled]="syncing"
+    >
+      {{ syncing ? '⏳ Connecting...' : '🔗 Connect with Google' }}
+    </button>
     <button class="btn btn-secondary" (click)="closePopup()">Cancel</button>
   </div>
-
-  <!-- 🔄 Spinner while syncing -->
-  <div *ngIf="syncing" class="syncing-container">
-    <div class="spinner"></div>
-    <p>Syncing your contacts...</p>
-  </div>
-
-  <!-- ✔ Success with animated checkmark -->
-  <div *ngIf="success" class="success-container">
-    <div class="checkmark">✔</div>
-    <p class="success-text">Contacts synced successfully!</p>
-  </div>
-
-  <!-- ❌ Error -->
-  <div *ngIf="errorMsg" class="status error">{{ errorMsg }}</div>
 </app-modal>

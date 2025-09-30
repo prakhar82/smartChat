@@ -10,30 +10,17 @@ package com.smartchat.backend.repository;
 
 import com.smartchat.backend.model.Contact;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
+@Repository
 public interface ContactRepository extends JpaRepository<Contact, Long> {
 
     List<Contact> findByOwnerUserId(Long ownerUserId);
 
-    @Query(
-            value = "SELECT * FROM contacts c " +
-                    "WHERE c.owner_user_id = :ownerUserId " +
-                    "AND EXISTS (SELECT 1 FROM jsonb_array_elements(c.emails) elem " +
-                    "            WHERE elem->>'value' = :email)",
-            nativeQuery = true
-    )
-    Optional<Contact> findByOwnerUserIdAndEmailValue(Long ownerUserId, String email);
+    Optional<Contact> findByOwnerUserIdAndNormalizedPhone(Long ownerUserId, String normalizedPhone);
 
-    @Query(
-            value = "SELECT * FROM contacts c " +
-                    "WHERE c.owner_user_id = :ownerUserId " +
-                    "AND EXISTS (SELECT 1 FROM jsonb_array_elements(c.phones) elem " +
-                    "            WHERE elem->>'value' = :phoneValue)",
-            nativeQuery = true
-    )
-    Optional<Contact> findByOwnerUserIdAndPhoneValue(Long ownerUserId, String phoneValue);
+    Optional<Contact> findByOwnerUserIdAndNormalizedEmail(Long ownerUserId, String normalizedEmail);
 }

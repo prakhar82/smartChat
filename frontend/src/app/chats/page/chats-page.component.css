@@ -6,154 +6,74 @@
  * Author: $USER_NAME
  */
 
-/* 🔄 Spinner while syncing */
-.syncing-container {
+.chats-grid {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  height: 100vh;
+}
+
+.chats-grid.mobile {
+  grid-template-columns: 1fr;
+}
+
+.left-panel {
+  background: #f7f7f7;
+  border-right: 1px solid #ddd;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
+  overflow-y: auto; /* ✅ scroll only vertically */
 }
 
-.spinner {
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #34a853; /* Google green */
-  border-right: 3px solid #4285f4; /* Google blue */
-  border-bottom: 3px solid #fbbc05; /* Google yellow */
-  border-left: 3px solid #ea4335; /* Google red */
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  animation: spin 1s linear infinite;
-  margin: 12px auto;
-}
-
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-/* ✅ Full-width green header */
-.app-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #4caf50;
-  color: white;
-  padding: 10px 15px;
-  box-sizing: border-box;
-}
-
-.header-left {
+.right-panel {
+  background: #fff;
   display: flex;
   flex-direction: column;
+  height: 100%;
 }
 
-.app-title {
-  font-weight: bold;
-  font-size: 18px;
-}
-
-.app-subtitle {
-  font-size: 14px;
-  opacity: 0.9;
-}
-
-/* ▶ Right-side icon button (Google sync) */
-.header-actions {
-  display: flex;
-  align-items: center;
-}
-
-.icon-btn {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 50%;
-  transition: background 0.2s ease;
-}
-
-.icon-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.icon-btn img {
-  width: 28px;
-  height: 28px;
-  display: block;
-}
-
-/* ✔ Success checkmark popup */
-.success-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-
-.checkmark {
-  font-size: 2.5rem;
-  color: #34a853;
-  animation: pop 0.4s ease-in-out;
-}
-
-.success-text {
-  margin-top: 10px;
-  font-size: 1rem;
-  color: #34a853;
-  font-weight: bold;
+.empty-state {
+  margin: auto;
   text-align: center;
+  color: #555;
 }
 
 .connection-status {
-  text-align: center;
+  padding: 8px;
   font-size: 14px;
-  padding: 4px;
-  font-weight: 500;
 }
 
 .connection-status.connected {
-  background-color: #e6ffed;
-  color: #2e7d32;
+  color: green;
 }
 
 .connection-status.disconnected {
-  background-color: #ffe6e6;
-  color: #c62828;
+  color: red;
 }
 
-.reconnect-btn {
-  margin-left: 8px;
-  padding: 2px 6px;
-  font-size: 12px;
+/* 📱 Mobile bottom panel */
+.mini-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: #fff;
+  border-top: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 2000;
+}
+
+.mini-btn {
   border: none;
-  border-radius: 4px;
-  background: #f5f5f5;
-  cursor: pointer;
+  background: none;
+  font-size: 18px;
+  color: #444;
 }
 
-.reconnect-btn:hover {
-  background: #ddd;
-}
-
-
-@keyframes pop {
-  0% {
-    transform: scale(0.5);
-    opacity: 0;
-  }
-  60% {
-    transform: scale(1.2);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
+@media (min-width: 768px) {
+  .mini-panel {
+    display: none; /* Hide on desktop */
   }
 }

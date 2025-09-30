@@ -7,14 +7,16 @@
   -->
 
 <div class="modal-backdrop" *ngIf="show">
-  <div class="modal-box">
-    <header>
-      <h3>{{ title }}</h3>
-      <button class="close-btn" (click)="close()">✖</button>
-    </header>
-
-    <section class="modal-body">
+  <div class="modal">
+    <div class="modal-header">
+      <span>{{ title }}</span>
+      <button (click)="close()">×</button>
+    </div>
+    <div class="modal-content">
       <ng-content></ng-content>
-    </section>
+    </div>
+    <div class="modal-actions">
+      <ng-content select=".modal-actions"></ng-content>
+    </div>
   </div>
 </div>

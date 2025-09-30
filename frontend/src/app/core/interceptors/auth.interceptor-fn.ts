@@ -7,7 +7,7 @@
  */
 
 // src/app/core/interceptors/auth.interceptor.ts
-import {HttpErrorResponse, HttpEvent, HttpHandlerFn, HttpInterceptorFn, HttpRequest} from '@angular/common/http';
+import {HttpErrorResponse, HttpEvent, HttpHandlerFn, HttpInterceptorFn, HttpRequest,} from '@angular/common/http';
 import {inject} from '@angular/core';
 import {Router} from '@angular/router';
 import {AuthService} from '../../auth/auth.service';
@@ -23,23 +23,30 @@ export const authInterceptorFn: HttpInterceptorFn = (
 ): Observable<HttpEvent<any>> => {
   const authService = inject(AuthService);
   const router = inject(Router);
-  const token = authService.getToken();
 
-  // Skip attaching token to auth endpoints
-  const skipAuth = req.url.includes('/api/auth/');
+  // Attach ONLY SmartChat JWT
+  const jwt = authService.getToken(); // returns auth_token
+  const skipAuth = req.url.includes('/api/auth/'); // skip auth endpoints
   let authReq = req;
 
-  if (token && !skipAuth) {
-    authReq = req.clone({setHeaders: {Authorization: `Bearer ${token}`}});
-    console.log('🔍 Interceptor attached token for:', req.url);
+  if (jwt && !skipAuth) {
+    authReq = req.clone({
+      setHeaders: {Authorization: `Bearer ${jwt}`},
+    });
+    console.log(
+      '[AuthInterceptor] 🔐 Attached SmartChat auth_token for:',
+      req.url
+    );
   } else {
-    console.log('🔍 Interceptor skipped token for:', req.url);
+    console.log(
+      '[AuthInterceptor] ⚠️ Skipped attaching token for:',
+      req.url
+    );
   }
 
   return next(authReq).pipe(
     catchError((err: any) => {
       if (err instanceof HttpErrorResponse && err.status === 401) {
-        // handle refresh token sequence
         if (!isRefreshing) {
           isRefreshing = true;
           refreshTokenSubject.next(null);
@@ -47,20 +54,30 @@ export const authInterceptorFn: HttpInterceptorFn = (
           return authService.refreshToken().pipe(
             switchMap((res: any) => {
               isRefreshing = false;
-              const newToken = res?.accessToken;
+              const newToken = res?.auth_token; // ✅ snake_case
               if (newToken) {
                 authService.setToken(newToken);
                 refreshTokenSubject.next(newToken);
-                // retry original request with new token
-                return next(req.clone({setHeaders: {Authorization: `Bearer ${newToken}`}}));
+
+                return next(
+                  req.clone({
+                    setHeaders: {Authorization: `Bearer ${newToken}`},
+                  })
+                );
               } else {
-                // no token -> force logout
+                console.warn(
+                  '[AuthInterceptor] ❌ Refresh response missing auth_token'
+                );
                 authService.logout();
                 router.navigate(['/login']);
                 return throwError(() => err);
               }
             }),
             catchError((refreshErr) => {
+              console.error(
+                '[AuthInterceptor] ❌ Refresh token failed',
+                refreshErr
+              );
               isRefreshing = false;
               authService.logout();
               router.navigate(['/login']);
@@ -70,9 +87,11 @@ export const authInterceptorFn: HttpInterceptorFn = (
         } else {
           // queue other requests while refresh is in progress
           return refreshTokenSubject.pipe(
-            filter(t => t != null),
+            filter((t) => t != null),
             take(1),
-            switchMap((t) => next(req.clone({setHeaders: {Authorization: `Bearer ${t}`}})))
+            switchMap((t) =>
+              next(req.clone({setHeaders: {Authorization: `Bearer ${t}`}}))
+            )
           );
         }
       }

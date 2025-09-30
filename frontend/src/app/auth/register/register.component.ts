@@ -20,6 +20,7 @@ import {AuthService, RegisterRequest} from '../auth.service';
   styleUrls: ['./register.component.css']
 })
 export class RegisterComponent {
+  
   user: RegisterRequest = {
     firstName: '',
     lastName: '',

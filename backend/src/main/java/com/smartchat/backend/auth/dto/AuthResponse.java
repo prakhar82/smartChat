@@ -8,6 +8,7 @@
 
 package com.smartchat.backend.auth.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,30 +23,43 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class AuthResponse {
-    private String accessToken;
+
+    @JsonProperty("auth_token")   // ✅ snake_case
+    private String authToken;
+
+    @JsonProperty("refresh_token") // ✅ snake_case
     private String refreshToken;
+
+    @JsonProperty("user_id")
     private Long userId;
+
+    @JsonProperty("first_name")
     private String firstName;
+
+    @JsonProperty("last_name")
     private String lastName;
+
     private String email;
     private String message;
 
-    // Optional custom constructors
-    public AuthResponse(String accessToken, String refreshToken, Long userId, String message) {
-        this.accessToken = accessToken;
+    // ============================
+    // ✅ Optional constructors
+    // ============================
+    public AuthResponse(String authToken, String refreshToken, Long userId, String message) {
+        this.authToken = authToken;
         this.refreshToken = refreshToken;
         this.userId = userId;
         this.message = message;
     }
 
-    public AuthResponse(String accessToken, String refreshToken, Long userId) {
-        this.accessToken = accessToken;
+    public AuthResponse(String authToken, String refreshToken, Long userId) {
+        this.authToken = authToken;
         this.refreshToken = refreshToken;
         this.userId = userId;
     }
 
-    public AuthResponse(String accessToken, String refreshToken, Long userId, String firstName, String message) {
-        this.accessToken = accessToken;
+    public AuthResponse(String authToken, String refreshToken, Long userId, String firstName, String message) {
+        this.authToken = authToken;
         this.refreshToken = refreshToken;
         this.userId = userId;
         this.firstName = firstName;

@@ -7,57 +7,27 @@
   -->
 
 <div class="chat-window">
-  <!-- Messages list -->
-  <div class="messages" #messagesContainer>
+  <div class="chat-header">
+    <button class="back-btn" (click)="goBack()" *ngIf="isMobile">←</button>
+    <div class="chat-title">Chat with {{ otherUserId }}</div>
+  </div>
+
+  <div class="chat-messages" #messagesContainer>
     <div
-      *ngFor="let m of messages; trackBy: trackByIdx"
-      class="message-bubble"
-      [ngClass]="{ me: m.senderId === myUserId, other: m.senderId !== myUserId }"
+      *ngFor="let msg of messages; trackBy: trackByIdx"
+      class="message"
+      [class.mine]="msg.senderId === myUserId"
     >
-      <div class="content">
-        <ng-container
-          *ngIf="m.message !== 'This message was deleted'; else deletedTpl"
-        >
-          <span *ngIf="m.fileUrl"
-          ><a [href]="m.fileUrl" class="file-link">{{
-              m.fileName
-            }}</a></span
-          >
-          <span *ngIf="m.message">{{ m.message }}</span>
-          <span *ngIf="m.emoji" class="emoji">{{ m.emoji }}</span>
-        </ng-container>
-        <ng-template #deletedTpl>
-          <span class="deleted-text">This message was deleted</span>
-        </ng-template>
-      </div>
-
-      <div class="status">
-        <small>{{ m.timestamp | date: "shortTime" }}</small>
-        <span *ngIf="m.status === 'SENT'" class="tick">✓</span>
-        <span *ngIf="m.status === 'DELIVERED'" class="tick">✓✓</span>
-        <span *ngIf="m.status === 'READ'" class="tick read">✓✓</span>
-
-        <!-- Delete button (only for my messages & not already deleted) -->
-        <button
-          *ngIf="
-            m.senderId === myUserId &&
-            m.message !== 'This message was deleted'
-          "
-          class="delete-btn"
-          (click)="deleteMessage(m.id!)"
-        >
-          🗑
-        </button>
-      </div>
+      <div class="message-text">{{ msg.message }}</div>
+      <div class="message-time">{{ msg.timestamp | date: 'shortTime' }}</div>
     </div>
   </div>
 
-  <!-- Input area -->
-  <div class="input-container">
+  <div class="chat-input">
     <textarea
       [(ngModel)]="newMessage"
       (input)="onInput($event)"
-      placeholder="Type a message..."
+      placeholder="Type a message"
     ></textarea>
     <button (click)="sendMessage()">Send</button>
   </div>

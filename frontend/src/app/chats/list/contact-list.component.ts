@@ -6,169 +6,88 @@
  * Author: $USER_NAME
  */
 
-import {ChangeDetectorRef, Component, OnDestroy, OnInit} from '@angular/core';
+import {Component, Input, OnDestroy, OnInit} from '@angular/core';
 import {CommonModule} from '@angular/common';
-import {Router} from '@angular/router';
-import {ContactService, MatchedContact} from '../../contacts/contact.service';
 import {FormsModule} from '@angular/forms';
-import {Subject} from 'rxjs';
-import {takeUntil} from 'rxjs/operators';
-import {AppModalComponent} from '../../shared/modal/app-modal.component';
+import {Subscription} from 'rxjs';
+import {ContactService, MatchedContact} from '../../contacts/contact.service';
+import {ChatsPageComponent} from '../page/chats-page.component';
 
 @Component({
   selector: 'app-contact-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppModalComponent],
+  imports: [CommonModule, FormsModule],
   templateUrl: './contact-list.component.html',
   styleUrls: ['./contact-list.component.css'],
 })
 export class ContactListComponent implements OnInit, OnDestroy {
+  @Input() parent?: ChatsPageComponent;
+
   contacts: MatchedContact[] = [];
-  searchQuery = '';
-  private destroy$ = new Subject<void>();
+  filtered: MatchedContact[] = [];
 
-  showInvitePopup = false;
-  selectedContact: MatchedContact | null = null;
+  searchQuery = ''; // ✅ fixed unresolved variable
+  private sub?: Subscription;
 
-  expandedContacts = new Set<string>();
-
-  constructor(
-    private router: Router,
-    private contactService: ContactService,
-    private cdRef: ChangeDetectorRef
-  ) {
+  constructor(private contactService: ContactService) {
   }
 
-  ngOnInit() {
-    // Listen for updates
-    this.contactService.contactsUpdated$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(() => this.loadFromCache());
-
-    // First load
-    this.loadFromCache();
-  }
-
-  private loadFromCache() {
-    const cached = this.contactService.getCachedContacts();
-    if (cached && cached.length > 0) {
-      console.log('[ContactList] Loaded from cache:', cached);
-      this.contacts = cached;
-      this.cdRef.detectChanges();
-    } else {
-      // fallback to fresh fetch if no cache
-      this.loadContacts(true);
-    }
-  }
-
-  private loadContacts(force = false) {
-    this.contactService.getMatchedContacts(force).subscribe({
-      next: (list) => {
-        console.log('[ContactList] Matched contacts:', list);
-        this.contacts = list;
-        this.cdRef.detectChanges();
-      },
-      error: (err) => {
-        console.error('[ContactList] Failed to load contacts', err);
-        this.contacts = [];
-        this.cdRef.detectChanges();
-      },
+  ngOnInit(): void {
+    this.sub = this.contactService.contactsUpdated$.subscribe(() => {
+      const list = this.contactService.getCachedContacts();
+      this.contacts = list || [];
+      this.applyFilter();
     });
+
+    // load initial
+    const list = this.contactService.getCachedContacts();
+    this.contacts = list || [];
+    this.applyFilter();
   }
 
-  filteredContacts() {
-    const qRaw = (this.searchQuery || '').trim();
-    if (!qRaw) return this.contacts;
-
-    const qLower = qRaw.toLowerCase();
-    const qDigits = qRaw.replace(/\D/g, '');
-
-    return this.contacts.filter((c) => {
-      if ((c.contactName || '').toLowerCase().includes(qLower)) return true;
-
-      if (
-        c.phones?.some((p) => {
-          const phone = p.value || '';
-          if (!phone) return false;
-          if (qDigits.length > 0) {
-            return phone.replace(/\D/g, '').includes(qDigits);
-          }
-          return phone.includes(qRaw);
-        })
-      )
-        return true;
-
-      if (c.emails?.some((e) => (e.value || '').toLowerCase().includes(qLower)))
-        return true;
-
-      return false;
-    });
+  ngOnDestroy(): void {
+    this.sub?.unsubscribe();
   }
 
-  toggleExpand(c: MatchedContact, event: Event) {
-    event.stopPropagation();
-    const id = c.contactId ?? '';
-    if (!id) return;
+  // ✅ fixed unresolved method
+  onSearch(): void {
+    this.applyFilter();
+  }
 
-    if (this.expandedContacts.has(id)) {
-      this.expandedContacts.delete(id);
-    } else {
-      this.expandedContacts.add(id);
+  private applyFilter(): void {
+    const term = this.searchQuery.toLowerCase();
+    if (!term) {
+      this.filtered = [...this.contacts];
+      return;
     }
+    this.filtered = this.contacts.filter(
+      (c) =>
+        c.contactName.toLowerCase().includes(term) ||
+        c.emails.some((e) => e.value.toLowerCase().includes(term)) ||
+        c.phones.some((p) => p.value.includes(term))
+    );
   }
 
-  isExpanded(c: MatchedContact): boolean {
-    const id = c.contactId ?? '';
-    return id ? this.expandedContacts.has(id) : false;
-  }
-
-  openInvitePopup(c: MatchedContact, event: Event) {
-    event.stopPropagation();
-    this.selectedContact = c;
-    this.showInvitePopup = true;
-  }
-
-  closeInvitePopup() {
-    this.showInvitePopup = false;
-    this.selectedContact = null;
-  }
-
-  sendInvite() {
-    const email = this.selectedContact?.emails?.[0]?.value;
-    if (email) {
+  // ✅ now strictly typed
+  openChat(contact: MatchedContact): void {
+    if (contact.registered && this.parent) {
+      this.parent.openChat(contact.matchedUserId!);
+    } else if (contact.canInvite) {
+      console.log('[ContactList] Invite link clicked for:', contact.contactName);
       this.contactService
-        .sendInviteEmail(email, this.selectedContact!.contactName)
+        .sendInviteEmail(contact.emails[0]?.value || '', contact.contactName)
         .subscribe({
-          next: () => {
-            alert('✅ Invite sent!');
-            this.closeInvitePopup();
-          },
+          next: () =>
+            alert(`✅ Invite sent to ${contact.contactName} successfully.`),
           error: (err) => {
-            console.error('[ContactList] Failed to send invite', err);
-            alert('❌ Failed to send invite');
+            console.error('[ContactList] ❌ Failed to send invite', err);
+            alert(`❌ Failed to send invite: ${err?.error?.message || err}`);
           },
         });
     }
   }
 
-  openChat(c: MatchedContact) {
-    if (c.registered && c.matchedUserId) {
-      console.log('[ContactList] Opening chat with user:', c.matchedUserId);
-
-      this.router.navigate([
-        {
-          outlets: {
-            primary: ['chats'], // left panel always ContactList
-            chat: [c.matchedUserId], // right panel ChatWindow
-          },
-        },
-      ]);
-    }
-  }
-
-
-  ngOnDestroy() {
-    this.destroy$.next();
-    this.destroy$.complete();
+  trackById(_: number, item: MatchedContact): string | null {
+    return item.contactId;
   }
 }

@@ -66,7 +66,7 @@ public class AuthService {
         log.info("[AuthService] Login successful for userId={}", user.getId());
 
         return AuthResponse.builder()
-                .accessToken(accessToken)
+                .authToken(accessToken)
                 .refreshToken(refreshToken)
                 .userId(user.getId())
                 .firstName(user.getFirstName())
@@ -163,7 +163,7 @@ public class AuthService {
         log.info("[AuthService] Registration successful for userId={}", newUser.getId());
 
         return AuthResponse.builder()
-                .accessToken(accessToken)
+                .authToken(accessToken)
                 .refreshToken(refreshToken)
                 .userId(newUser.getId())
                 .firstName(newUser.getFirstName())
