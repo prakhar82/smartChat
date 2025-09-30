@@ -20,15 +20,15 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -41,7 +41,8 @@ public class GoogleContactService {
     private final ContactRepository contactRepository;
     private final GoogleOAuthService oauthService;
     private final ContactService contactService;
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final RedisContactCacheService redisCache;
+
 
     @Value("${google.client.id:}")
     private String googleClientId;
@@ -57,7 +58,6 @@ public class GoogleContactService {
 
     private static final String TOKENINFO_ENDPOINT = "https://oauth2.googleapis.com/tokeninfo";
     private static final String PEOPLE_API_BASE = "https://people.googleapis.com/v1/people/me/connections";
-    private static final String CACHE_KEY_PREFIX = "google_contacts:";
 
     @Data
     public static class GoogleContactDto {
@@ -65,6 +65,7 @@ public class GoogleContactService {
         private List<String> phoneNumbers = new ArrayList<>(); // format: "label:value"
         private List<String> emails = new ArrayList<>();       // format: "label:value"
         private Map<String, Object> raw;
+
     }
 
     @Transactional
@@ -79,11 +80,8 @@ public class GoogleContactService {
         saveContactsToDb(ownerUserId, contacts);
 
         try {
-            redisTemplate.opsForValue().set(
-                    CACHE_KEY_PREFIX + ownerUserId,
-                    mapper.writeValueAsString(contacts),
-                    Duration.ofMinutes(cacheTtlMinutes)
-            );
+            redisCache.cacheRawContacts(ownerUserId, mapper.writeValueAsString(contacts), cacheTtlMinutes);
+
             log.info("[GoogleContactService] 💾 Cached {} contacts in Redis for userId={}", contacts.size(), ownerUserId);
         } catch (Exception e) {
             log.warn("[GoogleContactService] ⚠️ Failed to cache Google contacts in Redis for userId={}: {}", ownerUserId, e.getMessage());
@@ -136,6 +134,8 @@ public class GoogleContactService {
                             resp -> Mono.error(new RuntimeException("Google People API error")))
                     .bodyToMono(String.class)
                     .block();
+            log.debug("[GoogleContactService] Raw People API response: {}", responseBody);
+
 
             try {
                 JsonNode root = mapper.readTree(responseBody);
@@ -184,94 +184,91 @@ public class GoogleContactService {
     private void saveContactsToDb(Long ownerUserId, List<GoogleContactDto> contacts) {
         List<User> allUsers = userRepository.findAll();
 
-        Map<String, Contact> toUpsert = new LinkedHashMap<>();
-        int skipped = 0;
-        int saved = 0;
-        AtomicInteger matched = new AtomicInteger();
+        int saved = 0, skipped = 0, matched = 0;
 
         for (GoogleContactDto dto : contacts) {
             String name = dto.getName();
 
-            // Phones
+            // 🔹 Phones
             for (String rawPhone : dto.getPhoneNumbers()) {
                 String[] parts = rawPhone.split(":", 2);
                 String label = parts[0];
                 String number = parts.length > 1 ? parts[1] : rawPhone;
 
                 String normalized = ContactUtil.normalizePhone(number);
-                if (normalized != null) {
-                    String key = "phone:" + normalized;
-                    if (toUpsert.containsKey(key)) {
-                        skipped++;
-                        continue;
-                    }
-                    Contact contact = new Contact();
-                    contact.setOwnerUserId(ownerUserId);
-                    contact.setContactName(name);
-                    contact.setPhones(List.of(new ContactSyncRequest.PhoneEntry(label, normalized, false)));
-                    contact.setEmails(new ArrayList<>());
-                    contact.setSmartChatUserId(null);
+                if (normalized == null) continue;
 
-                    // Enrich if registered
-                    Optional<User> match = ContactUtil.matchPhoneToUser(normalized, allUsers);
-                    match.ifPresent(user -> {
-                        contact.setSmartChatUserId(user.getId());
-                        if (user.getEmail() != null) {
-                            contact.getEmails().add(new ContactSyncRequest.EmailEntry("account", user.getEmail()));
-                        }
-                        matched.getAndIncrement();
-                    });
-
-                    toUpsert.put(key, contact);
+                if (contactRepository.findByOwnerUserIdAndNormalizedPhone(ownerUserId, normalized).isPresent()) {
+                    skipped++;
+                    log.debug("[GoogleContactService] ⚠️ Duplicate phone={} skipped for userId={}", normalized, ownerUserId);
+                    continue;
                 }
+
+                Contact contact = new Contact();
+                contact.setOwnerUserId(ownerUserId);
+                contact.setContactName(name);
+                contact.setNormalizedPhone(normalized);
+                contact.setPhones(List.of(new ContactSyncRequest.PhoneEntry(label, normalized, false)));
+                contact.setEmails(new ArrayList<>());
+
+                Optional<User> match = ContactUtil.matchPhoneToUser(normalized, allUsers);
+                if (match.isPresent()) {
+                    User user = match.get();
+                    contact.setSmartChatUserId(user.getId());
+                    matched++;
+                    if (user.getEmail() != null) {
+                        contact.getEmails().add(new ContactSyncRequest.EmailEntry("account", user.getEmail()));
+                    }
+                }
+
+                contactRepository.save(contact);
+                saved++;
+                log.info("[GoogleContactService] ✅ Saved phone contact={} [{}] for userId={}", name, normalized, ownerUserId);
             }
 
-            // Emails
+            // 🔹 Emails
             for (String rawEmail : dto.getEmails()) {
                 String[] parts = rawEmail.split(":", 2);
                 String label = parts[0];
                 String email = parts.length > 1 ? parts[1] : rawEmail;
 
-                if (email != null && !email.isBlank()) {
-                    String normalizedEmail = email.trim().toLowerCase();
-                    String key = "email:" + normalizedEmail;
-                    if (toUpsert.containsKey(key)) {
-                        skipped++;
-                        continue;
-                    }
-                    Contact contact = new Contact();
-                    contact.setOwnerUserId(ownerUserId);
-                    contact.setContactName(name);
-                    contact.setEmails(List.of(new ContactSyncRequest.EmailEntry(label, normalizedEmail)));
-                    contact.setPhones(new ArrayList<>());
-                    contact.setSmartChatUserId(null);
+                if (email == null || email.isBlank()) continue;
+                String normalizedEmail = email.trim().toLowerCase();
 
-                    // Enrich if registered
-                    Optional<User> match = allUsers.stream()
-                            .filter(u -> u.getEmail() != null && u.getEmail().equalsIgnoreCase(normalizedEmail))
-                            .findFirst();
-                    match.ifPresent(user -> {
-                        contact.setSmartChatUserId(user.getId());
-                        matched.getAndIncrement();
-                    });
-
-                    toUpsert.put(key, contact);
+                if (contactRepository.findByOwnerUserIdAndNormalizedEmail(ownerUserId, normalizedEmail).isPresent()) {
+                    skipped++;
+                    log.debug("[GoogleContactService] ⚠️ Duplicate email={} skipped for userId={}", normalizedEmail, ownerUserId);
+                    continue;
                 }
+
+                Contact contact = new Contact();
+                contact.setOwnerUserId(ownerUserId);
+                contact.setContactName(name);
+                contact.setNormalizedEmail(normalizedEmail);
+                contact.setEmails(List.of(new ContactSyncRequest.EmailEntry(label, normalizedEmail)));
+                contact.setPhones(new ArrayList<>());
+
+                Optional<User> match = allUsers.stream()
+                        .filter(u -> u.getEmail() != null && u.getEmail().equalsIgnoreCase(normalizedEmail))
+                        .findFirst();
+                if (match.isPresent()) {
+                    contact.setSmartChatUserId(match.get().getId());
+                    matched++;
+                }
+
+                contactRepository.save(contact);
+                saved++;
+                log.info("[GoogleContactService] ✅ Saved email contact={} [{}] for userId={}", name, normalizedEmail, ownerUserId);
             }
         }
 
-        if (!toUpsert.isEmpty()) {
-            contactRepository.saveAll(toUpsert.values());
-            saved = toUpsert.size();
-        }
-
-        log.info("[GoogleContactService] 📊 Sync summary for userId={}: fetched={}, skipped={}, saved={}, matched={}",
-                ownerUserId, contacts.size(), skipped, saved, matched);
+        log.info("[GoogleContactService] 📊 Sync summary for userId={}: saved={}, skipped={}, matched={}", ownerUserId, saved, skipped, matched);
 
         try {
-            contactService.evictMatchedCache(ownerUserId);
-        } catch (Exception ignored) {
-            log.warn("[GoogleContactService] ⚠️ Failed to evict cache after saving contacts for userId={}", ownerUserId);
+            redisCache.evictMatchedCache(ownerUserId);
+            log.info("[GoogleContactService] 🗑️ Evicted matched contact cache after Google sync for userId={}", ownerUserId);
+        } catch (Exception e) {
+            log.warn("[GoogleContactService] ⚠️ Failed to evict contact cache for userId={}: {}", ownerUserId, e.getMessage());
         }
     }
 }

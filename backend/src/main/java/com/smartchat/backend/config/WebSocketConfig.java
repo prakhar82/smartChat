@@ -35,8 +35,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         // ✅ Native WebSocket only (no SockJS fallback)
         registry.addEndpoint("/ws-chat")
-                .setAllowedOriginPatterns("*")
-                .withSockJS();
+                .setAllowedOriginPatterns("*");
     }
 
     @Override
@@ -44,11 +43,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         // Application destination prefix for @MessageMapping handlers
         registry.setApplicationDestinationPrefixes("/app");
 
-        // RabbitMQ STOMP relay for /queue and /topic destinations
+        // RabbitMQ STOMP relay with heartbeats
         registry.enableStompBrokerRelay("/topic", "/queue")
                 .setRelayHost(rabbitHost)
                 .setRelayPort(stompPort)
                 .setClientLogin(rabbitUser)
-                .setClientPasscode(rabbitPass);
+                .setClientPasscode(rabbitPass)
+                .setSystemHeartbeatSendInterval(10000)   // ms (10s)
+                .setSystemHeartbeatReceiveInterval(10000);
     }
 }

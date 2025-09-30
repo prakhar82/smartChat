@@ -8,11 +8,12 @@
 
 package com.smartchat.backend.util;
 
+import com.smartchat.backend.dto.ContactSyncRequest;
+import com.smartchat.backend.dto.MatchedContactResponse;
 import com.smartchat.backend.model.User;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Slf4j
 public class ContactUtil {
@@ -116,4 +117,79 @@ public class ContactUtil {
     public static void logMatchSummary(int total, int matched, int unmatched) {
         log.info("[ContactUtil] Processed {} contacts → Matched: {}, Unmatched: {}", total, matched, unmatched);
     }
+
+    /**
+     * Helper that merges phone lists without duplicates (by value).
+     */
+    public static List<ContactSyncRequest.PhoneEntry> mergePhoneLists(
+            List<ContactSyncRequest.PhoneEntry> existing,
+            List<ContactSyncRequest.PhoneEntry> incoming) {
+
+        Map<String, ContactSyncRequest.PhoneEntry> map = new LinkedHashMap<>();
+        if (existing != null) {
+            for (ContactSyncRequest.PhoneEntry p : existing) {
+                map.put(p.getValue(), p);
+            }
+        }
+        if (incoming != null) {
+            for (ContactSyncRequest.PhoneEntry p : incoming) {
+                map.putIfAbsent(p.getValue(), p);
+            }
+        }
+        return new ArrayList<>(map.values());
+    }
+
+    /**
+     * Helper that merges email lists without duplicates (case-insensitive).
+     */
+    public static List<ContactSyncRequest.EmailEntry> mergeEmailLists(
+            List<ContactSyncRequest.EmailEntry> existing,
+            List<ContactSyncRequest.EmailEntry> incoming) {
+
+        Map<String, ContactSyncRequest.EmailEntry> map = new LinkedHashMap<>();
+        if (existing != null) {
+            for (ContactSyncRequest.EmailEntry e : existing) {
+                map.put(e.getValue().toLowerCase(Locale.ROOT), e);
+            }
+        }
+        if (incoming != null) {
+            for (ContactSyncRequest.EmailEntry e : incoming) {
+                map.putIfAbsent(e.getValue().toLowerCase(Locale.ROOT), e);
+            }
+        }
+        return new ArrayList<>(map.values());
+    }
+
+    /**
+     * 🔄 Helper: Sort contacts with registered users on top,
+     * both groups alphabetically by contactName.
+     */
+    public static List<MatchedContactResponse> sortContacts(List<MatchedContactResponse> contacts) {
+        return contacts.stream()
+                .sorted((a, b) -> {
+                    boolean aRegistered = a.getMatchedUserId() != null;
+                    boolean bRegistered = b.getMatchedUserId() != null;
+
+                    if (aRegistered && !bRegistered) return -1; // registered first
+                    if (!aRegistered && bRegistered) return 1;
+
+                    // alphabetical (null-safe)
+                    String nameA = Optional.ofNullable(a.getContactName()).orElse("").toLowerCase();
+                    String nameB = Optional.ofNullable(b.getContactName()).orElse("").toLowerCase();
+                    return nameA.compareTo(nameB);
+                })
+                .toList();
+    }
+
+    /**
+     * Generate cache key for user.
+     */
+    public static String cacheKey(Long userId) {
+        return "contacts:matched:" + userId;
+    }
+
+    public static String cacheKey(Long userId, String type) {
+        return "contacts:" + type + ":user:" + userId;
+    }
+
 }

@@ -12,6 +12,8 @@ import {BehaviorSubject, map, Observable} from 'rxjs';
 import {Client, IMessage} from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import {filter} from 'rxjs/operators';
+import {ContactService} from '../contacts/contact.service';
+
 import imageCompression from 'browser-image-compression';
 
 export interface ChatMessage {
@@ -51,7 +53,7 @@ export class ChatService {
   private connectionSubject = new BehaviorSubject<boolean>(false);
   connection$ = this.connectionSubject.asObservable();
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient, private contactService: ContactService) {
   }
 
   /**
@@ -64,31 +66,44 @@ export class ChatService {
     }
 
     console.log('[ChatService] 🚀 Connecting WebSocket for userId=', userId);
-    const socketUrl = '/ws-chat';
+    const socketUrl = '/ws-chat'; // Make sure backend endpoint matches
     const socket = new SockJS(socketUrl);
 
     this.stompClient = new Client({
       webSocketFactory: () => socket as any,
-      reconnectDelay: 5000, // retry after 5s
+      reconnectDelay: 5000, // retry every 5 seconds
       debug: (str) => console.log('[STOMP DEBUG]', str),
     });
 
+    // ✅ Subscriptions are now INSIDE onConnect
     this.stompClient.onConnect = () => {
       console.log('[ChatService] ✅ STOMP connected for userId=', userId);
       this.connectionSubject.next(true);
 
-      this.stompClient?.subscribe(
-        `/user/${userId}/queue/messages`,
-        (msg: IMessage) => {
-          try {
-            const body: ChatMessage = JSON.parse(msg.body);
-            console.log('[ChatService] 📩 Incoming message for userId=', userId, body);
-            this.messagesSubject.next(body);
-          } catch (err) {
-            console.error('[ChatService] ❌ Failed to parse incoming message', err, msg.body);
-          }
+      // User-specific private messages
+      this.stompClient?.subscribe(`/user/${userId}/queue/messages`, (msg: IMessage) => {
+        try {
+          const body: ChatMessage = JSON.parse(msg.body);
+          console.log('[ChatService] 📩 Incoming message for userId=', userId, body);
+          this.messagesSubject.next(body);
+        } catch (err) {
+          console.error('[ChatService] ❌ Failed to parse incoming message', err, msg.body);
         }
-      );
+      });
+
+      // Presence updates for all users
+      this.stompClient?.subscribe('/topic/presence', (msg: IMessage) => {
+        try {
+          const presence = JSON.parse(msg.body);
+          this.contactService.updateUserStatus?.(
+            presence.userId,
+            presence.status === 'ONLINE'
+          );
+          console.log('[ChatService] 👥 Presence update:', presence);
+        } catch (err) {
+          console.error('[ChatService] ❌ Failed to parse presence message', err, msg.body);
+        }
+      });
     };
 
     this.stompClient.onDisconnect = () => {
@@ -101,7 +116,7 @@ export class ChatService {
       console.error('[ChatService] Frame details:', frame.body);
     };
 
-    this.stompClient.activate();
+    this.stompClient.activate(); // start the connection
   }
 
   /**

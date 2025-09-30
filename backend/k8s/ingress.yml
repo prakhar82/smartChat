@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: smartchat-backend
+  labels:
+    app: smartchat-backend
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx  # make sure you have an ingressClass named 'nginx'
+  rules:
+    - host: smartchat.local      # replace with your domain (or leave empty for all hosts)
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: smartchat-backend
+                port:
+                  number: 80
+  tls: # optional: enable HTTPS
+    - hosts:
+        - smartchat.local
+      secretName: smartchat-tls  # create TLS secret (kubectl create secret tls ...)

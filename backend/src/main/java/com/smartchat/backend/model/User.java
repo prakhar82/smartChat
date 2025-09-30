@@ -53,6 +53,15 @@ public class User {
     @Column(name = "created_at", updatable = false)
     private Instant createdAt = Instant.now();
 
+    @Column(name = "google_access_token")
+    private String googleAccessToken;
+
+    @Column(name = "google_refresh_token")
+    private String googleRefreshToken;
+
+    @Column(name = "google_token_expiry")
+    private Instant googleTokenExpiry;
+
 
     @Column(name = "updated_at")
     private Instant updatedAt = Instant.now();

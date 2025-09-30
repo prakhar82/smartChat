@@ -6,9 +6,8 @@
  * Author: $USER_NAME
  */
 
-// chat-window.component.ts
 import {AfterViewChecked, Component, ElementRef, OnDestroy, OnInit, ViewChild,} from '@angular/core';
-import {ActivatedRoute, ParamMap} from '@angular/router';
+import {ActivatedRoute, ParamMap, Router} from '@angular/router';
 import {CommonModule} from '@angular/common';
 import {FormsModule} from '@angular/forms';
 import {Subscription} from 'rxjs';
@@ -33,6 +32,8 @@ export class ChatWindowComponent
   showTypingTooltip = false;
   truncatedMessage = '';
 
+  isMobile = window.innerWidth < 768; // ✅ add this
+
   private routeSub!: Subscription;
   private wsSub!: Subscription;
 
@@ -40,13 +41,13 @@ export class ChatWindowComponent
 
   constructor(
     private route: ActivatedRoute,
+    private router: Router,             // ✅ add Router for goBack()
     private chatService: ChatService,
     private authService: AuthService
   ) {
   }
 
   ngOnInit(): void {
-    // ✅ logged-in user
     const uid = this.authService.getUserId();
     if (!uid) {
       console.error('[ChatWindow] ⚠️ User not logged in');
@@ -54,10 +55,8 @@ export class ChatWindowComponent
     }
     this.myUserId = Number(uid);
 
-    // ✅ connect WebSocket
     this.chatService.connectWebSocket(this.myUserId);
 
-    // ✅ subscribe to incoming messages + delete events
     this.wsSub = this.chatService.messages$.subscribe((msg) => {
       if (!msg) return;
 
@@ -78,7 +77,6 @@ export class ChatWindowComponent
       }
     });
 
-    // ✅ route param changes (switch chat)
     this.routeSub = this.route.paramMap.subscribe((pm: ParamMap) => {
       const idStr = pm.get('id');
       this.otherUserId = idStr ? Number(idStr) : NaN;
@@ -126,7 +124,6 @@ export class ChatWindowComponent
     const text = this.newMessage.trim();
     if (!text || !this.otherUserId) return;
 
-    // Optimistic UI
     const localMsg: ChatMessage = {
       senderId: this.myUserId,
       receiverId: this.otherUserId,
@@ -137,7 +134,6 @@ export class ChatWindowComponent
     this.messages.push(localMsg);
     this.scrollToBottom();
 
-    // WebSocket send
     this.chatService.sendMessage(this.myUserId, this.otherUserId, text);
 
     this.newMessage = '';
@@ -191,5 +187,10 @@ export class ChatWindowComponent
 
   trackByIdx(index: number): number {
     return index;
+  }
+
+  // ✅ fix unresolved goBack()
+  goBack(): void {
+    this.router.navigate([{outlets: {primary: ['chats'], chat: null}}]);
   }
 }

@@ -6,26 +6,34 @@
  * Author: $USER_NAME
  */
 
-// src/app/app-routing.module.ts
 import {NgModule} from '@angular/core';
 import {RouterModule, Routes} from '@angular/router';
+import {ChatsPageComponent} from './chats/page/chats-page.component';
+import {AuthGuard} from './auth/auth.guard';
+import {ContactListComponent} from './chats/list/contact-list.component';
+import {ChatWindowComponent} from './chats/window/chat-window.component';
+import {RegisterComponent} from './auth/register/register.component';
+import {LoginGuard} from './auth/login/login.guard';
+import {LoginComponent} from './auth/login/login.component';
+import {SyncContactsComponent} from './contacts/sync/sync.component';
 
 export const routes: Routes = [
-  {path: '', loadComponent: () => import('./home/home.component').then(m => m.HomeComponent)}, // 👈 show HomeComponent
-  {path: 'register', loadComponent: () => import('./auth/register/register.component').then(m => m.RegisterComponent)},
-  {path: 'login', loadComponent: () => import('./auth/login/login.component').then(m => m.LoginComponent)},
+  {path: 'register', component: RegisterComponent, canActivate: [LoginGuard]},
+  {path: 'login', component: LoginComponent, canActivate: [LoginGuard]},
+  {path: 'sync', component: SyncContactsComponent, canActivate: [AuthGuard]},
+
   {
     path: 'chats',
-    loadComponent: () => import('./chats/page/chats-page.component').then(m => m.ChatsPageComponent),
+    component: ChatsPageComponent,
+    canActivate: [AuthGuard],
     children: [
-      {path: '', loadComponent: () => import('./chats/list/contact-list.component').then(m => m.ContactListComponent)},
-      {
-        path: ':id',
-        loadComponent: () => import('./chats/window/chat-window.component').then(m => m.ChatWindowComponent),
-        outlet: 'chat'
-      }
-    ]
-  }
+      {path: '', component: ContactListComponent},
+      {path: ':id', component: ChatWindowComponent, outlet: 'chat'},
+    ],
+  },
+
+  {path: '', redirectTo: '/login', pathMatch: 'full'},
+  {path: '**', redirectTo: '/login'},
 ];
 
 @NgModule({

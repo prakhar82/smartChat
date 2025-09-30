@@ -8,111 +8,53 @@
 
 <div class="contact-list">
   <!-- 🔍 Search -->
-  <input
-    type="text"
-    placeholder="🔍 Search contacts..."
-    [(ngModel)]="searchQuery"
-    class="search-box"
-  />
-
-  <h3>Contacts</h3>
-  <ul>
-    <li
-      *ngFor="let c of filteredContacts()"
-      [ngClass]="{
-        registered: c.registered,
-        disabled: !c.registered && !c.canInvite,
-        invitable: !c.registered && c.canInvite
-      }"
-      (click)="c.registered ? openChat(c) : null"
-    >
-      <!-- Top row -->
-      <div class="contact-row">
-        <div class="contact-info">
-          <span class="name">{{ c.contactName || 'Unknown' }}</span>
-
-          <!-- ✅ Status badge -->
-          <span
-            *ngIf="c.registered"
-            class="badge badge-registered"
-          >
-            ✔ On SmartChat
-          </span>
-          <span
-            *ngIf="!c.registered && c.canInvite"
-            class="badge badge-invite"
-          >
-            ✉ Invite
-          </span>
-        </div>
-
-        <div class="contact-actions">
-          <!-- Expand/collapse arrow -->
-          <button
-            *ngIf="(c.phones?.length || 0) > 0 || (c.emails?.length || 0) > 0"
-            class="arrow-btn"
-            (click)="toggleExpand(c, $event)"
-          >
-            <span [ngClass]="{ expanded: isExpanded(c) }">▼</span>
-          </button>
-
-          <!-- Chat button (only if registered) -->
-          <button
-            *ngIf="c.registered"
-            class="btn btn-primary"
-            (click)="openChat(c)"
-          >
-            Chat
-          </button>
-
-          <!-- Invite button (only if invitable) -->
-          <button
-            *ngIf="c.canInvite && !c.registered"
-            class="btn btn-secondary"
-            (click)="openInvitePopup(c, $event)"
-          >
-            Invite
-          </button>
-        </div>
-      </div>
-
-      <!-- Expandable details -->
-      <div class="contact-details" *ngIf="isExpanded(c)">
-        <!-- Phones -->
-        <div *ngFor="let p of c.phones" class="phone-entry">
-          <small [class.registered-phone]="p.registered">
-            <span class="label phone-{{ p.label || 'other' }}">
-              {{ p.label || 'phone' }}:
-            </span>
-            {{ p.value }}
-            <span *ngIf="p.registered" class="registered-icon">✔</span>
-          </small>
-        </div>
-
-        <!-- Emails -->
-        <div *ngFor="let e of c.emails" class="email-entry">
-          <small>
-            <span class="label email-{{ e.label || 'other' }}">
-              {{ e.label || 'email' }}:
-            </span>
-            {{ e.value }}
-          </small>
-        </div>
-      </div>
-    </li>
-  </ul>
-</div>
-
-<!-- Invite Modal -->
-<app-modal
-  [title]="'Invite ' + (selectedContact?.contactName || '')"
-  [show]="showInvitePopup"
-  (closed)="closeInvitePopup()"
->
-  <p>Send an invitation email to join SmartChat.</p>
-
-  <div class="popup-actions">
-    <button class="btn btn-primary" (click)="sendInvite()">Send Invite</button>
-    <button class="btn btn-secondary" (click)="closeInvitePopup()">Cancel</button>
+  <div class="search-bar">
+    <input
+      type="text"
+      placeholder="Search contacts"
+      [(ngModel)]="searchQuery"
+      (input)="onSearch()"
+    />
   </div>
-</app-modal>
+
+  <!-- 📋 Contacts -->
+  <div class="contact-items">
+    <div
+      class="contact-item"
+      *ngFor="let c of filtered; trackBy: trackById"
+      (click)="openChat(c)"
+    >
+      <div class="avatar">
+        <span>{{ c.contactName.charAt(0).toUpperCase() }}</span>
+      </div>
+      <div class="contact-info">
+        <div class="contact-name">{{ c.contactName }}</div>
+
+        <!-- Registered -->
+        <div *ngIf="c.registered" class="meta registered">
+          ✅ Registered
+        </div>
+
+        <!-- Invite -->
+        <a
+          *ngIf="c.canInvite && !c.registered"
+          href="javascript:void(0)"
+          class="meta invite-link"
+          (click)="$event.stopPropagation(); openChat(c)"
+        >➕ Invite</a
+        >
+
+        <!-- Last message -->
+        <div class="last-message" *ngIf="c.lastMessage">
+          {{ c.lastMessage }}
+        </div>
+      </div>
+
+      <!-- Status dot -->
+      <div
+        class="status-dot"
+        [ngClass]="{ online: c.online, offline: !c.online }"
+      ></div>
+    </div>
+  </div>
+</div>

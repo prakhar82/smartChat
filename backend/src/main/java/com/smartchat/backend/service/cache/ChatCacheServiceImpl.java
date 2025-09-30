@@ -58,12 +58,14 @@ public class ChatCacheServiceImpl implements ChatCacheService {
     @Override
     public void updateMessageStatusInCache(ChatMessage message) {
         if (message == null || message.getId() == null) return;
+
         String key = conversationKey(message.getSenderId(), message.getReceiverId());
         ListOperations<String, ChatMessage> ops = redisTemplate.opsForList();
         Long size = ops.size(key);
+
         if (size == null || size == 0) {
-            log.debug("[ChatCacheServiceImpl] ⚠ No cache found for conversation {}<->{}, skipping status update",
-                    message.getSenderId(), message.getReceiverId());
+            log.debug("[ChatCacheServiceImpl] ⚠ No cache found for key={} ({}<->{}), skipping status update",
+                    key, message.getSenderId(), message.getReceiverId());
             return;
         }
 
@@ -71,15 +73,15 @@ public class ChatCacheServiceImpl implements ChatCacheService {
             ChatMessage cached = ops.index(key, i);
             if (cached != null && Objects.equals(cached.getId(), message.getId())) {
                 ops.set(key, i, message);
-                log.info("[ChatCacheServiceImpl] 🔄 Updated cached status for messageId={} -> {}",
-                        message.getId(), message.getStatus());
+                log.info("[ChatCacheServiceImpl] 🔄 Updated cached messageId={} with status={} at key={}",
+                        message.getId(), message.getStatus(), key);
                 return;
             }
         }
 
-        log.debug("[ChatCacheServiceImpl] ⚠ MessageId={} not found in cache for {}<->{}",
-                message.getId(), message.getSenderId(), message.getReceiverId());
+        log.debug("[ChatCacheServiceImpl] ⚠ MessageId={} not found in cache key={}", message.getId(), key);
     }
+
 
     @Override
     public void removeMessageFromCache(ChatMessage message) {

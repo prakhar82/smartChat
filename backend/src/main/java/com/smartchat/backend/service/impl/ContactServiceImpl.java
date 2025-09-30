@@ -15,10 +15,10 @@ import com.smartchat.backend.model.User;
 import com.smartchat.backend.repository.ContactRepository;
 import com.smartchat.backend.repository.UserRepository;
 import com.smartchat.backend.service.ContactService;
+import com.smartchat.backend.service.RedisContactCacheService;
 import com.smartchat.backend.util.ContactUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -35,9 +34,7 @@ public class ContactServiceImpl implements ContactService {
 
     private final ContactRepository contactRepository;
     private final UserRepository userRepository;
-    private final RedisTemplate<String, Object> redisTemplate;
-
-    private static final String CACHE_PREFIX = "contacts:matched:";
+    private final RedisContactCacheService redisCache;
 
     @Override
     @Transactional
@@ -47,10 +44,49 @@ public class ContactServiceImpl implements ContactService {
             throw new IllegalArgumentException("Owner userId is required for syncing contacts");
         }
 
-        List<Contact> entities = request.toEntities(ownerUserId);
-        contactRepository.saveAll(entities);
+        int saved = 0, skipped = 0;
 
-        log.info("[ContactServiceImpl] 📥 Synced {} contacts for userId={}", entities.size(), ownerUserId);
+        for (ContactSyncRequest.Contect dto : request.getContacts()) {
+            Contact contact = new Contact();
+            contact.setOwnerUserId(ownerUserId);
+            contact.setContactName(dto.getContactName());
+            contact.setPhones(dto.getPhones());
+            contact.setEmails(dto.getEmails());
+
+            // ✅ Normalize and set phone/email for uniqueness
+            if (dto.getPhones() != null && !dto.getPhones().isEmpty()) {
+                String rawPhone = dto.getPhones().get(0).getValue();
+                String normalized = ContactUtil.normalizePhone(rawPhone);
+                contact.setNormalizedPhone(normalized);
+
+                if (normalized != null &&
+                        contactRepository.findByOwnerUserIdAndNormalizedPhone(ownerUserId, normalized).isPresent()) {
+                    skipped++;
+                    log.debug("[ContactServiceImpl] ⚠️ Duplicate phone={} skipped for userId={}", normalized, ownerUserId);
+                    continue;
+                }
+            }
+
+            if (dto.getEmails() != null && !dto.getEmails().isEmpty()) {
+                String rawEmail = dto.getEmails().get(0).getValue();
+                if (rawEmail != null) {
+                    String normalizedEmail = rawEmail.trim().toLowerCase();
+                    contact.setNormalizedEmail(normalizedEmail);
+
+                    if (contactRepository.findByOwnerUserIdAndNormalizedEmail(ownerUserId, normalizedEmail).isPresent()) {
+                        skipped++;
+                        log.debug("[ContactServiceImpl] ⚠️ Duplicate email={} skipped for userId={}", normalizedEmail, ownerUserId);
+                        continue;
+                    }
+                }
+            }
+
+            contactRepository.save(contact);
+            saved++;
+            log.info("[ContactServiceImpl] ✅ Saved contact={} for userId={}", contact.getContactName(), ownerUserId);
+        }
+
+        log.info("[ContactServiceImpl] 📊 Sync summary for userId={}: saved={}, skipped={}", ownerUserId, saved, skipped);
 
         refreshMatchedCache(ownerUserId);
     }
@@ -58,36 +94,33 @@ public class ContactServiceImpl implements ContactService {
     @Override
     @Transactional(readOnly = true)
     public List<MatchedContactResponse> getMatchedContacts(Long ownerUserId) {
-        String key = CACHE_PREFIX + ownerUserId;
-
-        // ✅ Try Redis cache first
-        Set<Object> cached = redisTemplate.opsForSet().members(key);
+        Set<Object> cached = redisCache.getMatchedContacts(ownerUserId);
         if (cached != null && !cached.isEmpty()) {
-            log.info("[ContactServiceImpl] ✅ Returning {} matched contacts from Redis cache for userId={}",
-                    cached.size(), ownerUserId);
-            return cached.stream()
+            List<MatchedContactResponse> cachedList = cached.stream()
                     .filter(MatchedContactResponse.class::isInstance)
                     .map(MatchedContactResponse.class::cast)
                     .toList();
+            log.info("[ContactServiceImpl] ✅ Returning {} contacts from Redis cache for userId={}", cachedList.size(), ownerUserId);
+            return cachedList;
         }
 
-        // ❌ Cache miss → fetch from DB
+        // ❌ Cache miss → fetch & sort
         List<MatchedContactResponse> fromDb = fetchFromDatabase(ownerUserId);
-        if (!fromDb.isEmpty()) {
-            fromDb.forEach(resp -> redisTemplate.opsForSet().add(key, resp));
-            redisTemplate.expire(key, 30, TimeUnit.MINUTES);
-            log.info("[ContactServiceImpl] 💾 Cached {} matched contacts from DB into Redis for userId={}",
-                    fromDb.size(), ownerUserId);
+        List<MatchedContactResponse> sortedDb = ContactUtil.sortContacts(fromDb);
+
+        if (!sortedDb.isEmpty()) {
+            redisCache.cacheMatchedContacts(ownerUserId, sortedDb);
+            log.info("[ContactServiceImpl] 💾 Cached {} sorted contacts into Redis for userId={}", sortedDb.size(), ownerUserId);
         } else {
             log.info("[ContactServiceImpl] ⚠️ No matched contacts found for userId={}", ownerUserId);
         }
 
-        return fromDb;
+        return sortedDb;
     }
 
     @Override
     public void evictMatchedCache(Long userId) {
-        redisTemplate.delete(CACHE_PREFIX + userId);
+        redisCache.evictMatchedCache(userId);
         log.info("[ContactServiceImpl] 🗑️ Evicted matched contacts cache for userId={}", userId);
     }
 
@@ -100,24 +133,17 @@ public class ContactServiceImpl implements ContactService {
 
     @Override
     public void refreshMatchedCache(Long userId) {
-        List<Contact> contacts = contactRepository.findByOwnerUserId(userId);
+        redisCache.evictMatchedCache(userId);
 
-        if (contacts.isEmpty()) {
+        List<MatchedContactResponse> responses = fetchFromDatabase(userId);
+        if (responses.isEmpty()) {
             log.info("[ContactServiceImpl] ⚠️ No contacts found for userId={}, cache not refreshed", userId);
             return;
         }
 
-        List<MatchedContactResponse> responses = fetchFromDatabase(userId);
-
-        String keyPrefix = "matched_contacts:" + userId + ":";
-        int count = 0;
-        for (MatchedContactResponse dto : responses) {
-            redisTemplate.opsForValue().set(keyPrefix + dto.getContactId(), dto);
-            count++;
-        }
-
+        redisCache.cacheMatchedContacts(userId, responses);
         log.info("[ContactServiceImpl] 🔄 Refreshed matched cache for userId={}, total={} contacts cached",
-                userId, count);
+                userId, responses.size());
     }
 
     /**
@@ -151,8 +177,7 @@ public class ContactServiceImpl implements ContactService {
                         matchedUser = userOpt.get();
                         matchedUserId = matchedUser.getId();
                         matchedCount++;
-                        log.debug("[ContactServiceImpl] 📌 Phone {} matched to userId={}",
-                                phone.getValue(), matchedUserId);
+                        log.debug("[ContactServiceImpl] 📌 Phone {} matched to userId={}", phone.getValue(), matchedUserId);
                     }
 
                     phoneEntries.add(new MatchedContactResponse.PhoneEntry(

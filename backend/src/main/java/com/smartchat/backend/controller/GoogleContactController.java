@@ -46,9 +46,10 @@ public class GoogleContactController {
             @RequestHeader("Authorization") String authHeader
     ) {
         try {
-            String accessToken = payload.get("accessToken");
+            // ✅ use camelCase only
+            String accessToken = payload.get("access_token");
             if (accessToken == null || accessToken.isBlank()) {
-                log.warn("[GoogleContactController] ❌ Missing accessToken in request");
+                log.warn("[GoogleContactController] ❌ Missing accessToken in request payload={}", payload);
                 return ResponseEntity.badRequest()
                         .body(Map.of("message", "accessToken is required"));
             }
@@ -69,6 +70,7 @@ public class GoogleContactController {
                     .body(Map.of("status", "error", "message", e.getMessage()));
         }
     }
+
 
     /**
      * Send invite email using inviter’s Google OAuth token.
