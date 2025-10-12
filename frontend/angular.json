@@ -24,12 +24,15 @@
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "assets": [
-
-                "src/assets"
-
+              "src/assets"
             ],
             "styles": [
-              "src/styles.scss"
+              "src/styles.scss",
+              "src/styles/buttons.css"
+            ],
+            "allowedCommonJsDependencies": [
+              "stompjs",
+              "sockjs-client"
             ]
           },
           "configurations": {

@@ -8,15 +8,20 @@
 
 import {Component, OnInit} from '@angular/core';
 import {CommonModule} from '@angular/common';
-import {catchError, firstValueFrom, of} from 'rxjs';
+import {firstValueFrom, switchMap, timer} from 'rxjs';
 import {Router} from '@angular/router';
-import {ContactPayload, ContactService} from '../../contacts/contact.service';
+import {ContactPayload, ContactService} from '../contact.service';
 import {AuthService} from '../../auth/auth.service';
 import {Contacts, GetContactsOptions} from '@capacitor-community/contacts';
 
 // Google Identity Services
 declare const google: any;
 
+/**
+ * SyncContactsComponent
+ * ---------------------
+ * Handles syncing of device and Google contacts post-registration.
+ */
 @Component({
   selector: 'app-sync-contacts',
   standalone: true,
@@ -37,31 +42,44 @@ export class SyncContactsComponent implements OnInit {
   ) {
   }
 
-  ngOnInit() {
+  // ---------------------------------------------------------
+  // 🧭 Lifecycle
+  // ---------------------------------------------------------
+  ngOnInit(): void {
+    console.log('[SyncContactsComponent] 🚀 ngOnInit');
+
     this.firstName = this.authService.getFirstName();
     const uid = this.authService.getUserId();
+
     if (!uid) {
+      console.warn('[SyncContactsComponent] ⚠️ No logged-in user found.');
       this.errorMsg = 'User not logged in';
       return;
     }
+
     this.userId = Number(uid);
+    console.log('[SyncContactsComponent] ✅ Logged userId:', this.userId);
   }
 
-  /** 📱 Sync phone/device contacts */
-  async syncDeviceContacts() {
-    if (this.userId === null) return;
+  // ---------------------------------------------------------
+  // 📱 Sync device contacts
+  // ---------------------------------------------------------
+  async syncDeviceContacts(): Promise<void> {
+    if (this.userId === null) {
+      console.warn('[SyncContactsComponent] ⚠️ syncDeviceContacts called without userId');
+      return;
+    }
+
+    console.log('[SyncContactsComponent] 🔄 Starting device contacts sync...');
     this.syncing = true;
 
     try {
       const options: GetContactsOptions = {
-        projection: {
-          name: true,
-          phones: true,
-          emails: true,
-        },
+        projection: {name: true, phones: true, emails: true},
       };
 
       const result = await Contacts.getContacts(options);
+      console.log('[SyncContactsComponent] 📇 Retrieved contacts:', result.contacts.length);
 
       const contacts: ContactPayload[] =
         result.contacts.map((c) => {
@@ -84,83 +102,67 @@ export class SyncContactsComponent implements OnInit {
           };
         }) ?? [];
 
-      await firstValueFrom(
-        this.contactService.syncContacts(this.userId!, contacts)
-      );
-
-      this.syncing = false;
-      this.router.navigate(['/chats']);
+      await firstValueFrom(this.contactService.syncContacts(this.userId!, contacts));
+      console.log('[SyncContactsComponent] ✅ Device contacts synced successfully');
+      this.loadContactsAndRedirect();
     } catch (err) {
-      console.error('syncDeviceContacts error', err);
+      console.error('[SyncContactsComponent] ❌ syncDeviceContacts error:', err);
       this.errorMsg = 'Failed to sync device contacts';
       this.syncing = false;
     }
   }
 
-  /** 🔑 Sync Google contacts */
-  async syncGoogleContacts() {
-    if (this.userId === null) return;
+  // ---------------------------------------------------------
+  // 🔑 Sync Google Contacts
+  // ---------------------------------------------------------
+  async syncGoogleContacts(): Promise<void> {
+    console.log('[SyncContactsComponent] 🔄 Starting backend Google OAuth flow...');
     this.syncing = true;
 
     try {
-      const client = google.accounts.oauth2.initTokenClient({
-        client_id:
-          '804357637525-auufm7hjj51mtsugsgnlqkudptiln1ba.apps.googleusercontent.com',
-        scope: 'https://www.googleapis.com/auth/contacts.readonly',
-        callback: async (response: any) => {
-          if (response && response.access_token) {
-            try {
-              await firstValueFrom(
-                this.contactService.syncGoogleContacts(response.access_token)
-              );
-              this.syncing = false;
-              this.router.navigate(['/chats']);
-            } catch (err) {
-              console.error('syncGoogleContacts backend error', err);
-              this.errorMsg = 'Backend failed to sync Google contacts';
-              this.syncing = false;
-            }
-          } else {
-            this.errorMsg = 'No access token received from Google';
-            this.syncing = false;
-          }
-        },
-      });
+      const initUrl = this.contactService.getGoogleAuthInitUrl();
+      window.open(initUrl, '_blank', 'width=600,height=700');
+      console.log('[SyncContactsComponent] 🌐 Opened Google OAuth popup via backend');
 
-      client.requestAccessToken();
+      // Wait 2 seconds and trigger sync automatically after redirect completes
+      await firstValueFrom(
+        timer(2500).pipe(
+          switchMap(() => this.contactService.syncGoogleContacts())
+        )
+      );
     } catch (err) {
-      console.error('syncGoogleContacts error', err);
-      this.syncing = false;
+      console.error('[SyncContactsComponent] ❌ syncGoogleContacts error:', err);
       this.errorMsg = 'Google OAuth failed';
+      this.syncing = false;
     }
   }
 
-  /** ⏭️ Skip syncing → go to chats and open Google popup if no contacts */
-  async skipSync() {
-    this.router
-      .navigate(['/chats'], {queryParams: {showGooglePopup: 'true'}})
-      .then(async () => {
-        try {
-          const contacts = await firstValueFrom(
-            this.contactService.getMatchedContacts(true).pipe(
-              catchError((err) => {
-                console.error('❌ Failed to load contacts after skip', err);
-                return of([]);
-              })
-            )
-          );
+  // ---------------------------------------------------------
+  // ⏭️ Skip sync and go to chats
+  // ---------------------------------------------------------
+  skipSync(): void {
+    console.log('[SyncContactsComponent] ⏭️ Skipping sync → navigating to chats');
+    this.router.navigate(['/chats'], {queryParams: {showGooglePopup: 'true'}});
+  }
 
-          // If contacts exist → notify components & remove popup flag
-          if (contacts && contacts.length > 0) {
-            this.contactService.notifyContactsUpdated();
-            this.router.navigate([], {
-              queryParams: {showGooglePopup: null},
-              queryParamsHandling: 'merge',
-            });
-          }
-        } catch (err) {
-          console.error('❌ Silent reload after skip failed', err);
-        }
-      });
+  // ---------------------------------------------------------
+  // 🔄 Helper: Refresh contacts and redirect
+  // ---------------------------------------------------------
+  private loadContactsAndRedirect(): void {
+    console.log('[SyncContactsComponent] 🔁 Reloading matched contacts...');
+    this.contactService.getMatchedContacts(true).subscribe({
+      next: (contacts) => {
+        console.log(`[SyncContactsComponent] ✅ Loaded ${contacts.length} matched contacts`);
+        this.contactService.setCachedContacts(contacts);
+        this.contactService.notifyContactsUpdated();
+        this.syncing = false;
+        this.router.navigate(['/chats']);
+      },
+      error: (err) => {
+        console.error('[SyncContactsComponent] ❌ Failed to refresh contacts:', err);
+        this.syncing = false;
+        this.router.navigate(['/chats']);
+      },
+    });
   }
 }

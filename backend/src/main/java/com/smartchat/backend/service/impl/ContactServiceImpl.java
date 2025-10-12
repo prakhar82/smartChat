@@ -12,8 +12,8 @@ import com.smartchat.backend.dto.ContactSyncRequest;
 import com.smartchat.backend.dto.MatchedContactResponse;
 import com.smartchat.backend.model.Contact;
 import com.smartchat.backend.model.User;
-import com.smartchat.backend.repository.ContactRepository;
-import com.smartchat.backend.repository.UserRepository;
+import com.smartchat.backend.repository.jpa.ContactRepository;
+import com.smartchat.backend.repository.jpa.UserRepository;
 import com.smartchat.backend.service.ContactService;
 import com.smartchat.backend.service.RedisContactCacheService;
 import com.smartchat.backend.util.ContactUtil;
@@ -25,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 @Slf4j
 @Service
@@ -94,29 +93,36 @@ public class ContactServiceImpl implements ContactService {
     @Override
     @Transactional(readOnly = true)
     public List<MatchedContactResponse> getMatchedContacts(Long ownerUserId) {
-        Set<Object> cached = redisCache.getMatchedContacts(ownerUserId);
-        if (cached != null && !cached.isEmpty()) {
-            List<MatchedContactResponse> cachedList = cached.stream()
-                    .filter(MatchedContactResponse.class::isInstance)
-                    .map(MatchedContactResponse.class::cast)
-                    .toList();
-            log.info("[ContactServiceImpl] ✅ Returning {} contacts from Redis cache for userId={}", cachedList.size(), ownerUserId);
-            return cachedList;
+
+        List<MatchedContactResponse> cached = redisCache.getMatchedContacts(ownerUserId);
+
+        // ✅ Detect and clear stale cache
+        if (cached != null && cached.isEmpty()) {
+            log.warn("[ContactServiceImpl] ⚠️ Empty Redis cache detected for userId={} — evicting and rebuilding", ownerUserId);
+            redisCache.evictMatchedCache(ownerUserId);
+            cached = null;
         }
 
-        // ❌ Cache miss → fetch & sort
+        // ✅ Valid cache hit
+        if (cached != null && !cached.isEmpty()) {
+            log.info("[ContactServiceImpl] ✅ Returning {} contacts from Redis cache for userId={}", cached.size(), ownerUserId);
+            return cached;
+        }
+
+        // 🚀 Cache miss → fetch from DB
         List<MatchedContactResponse> fromDb = fetchFromDatabase(ownerUserId);
         List<MatchedContactResponse> sortedDb = ContactUtil.sortContacts(fromDb);
 
         if (!sortedDb.isEmpty()) {
             redisCache.cacheMatchedContacts(ownerUserId, sortedDb);
-            log.info("[ContactServiceImpl] 💾 Cached {} sorted contacts into Redis for userId={}", sortedDb.size(), ownerUserId);
+            log.info("[ContactServiceImpl] 💾 Cached {} matched contacts into Redis for userId={}", sortedDb.size(), ownerUserId);
         } else {
             log.info("[ContactServiceImpl] ⚠️ No matched contacts found for userId={}", ownerUserId);
         }
 
         return sortedDb;
     }
+
 
     @Override
     public void evictMatchedCache(Long userId) {
@@ -169,6 +175,7 @@ public class ContactServiceImpl implements ContactService {
             List<MatchedContactResponse.PhoneEntry> phoneEntries = new ArrayList<>();
             if (contact.getPhones() != null) {
                 for (ContactSyncRequest.PhoneEntry phone : contact.getPhones()) {
+                    if (phone == null || phone.getValue() == null) continue;
                     Optional<User> userOpt = ContactUtil.matchPhoneToUser(phone.getValue(), allUsers);
                     boolean isRegistered = userOpt.isPresent();
 

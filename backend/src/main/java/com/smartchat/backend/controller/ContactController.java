@@ -11,7 +11,7 @@ package com.smartchat.backend.controller;
 import com.smartchat.backend.auth.JwtUtil;
 import com.smartchat.backend.dto.ContactSyncRequest;
 import com.smartchat.backend.dto.MatchedContactResponse;
-import com.smartchat.backend.repository.UserRepository;
+import com.smartchat.backend.repository.jpa.UserRepository;
 import com.smartchat.backend.service.ContactService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +21,16 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * [ContactController]
+ * <p>
+ * Handles all contact-related endpoints for SmartChat.
+ * <p>
+ * ✅ Syncs uploaded contacts
+ * ✅ Returns matched contact list (cached or DB)
+ * ✅ Checks if user has any contacts
+ * ✅ Resolves user from JWT token (supports both mobile + email)
+ */
 @Slf4j
 @RestController
 @RequestMapping("/api/contacts")
@@ -31,54 +41,103 @@ public class ContactController {
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
 
+    private static final String CLASS = "[ContactController]";
+
+    // ==========================================================
+    // 📤 Sync uploaded contacts (manual or device)
+    // ==========================================================
     @PostMapping("/sync")
     public ResponseEntity<?> syncContacts(
             @RequestBody ContactSyncRequest request,
             @RequestHeader("Authorization") String authHeader
     ) {
-        Long userId = extractUserId(authHeader);
+        Long userId = resolveUserId(authHeader);
+        if (userId == null) {
+            log.warn("{} ⚠️ Sync aborted — could not resolve userId from token", CLASS);
+            return ResponseEntity.status(401).body(Map.of("error", "Invalid token"));
+        }
 
         // ✅ Always enforce JWT userId
         request.setOwnerUserId(userId);
+        log.info("{} ▶ Received contact sync request for userId={}", CLASS, userId);
 
-        log.info("[ContactController] ▶ Sync request received for userId={}", userId);
         contactService.syncContacts(request);
-        log.info("[ContactController] ✅ Contacts synced successfully for userId={}", userId);
+        log.info("{} ✅ Contacts synced successfully for userId={}", CLASS, userId);
 
         return ResponseEntity.ok(Map.of("status", "success"));
     }
 
+    // ==========================================================
+    // 📥 Fetch matched contacts
+    // ==========================================================
     @GetMapping("/matched")
     public ResponseEntity<List<MatchedContactResponse>> getMatchedContacts(
             @RequestHeader("Authorization") String authHeader
     ) {
-        Long callerId = extractUserId(authHeader);
+        Long userId = resolveUserId(authHeader);
+        if (userId == null) {
+            log.warn("{} ⚠️ Could not resolve user from token — returning []", CLASS);
+            return ResponseEntity.ok(List.of());
+        }
 
-        log.info("[ContactController] ▶ Fetching matched contacts for userId={}", callerId);
-        List<MatchedContactResponse> matched = contactService.getMatchedContacts(callerId);
-        log.info("[ContactController] ✅ Found {} matched contacts for userId={}", matched.size(), callerId);
+        log.info("{} 🧠 Fetching matched contacts for userId={}", CLASS, userId);
+        List<MatchedContactResponse> matched = contactService.getMatchedContacts(userId);
 
+        log.info("{} ✅ Returning {} matched contacts for userId={}", CLASS, matched.size(), userId);
         return ResponseEntity.ok(matched);
     }
 
+    // ==========================================================
+    // 📊 Check if user has any contacts
+    // ==========================================================
     @GetMapping("/has-contacts")
     public ResponseEntity<Map<String, Boolean>> hasContacts(
             @RequestHeader("Authorization") String authHeader
     ) {
-        Long userId = extractUserId(authHeader);
+        Long userId = resolveUserId(authHeader);
+        if (userId == null) {
+            return ResponseEntity.ok(Map.of("hasContacts", false));
+        }
+
         boolean hasContacts = contactService.userHasContacts(userId);
-        log.info("[ContactController] ▶ hasContacts check for userId={} → {}", userId, hasContacts);
+        log.info("{} 🔍 hasContacts check for userId={} → {}", CLASS, userId, hasContacts);
+
         return ResponseEntity.ok(Map.of("hasContacts", hasContacts));
     }
 
-    private Long extractUserId(String authHeader) {
+    // ==========================================================
+    // 🧩 Helper: Robust user resolver (mobile OR email)
+    // ==========================================================
+    private Long resolveUserId(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new RuntimeException("Missing token");
+            log.warn("{} ⚠️ Missing or invalid Authorization header", CLASS);
+            return null;
         }
-        String token = authHeader.substring(7);
-        String username = jwtUtil.extractUsername(token);
-        return userRepository.findByMobileNumber(username)
-                .map(u -> u.getId())
-                .orElseThrow(() -> new RuntimeException("User not found for token"));
+
+        try {
+            String token = authHeader.substring(7);
+            String username = jwtUtil.extractUsername(token);
+
+            if (username == null || username.isBlank()) {
+                log.warn("{} ⚠️ Token missing username", CLASS);
+                return null;
+            }
+
+            // 🔍 Try both mobile and email for maximum compatibility
+            return userRepository.findByMobileNumber(username)
+                    .or(() -> userRepository.findByEmail(username))
+                    .map(user -> {
+                        log.debug("{} 🔑 Resolved userId={} for principal={}", CLASS, user.getId(), username);
+                        return user.getId();
+                    })
+                    .orElseGet(() -> {
+                        log.warn("{} ⚠️ No matching user found for principal={}", CLASS, username);
+                        return null;
+                    });
+
+        } catch (Exception e) {
+            log.error("{} ❌ Failed to resolve userId from token: {}", CLASS, e.getMessage());
+            return null;
+        }
     }
 }

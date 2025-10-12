@@ -12,6 +12,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -83,4 +85,12 @@ public class User {
                             this.mobileNumber.replaceAll("\\D+", "");
         }
     }
+
+    public List<String> getRolesAsList() {
+        if (role == null || role.isBlank()) {
+            return Collections.emptyList();
+        }
+        return List.of(role.trim());
+    }
+
 }

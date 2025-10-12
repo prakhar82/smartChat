@@ -1,0 +1,35 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<div
+  class="toast"
+  *ngFor="let t of messages"
+  [attr.data-id]="t.id"
+  [attr.data-direction]="t.direction || 'bottom'"
+  [ngClass]="t.type"
+  (click)="remove(t.id)"
+>
+  <div class="toast-icon">
+    <ng-container [ngSwitch]="t.type">
+      <svg *ngSwitchCase="'success'" viewBox="0 0 24 24">
+        <path d="M9 16.17l-3.5-3.59L4 14l5 5 10-10-1.41-1.42z"/>
+      </svg>
+      <svg *ngSwitchCase="'error'" viewBox="0 0 24 24">
+        <path
+          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
+        />
+      </svg>
+      <svg *ngSwitchDefault viewBox="0 0 24 24">
+        <path d="M11 17h2v2h-2zm0-8h2v6h-2z"/>
+      </svg>
+    </ng-container>
+  </div>
+  <div class="toast-content">
+    <span class="toast-text">{{ t.text }}</span>
+  </div>
+</div>

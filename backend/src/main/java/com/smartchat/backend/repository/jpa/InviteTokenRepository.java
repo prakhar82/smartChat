@@ -6,17 +6,18 @@
  * Author: $USER_NAME
  */
 
-package com.smartchat.backend.repository;
+package com.smartchat.backend.repository.jpa;
 
 import com.smartchat.backend.model.InviteToken;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
+@Repository
 public interface InviteTokenRepository extends JpaRepository<InviteToken, Long> {
-    // Find token by value
+
     Optional<InviteToken> findByToken(String token);
 
-    // Check if a token exists and is unused
     boolean existsByTokenAndUsedFalse(String token);
 }

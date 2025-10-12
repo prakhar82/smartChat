@@ -6,12 +6,22 @@
  * Author: $USER_NAME
  */
 
-import {AfterViewChecked, Component, ElementRef, OnDestroy, OnInit, ViewChild,} from '@angular/core';
-import {ActivatedRoute, ParamMap, Router} from '@angular/router';
+/**
+ * 💬 ChatWindowComponent
+ * ---------------------------------------------------------
+ * Renders the message thread and input box for a given contact.
+ * - Supports both desktop and mobile modes.
+ * - Subscribes to live message and typing events.
+ * - Emits close/back events for parent layout.
+ * ---------------------------------------------------------
+ */
+
+import {Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild,} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {FormsModule} from '@angular/forms';
 import {Subscription} from 'rxjs';
 import {ChatMessage, ChatService} from '../chat.service';
+import {ContactService, MatchedContact} from '../../contacts/contact.service';
 import {AuthService} from '../../auth/auth.service';
 
 @Component({
@@ -19,178 +29,197 @@ import {AuthService} from '../../auth/auth.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './chat-window.component.html',
-  styleUrls: ['./chat-window.component.css'],
+  styleUrls: ['./chat-window.component.scss'],
 })
-export class ChatWindowComponent
-  implements OnInit, AfterViewChecked, OnDestroy {
-  myUserId!: number;
-  otherUserId!: number;
+export class ChatWindowComponent implements OnInit, OnDestroy {
+  /* =========================================================
+   * 📥 Inputs
+   * ========================================================= */
 
+  /** 🔹 ID of the contact currently being chatted with */
+  @Input() contactId!: number;
+
+  /** 👤 Full contact information (preferred for UI display) */
+  @Input() contactInfo?: MatchedContact;
+
+  /** 📱 Indicates mobile mode for showing back button */
+  @Input() isMobileView = false;
+
+  /* =========================================================
+   * 📤 Outputs
+   * ========================================================= */
+
+  /** ⬅️ Event fired when user navigates back (mobile only) */
+  @Output() back = new EventEmitter<void>();
+
+  /** ❌ Event fired when parent wants to close the chat window */
+  @Output() closeChat = new EventEmitter<void>();
+
+  /* =========================================================
+   * 🔧 View & State
+   * ========================================================= */
+
+  /** 💬 Container reference for scroll control */
+  @ViewChild('messageContainer') messageContainer!: ElementRef<HTMLDivElement>;
+
+  /** 🗨️ Chat messages list */
   messages: ChatMessage[] = [];
+
+  /** 📝 Input model for new messages */
   newMessage = '';
-  typingTimeout: any;
-  showTypingTooltip = false;
-  truncatedMessage = '';
 
-  isMobile = window.innerWidth < 768; // ✅ add this
+  /** 🧠 Flag if other user is typing */
+  isOtherTyping = false;
 
-  private routeSub!: Subscription;
-  private wsSub!: Subscription;
+  /** 👤 Logged-in user ID */
+  currentUserId!: number;
 
-  @ViewChild('messagesContainer') private messagesContainer!: ElementRef;
+  /** 🧹 Subscription manager */
+  private subs = new Subscription();
 
   constructor(
-    private route: ActivatedRoute,
-    private router: Router,             // ✅ add Router for goBack()
-    private chatService: ChatService,
-    private authService: AuthService
+    private readonly chatService: ChatService,
+    private readonly contactService: ContactService,
+    private readonly authService: AuthService
   ) {
   }
 
+  /* =========================================================
+   * 🚀 Lifecycle
+   * ========================================================= */
   ngOnInit(): void {
-    const uid = this.authService.getUserId();
-    if (!uid) {
-      console.error('[ChatWindow] ⚠️ User not logged in');
+    console.log('[ChatWindow] 🚀 Init with contactId =', this.contactId);
+
+    this.currentUserId = Number(this.authService.getUserId());
+
+    if (!this.contactInfo && !this.contactId) {
+      console.warn('[ChatWindow] ⚠️ No valid contact info or ID provided');
       return;
     }
-    this.myUserId = Number(uid);
 
-    this.chatService.connectWebSocket(this.myUserId);
+    // ✅ Subscribe to incoming messages
+    this.subs.add(
+      this.chatService.getMessages().subscribe((msg: ChatMessage) => {
+        const receiverId = Number(
+          this.contactInfo?.matchedUserId ||
+          this.contactInfo?.contactId ||
+          this.contactId
+        );
 
-    this.wsSub = this.chatService.messages$.subscribe((msg) => {
-      if (!msg) return;
+        const isMine =
+          msg.senderId === this.currentUserId && msg.receiverId === receiverId;
+        const isFromContact =
+          msg.receiverId === this.currentUserId && msg.senderId === receiverId;
 
-      if (msg.type === 'DELETE' && msg.messageId) {
-        const target = this.messages.find((m) => m.id === msg.messageId);
-        if (target) {
-          target.message = 'This message was deleted';
-          target.fileUrl = null;
-          target.fileName = null;
-          target.emoji = null;
+        if (isMine || isFromContact) {
+          this.messages.push(msg);
+          this.scrollToBottom();
+          console.log('[ChatWindow] 💬 New message added:', msg);
         }
-        return;
-      }
+      })
+    );
 
-      if (msg.senderId === this.otherUserId) {
-        this.messages.push(msg);
-        this.scrollToBottom();
-      }
-    });
-
-    this.routeSub = this.route.paramMap.subscribe((pm: ParamMap) => {
-      const idStr = pm.get('id');
-      this.otherUserId = idStr ? Number(idStr) : NaN;
-      this.loadConversation();
-    });
-  }
-
-  ngAfterViewChecked() {
-    this.scrollToBottom();
+    // ✅ Optional typing event stream
+    if ((this.chatService as any).typing$) {
+      this.subs.add(
+        (this.chatService as any).typing$.subscribe((event: any) => {
+          if (
+            event?.fromId === this.contactInfo?.matchedUserId &&
+            event?.toId === this.currentUserId
+          ) {
+            this.isOtherTyping = true;
+            console.log('[ChatWindow] ✏️ Typing detected from contact');
+            setTimeout(() => (this.isOtherTyping = false), 2000);
+          }
+        })
+      );
+    }
   }
 
   ngOnDestroy(): void {
-    clearTimeout(this.typingTimeout);
-    this.routeSub?.unsubscribe();
-    this.wsSub?.unsubscribe();
+    console.log('[ChatWindow] 🧹 Destroy and unsubscribe');
+    this.subs.unsubscribe();
   }
 
-  private loadConversation() {
-    if (!this.otherUserId || !this.myUserId) {
-      this.messages = [];
+  /* =========================================================
+   * ✉️ Sending Messages
+   * ========================================================= */
+  sendMessage(): void {
+    const text = this.newMessage.trim();
+    if (!text) return;
+
+    const receiverId = Number(
+      this.contactInfo?.matchedUserId ||
+      this.contactInfo?.contactId ||
+      this.contactId
+    );
+
+    if (!receiverId) {
+      console.error('[ChatWindow] ❌ Cannot send: invalid receiver ID');
       return;
     }
 
-    this.chatService.getChatHistory(this.otherUserId).subscribe({
-      next: (msgs) => {
-        this.messages = msgs || [];
-        this.scrollToBottom();
-      },
-      error: (err) => {
-        console.error('[ChatWindow] ❌ Failed to load messages', err);
-        this.messages = [];
-      },
-    });
-  }
-
-  private scrollToBottom() {
-    try {
-      const el = this.messagesContainer?.nativeElement;
-      if (el) el.scrollTop = el.scrollHeight;
-    } catch {
-    }
-  }
-
-  sendMessage() {
-    const text = this.newMessage.trim();
-    if (!text || !this.otherUserId) return;
-
-    const localMsg: ChatMessage = {
-      senderId: this.myUserId,
-      receiverId: this.otherUserId,
+    const outgoing: ChatMessage = {
+      senderId: this.currentUserId,
+      receiverId,
       message: text,
       timestamp: new Date().toISOString(),
       status: 'SENT',
     };
-    this.messages.push(localMsg);
+
+    this.chatService.sendMessage(this.currentUserId, receiverId, text);
+    this.messages.push(outgoing);
+    this.newMessage = '';
     this.scrollToBottom();
 
-    this.chatService.sendMessage(this.myUserId, this.otherUserId, text);
-
-    this.newMessage = '';
-    this.showTypingTooltip = false;
+    console.log('[ChatWindow] 🚀 Message sent →', outgoing);
   }
 
-  deleteMessage(messageId: number) {
-    this.chatService.deleteMessage(messageId).subscribe({
-      next: (updated) => {
-        const target = this.messages.find((m) => m.id === updated.id);
-        if (target) {
-          target.message = updated.message;
-          target.fileUrl = null;
-          target.fileName = null;
-          target.emoji = null;
-        }
-      },
-      error: (err) =>
-        console.error('[ChatWindow] ❌ Failed to delete message', err),
-    });
-  }
+  /* =========================================================
+   * 💭 Typing Notifications
+   * ========================================================= */
+  notifyTyping(): void {
+    const receiverId = Number(
+      this.contactInfo?.matchedUserId ||
+      this.contactInfo?.contactId ||
+      this.contactId
+    );
+    if (!receiverId) return;
 
-  onInput(event: any) {
-    const textarea = event.target as HTMLTextAreaElement;
-    textarea.style.height = 'auto';
-    textarea.style.height = textarea.scrollHeight + 'px';
-
-    if (!this.newMessage.trim()) {
-      this.showTypingTooltip = false;
-      clearTimeout(this.typingTimeout);
-      return;
-    }
-
-    if (textarea.scrollHeight > 60) {
-      this.showTypingTooltip = true;
-      this.truncatedMessage =
-        this.newMessage.length > 50
-          ? this.newMessage.substring(0, 50) + '...'
-          : this.newMessage;
-
-      clearTimeout(this.typingTimeout);
-      this.typingTimeout = setTimeout(
-        () => (this.showTypingTooltip = false),
-        3000
-      );
-    } else {
-      this.showTypingTooltip = false;
-      clearTimeout(this.typingTimeout);
+    if (typeof (this.chatService as any).sendTyping === 'function') {
+      (this.chatService as any).sendTyping(this.currentUserId, receiverId);
+      console.log('[ChatWindow] ✏️ Typing event sent to', receiverId);
     }
   }
 
-  trackByIdx(index: number): number {
-    return index;
+  /* =========================================================
+   * 🔽 Auto Scroll
+   * ========================================================= */
+  private scrollToBottom(): void {
+    setTimeout(() => {
+      const container = this.messageContainer?.nativeElement;
+      if (container) container.scrollTop = container.scrollHeight;
+    }, 100);
   }
 
-  // ✅ fix unresolved goBack()
-  goBack(): void {
-    this.router.navigate([{outlets: {primary: ['chats'], chat: null}}]);
+  /* =========================================================
+   * 🧮 TrackBy Optimization
+   * ========================================================= */
+  trackByMsgId(index: number, msg: ChatMessage): string {
+    return msg.id ?? index.toString();
+  }
+
+  /* =========================================================
+   * 📱 Navigation / Close Events
+   * ========================================================= */
+  onBackClick(): void {
+    console.log('[ChatWindow] ⬅️ Back button clicked');
+    this.back.emit();
+  }
+
+  /** 🔙 Close chat window (emit event to parent) */
+  onCloseChat(): void {
+    console.log('[ChatWindow] 🔙 Close chat clicked');
+    this.closeChat.emit();
   }
 }

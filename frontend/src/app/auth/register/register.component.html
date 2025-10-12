@@ -3,31 +3,58 @@
   ~ All rights reserved.
   ~ Unauthorized copying or distribution of this file,
   ~ via any medium, is strictly prohibited unless permitted by license.
-  ~ Author: Prakhar Dwivedi
+  ~ Author: $USER_NAME
   -->
 
-<!-- src/app/auth/register/register.component.html -->
-<div class="register-container">
-  <h2>Create your SmartChat account</h2>
+<div class="auth-page">
+  <div class="auth-card">
+    <h1 class="app-title">Create Account ✨</h1>
+    <p class="subtitle">Join <strong>SmartChat</strong> and connect smarter</p>
 
-  <form #f="ngForm" (ngSubmit)="register(f)">
-    <input [(ngModel)]="user.firstName" name="firstName" placeholder="First Name" required />
-    <input [(ngModel)]="user.lastName" name="lastName" placeholder="Last Name" required />
+    <form (ngSubmit)="onRegister()" class="auth-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="firstName">First Name</label>
+          <input id="firstName" name="firstName" [(ngModel)]="firstName" placeholder="John" required/>
+        </div>
 
-    <div class="mobile-inputs">
-      <input [(ngModel)]="user.countryCode" name="countryCode" placeholder="+91" required />
-      <input [(ngModel)]="user.mobileNumber" name="mobileNumber" placeholder="Mobile Number" required />
-    </div>
+        <div class="form-group">
+          <label for="lastName">Last Name</label>
+          <input id="lastName" name="lastName" [(ngModel)]="lastName" placeholder="Doe" required/>
+        </div>
+      </div>
 
-    <input [(ngModel)]="user.email" name="email" placeholder="Email" required />
-    <input type="password" [(ngModel)]="user.password" name="password" placeholder="Password" required />
-    <input type="password" [(ngModel)]="user.confirmPassword" name="confirmPassword" placeholder="Confirm Password" required />
+      <div class="form-group">
+        <label for="mobile">Mobile Number</label>
+        <div class="input-prefix">
+          <span>+91</span>
+          <input id="mobile" name="mobile" [(ngModel)]="mobile" type="tel" placeholder="9876543210" required/>
+        </div>
+      </div>
 
-    <button type="submit" [disabled]="isLoading">
-      <ng-container *ngIf="!isLoading">Register</ng-container>
-      <ng-container *ngIf="isLoading"><span class="spinner"></span> {{ loadingMessage }}</ng-container>
-    </button>
-  </form>
+      <div class="form-group">
+        <label for="email">Email (optional)</label>
+        <input id="email" name="email" [(ngModel)]="email" type="email" placeholder="you@example.com"/>
+      </div>
 
-  <p>Already have an account? <a routerLink="/login">Login</a></p>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input id="password" name="password" [(ngModel)]="password" type="password" required/>
+        </div>
+
+        <div class="form-group">
+          <label for="confirm">Confirm Password</label>
+          <input id="confirm" name="confirm" [(ngModel)]="confirm" type="password" required/>
+        </div>
+      </div>
+
+      <button class="btn-primary" type="submit">Register</button>
+
+      <p class="footer-text">
+        Already have an account?
+        <a routerLink="/login">Login</a>
+      </p>
+    </form>
+  </div>
 </div>

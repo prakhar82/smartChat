@@ -7,167 +7,188 @@
  */
 
 import {Injectable} from '@angular/core';
+import {BehaviorSubject, Observable, of, switchMap, throwError} from 'rxjs';
+import {catchError, map, tap} from 'rxjs/operators';
 import {HttpClient} from '@angular/common/http';
-import {BehaviorSubject, forkJoin, Observable} from 'rxjs';
-import {AuthService} from '../auth/auth.service'; // 👈 import added
+import {AuthService} from '../auth/auth.service';
+import {environment} from '../../environments/environment';
 
-// ✅ Payload for device/manual contact sync
+export type ContactSource = 'GOOGLE' | 'PHONE' | 'APP';
+
 export interface ContactPayload {
   contactName?: string;
   phones?: { label: string; value: string }[];
   emails?: { label: string; value: string }[];
 }
 
-// ✅ Backend response model for matched contacts
 export interface MatchedContact {
-  contactId: string | null;
+  id?: number | string;
+  contactId: string;
   contactName: string;
-  registered: boolean;
-  canInvite: boolean;
   phones: { label: string; value: string; registered: boolean }[];
   emails: { label: string; value: string }[];
-  matchedUserId?: number | null;
-
-  // 👇 new fields for UI
+  registered: boolean;
+  canInvite: boolean;
+  matchedUserId?: number;
+  avatarUrl?: string;
   online?: boolean;
   lastMessage?: string | null;
   lastMessageTime?: string | null;
+  source?: ContactSource;
+  lastSyncedAt?: string;
 }
 
 @Injectable({providedIn: 'root'})
 export class ContactService {
+  private contactsSubject = new BehaviorSubject<MatchedContact[]>([]);
+  readonly contacts$ = this.contactsSubject.asObservable();
+
   private cachedContacts: MatchedContact[] = [];
-  private contactsUpdated = new BehaviorSubject<void>(undefined);
+  private isFetching = false;
 
-  contactsUpdated$ = this.contactsUpdated.asObservable();
-
-  constructor(
-    private http: HttpClient,
-    private authService: AuthService   // 👈 inject properly
-  ) {
+  constructor(private http: HttpClient, private authService: AuthService) {
   }
 
-  /**
-   * 🔄 Transform a "flat" contact object (legacy/mobile device format)
-   * into the new structure required by backend.
-   */
+  // 🌐 OAuth URL for Google popup
+  getGoogleAuthInitUrl(): string {
+    const token = this.authService.getToken();
+    return `${environment.apiUrl}/auth/google/init?access_token=${encodeURIComponent(token || '')}`;
+  }
+
+  // 📤 Manual device contact sync
+  syncContacts(userId: number, contacts: any[]): Observable<any> {
+    const normalized = contacts.map((c) => this.transformToPayload(c));
+    const payload = {ownerUserId: userId, contacts: normalized};
+    console.log('[ContactService] 📤 Syncing device contacts for user', userId);
+    return this.http.post(`${environment.apiUrl}/contacts/sync`, payload, {
+      headers: {Authorization: `Bearer ${this.authService.getToken() || ''}`},
+    });
+  }
+
+  // 🔄 Google contact sync flow
+  syncGoogleContacts(): Observable<MatchedContact[]> {
+    const tokenUrl = `${environment.apiUrl}/auth/google/token`;
+    const syncUrl = `${environment.apiUrl}/contacts/google/sync`;
+
+    console.log('[ContactService] 🔁 Starting Google contacts sync...');
+
+    return this.http
+      .get<{ accessToken?: string | null; message?: string }>(tokenUrl, {
+        headers: {Authorization: `Bearer ${this.authService.getToken() || ''}`},
+      })
+      .pipe(
+        switchMap((res) => {
+          if (res?.accessToken) {
+            console.log('[ContactService] ✅ Found Google token — syncing contacts...');
+            return this.http
+              .post<any[]>(syncUrl, {access_token: res.accessToken}, {
+                headers: {Authorization: `Bearer ${this.authService.getToken() || ''}`},
+              })
+              .pipe(
+                switchMap(() => this.getMatchedContacts(true)),
+                tap((contacts) => {
+                  this.setCachedContacts(contacts);
+                  console.log(`[ContactService] ✅ Google sync complete (${contacts.length})`);
+                })
+              );
+          }
+
+          console.warn('[ContactService] ⚠️ No valid Google token — open popup');
+          const popup = window.open(this.getGoogleAuthInitUrl(), '_blank', 'width=520,height=650');
+
+          if (!popup) {
+            return throwError(() => new Error('Popup blocked. Please allow popups.'));
+          }
+
+          const poll = setInterval(() => {
+            if (popup.closed) {
+              clearInterval(poll);
+              console.log('[ContactService] 🔁 Popup closed — retry sync');
+              this.syncGoogleContacts().subscribe();
+            }
+          }, 1000);
+
+          return of([] as MatchedContact[]);
+        }),
+        catchError((err) => {
+          console.error('[ContactService] ❌ Google sync failed:', err);
+          return throwError(() => err);
+        })
+      );
+  }
+
+  // 📥 Fetch matched contacts (auto-emits results)
+  getMatchedContacts(forceRefresh = false): Observable<MatchedContact[]> {
+    if (this.isFetching && !forceRefresh) {
+      console.log('[ContactService] 🕓 Fetch already in progress');
+      return this.contacts$;
+    }
+
+    this.isFetching = true;
+    console.log('[ContactService] 🔍 Fetching matched contacts...');
+
+    return this.http.get<MatchedContact[]>(`${environment.apiUrl}/contacts/matched`, {
+      headers: {Authorization: `Bearer ${this.authService.getToken() || ''}`},
+    }).pipe(
+      map((contacts) => this.sortContacts(contacts)),
+      tap((sorted) => {
+        this.cachedContacts = [...sorted];
+        this.contactsSubject.next([...sorted]);
+        this.isFetching = false;
+        console.log(`[ContactService] ✅ Contacts emitted: ${sorted.length}`);
+      }),
+      catchError((err) => {
+        this.isFetching = false;
+        console.error('[ContactService] ❌ Fetch failed:', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  // 🔹 Normalize raw contact
   private transformToPayload(raw: any): ContactPayload {
-    const payload: ContactPayload = {
-      contactName: raw.contactName,
-      phones: [],
-      emails: [],
-    };
-
-    if (raw.phoneNormalized) {
+    const payload: ContactPayload = {contactName: raw.contactName, phones: [], emails: []};
+    if (raw.phoneNormalized)
       payload.phones!.push({label: 'mobile', value: raw.phoneNormalized});
-    } else if (raw.phoneRaw) {
+    else if (raw.phoneRaw)
       payload.phones!.push({label: 'mobile', value: raw.phoneRaw});
-    }
-
-    if (raw.email) {
+    if (raw.email)
       payload.emails!.push({label: 'home', value: raw.email});
-    }
-
     return payload;
   }
 
-  // 📥 Manual/device contact sync
-  syncContacts(userId: number, contacts: any[]): Observable<any> {
-    const normalizedContacts = contacts.map((c) => this.transformToPayload(c));
-    const payload = {ownerUserId: userId, contacts: normalizedContacts};
-    return this.http.post('/api/contacts/sync', payload, {
-      headers: {Authorization: `Bearer ${this.authService.getToken()}`},
-    });
-  }
-
-  // 📥 Google contact sync
-  syncGoogleContacts(token: string): Observable<any> {
-    return this.http.post(
-      '/api/contacts/google/sync',
-      {access_token: token}, // ✅ use snake_case to match backend
-      {
-        headers: {Authorization: `Bearer ${this.authService.getToken()}`},
-      }
-    );
-  }
-
-
-  // 📤 Fetch matched contacts + enrich with recent chats
-  getMatchedContacts(force = true): Observable<MatchedContact[]> {
-    if (!force && this.cachedContacts.length > 0) {
-      return new BehaviorSubject(this.cachedContacts).asObservable();
-    }
-
-    return new Observable<MatchedContact[]>((observer) => {
-      forkJoin({
-        contacts: this.http.get<MatchedContact[]>('/api/contacts/matched', {
-          headers: {Authorization: `Bearer ${this.authService.getToken()}`},
-        }),
-        recent: this.http.get<any[]>('/api/chats/recent', {
-          headers: {Authorization: `Bearer ${this.authService.getToken()}`},
-        }),
-      }).subscribe({
-        next: ({contacts, recent}) => {
-          const enriched = (contacts || []).map((c) => {
-            const recentChat = recent.find(
-              (r) => String(r.contactId) === String(c.matchedUserId)
-            );
-            return {
-              ...c,
-              lastMessage: recentChat?.lastMessage || null,
-              lastMessageTime: recentChat?.lastMessageTime || null,
-            };
-          });
-          this.cachedContacts = enriched;
-          observer.next(this.cachedContacts);
-          observer.complete();
-        },
-        error: (err) => observer.error(err),
-      });
-    });
-  }
-
-  // 📦 Local cache access
+  // 🧠 Cache helpers
   getCachedContacts(): MatchedContact[] {
-    return this.cachedContacts;
+    return [...this.cachedContacts];
   }
 
-  setCachedContacts(list: MatchedContact[]) {
-    this.cachedContacts = list;
+  setCachedContacts(list: MatchedContact[]): void {
+    const copy = [...list];
+    this.cachedContacts = copy;
+    this.contactsSubject.next(copy);
   }
 
-  // 🔔 Notify subscribers (e.g. ContactListComponent) to reload
-  notifyContactsUpdated() {
-    this.contactsUpdated.next();
+  notifyContactsUpdated(): void {
+    this.contactsSubject.next([...this.cachedContacts]);
   }
 
-  // ✉️ Send invite email via backend
-  sendInviteEmail(contactEmail: string, contactName: string): Observable<any> {
-    return this.http.post(
-      '/api/contacts/google/invite/send',
-      {contactEmail, contactName},
-      {
-        headers: {Authorization: `Bearer ${this.authService.getToken()}`},
-      }
+  // 📊 Sorting helper
+  private sortContacts(list: MatchedContact[]): MatchedContact[] {
+    return [...list].sort((a, b) =>
+      (a.contactName || '').toLowerCase().localeCompare((b.contactName || '').toLowerCase())
     );
   }
 
-  /**
-   * ✅ Update online/offline status in cached contacts
-   */
-  updateUserStatus(userId: number, online: boolean): void {
-    let updated = false;
-    this.cachedContacts = this.cachedContacts.map((c) => {
-      if (c.matchedUserId === userId) {
-        updated = true;
-        return {...c, online};
-      }
-      return c;
-    });
-
-    if (updated) {
-      console.log('[ContactService] 👤 Updated user status:', {userId, online});
-      this.notifyContactsUpdated();
-    }
+  // ✉️ Invite user by email
+  sendInviteEmail(contactEmail: string, contactName: string): Observable<any> {
+    const url = `${environment.apiUrl}/contacts/google/invite/send`;
+    return this.http.post(url, {contactEmail, contactName}, {
+      headers: {Authorization: `Bearer ${this.authService.getToken() || ''}`},
+    }).pipe(
+      catchError((err) => {
+        console.error('[ContactService] ❌ Invite email failed:', err);
+        return throwError(() => err);
+      })
+    );
   }
 }

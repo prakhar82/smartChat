@@ -11,7 +11,9 @@ import {Router} from '@angular/router';
 import {FormsModule, NgForm} from '@angular/forms';
 import {CommonModule} from '@angular/common';
 import {AuthService} from '../auth.service';
+import {UserService} from '../user.service';
 import {ContactService} from '../../contacts/contact.service';
+import {LoggerService} from '../../core/logger.service';
 
 @Component({
   selector: 'app-login',
@@ -21,32 +23,48 @@ import {ContactService} from '../../contacts/contact.service';
   styleUrls: ['./login.component.css']
 })
 export class LoginComponent {
-  mobileNumber = '';
+  mobile = '';
   password = '';
   loading = false;
 
   constructor(
     private auth: AuthService,
     private router: Router,
-    private contactService: ContactService
+    private contactService: ContactService,
+    private userService: UserService,
+    private logger: LoggerService
   ) {
   }
 
-  login(form: NgForm) {
-    if (form.invalid) return;
-    this.loading = true;
+  onLogin(form?: NgForm): void {
+    this.logger.debug('LoginComponent', 'onLogin triggered');
+    if (form && form.invalid) {
+      this.logger.warn('LoginComponent', 'Invalid form submission');
+      return;
+    }
 
-    this.auth.login(this.mobileNumber, this.password).subscribe({
+    if (!this.mobile || !this.password) {
+      this.logger.warn('LoginComponent', 'Missing credentials');
+      alert('Please enter mobile and password.');
+      return;
+    }
+
+    this.loading = true;
+    this.logger.info('LoginComponent', 'Sending login request');
+
+    this.auth.login(this.mobile, this.password).subscribe({
       next: () => {
+        this.logger.success('LoginComponent', 'Login successful');
         this.loading = false;
+        this.userService.refreshProfile();
         this.router.navigate(['/chats']).then(() => {
-          //this.contactService.notifyContactsUpdated();
+          this.contactService.notifyContactsUpdated();
         });
       },
-      error: err => {
+      error: (err) => {
+        this.logger.error('LoginComponent', 'Login failed', err);
         this.loading = false;
-        console.error('Login failed', err);
-        alert(err?.error?.message || 'Login failed');
+        alert(err?.error?.message || 'Login failed. Please try again.');
       }
     });
   }

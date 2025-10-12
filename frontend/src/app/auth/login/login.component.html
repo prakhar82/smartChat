@@ -3,20 +3,52 @@
   ~ All rights reserved.
   ~ Unauthorized copying or distribution of this file,
   ~ via any medium, is strictly prohibited unless permitted by license.
-  ~ Author: Prakhar Dwivedi
+  ~ Author: $USER_NAME
   -->
 
-<!-- src/app/auth/login/login.component.html -->
-<div class="auth-container">
-  <h2>Login</h2>
-  <form #f="ngForm" (ngSubmit)="login(f)">
-    <label>Mobile Number</label>
-    <input [(ngModel)]="mobileNumber" name="mobile" required />
+<div class="auth-page">
+  <div class="auth-card">
+    <!-- Add this inside .auth-card, above <h1> -->
+    <div class="logo-bounce">
+      <img src="assets/logo.png" alt="SmartChat Logo"/>
+    </div>
+    <h1 class="app-title">Welcome back 👋</h1>
+    <p class="subtitle">Login to your <strong>SmartChat</strong> account</p>
 
-    <label>Password</label>
-    <input type="password" [(ngModel)]="password" name="password" required />
+    <form (ngSubmit)="onLogin()" class="auth-form">
+      <div class="form-group">
+        <label for="mobile">Mobile Number</label>
+        <div class="input-prefix">
+          <span>+91</span>
+          <input
+            id="mobile"
+            type="tel"
+            name="mobile"
+            [(ngModel)]="mobile"
+            placeholder="Enter mobile number"
+            required
+          />
+        </div>
+      </div>
 
-    <button type="submit" [disabled]="loading">{{ loading ? 'Logging in...' : 'Login' }}</button>
-  </form>
-  <p>Don't have an account? <a routerLink="/register">Register</a></p>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          id="password"
+          type="password"
+          name="password"
+          [(ngModel)]="password"
+          placeholder="Enter password"
+          required
+        />
+      </div>
+
+      <button class="btn-primary" type="submit">Login</button>
+
+      <p class="footer-text">
+        Don’t have an account?
+        <a routerLink="/register">Register</a>
+      </p>
+    </form>
+  </div>
 </div>

@@ -13,8 +13,8 @@ import com.smartchat.backend.auth.dto.RegisterRequest;
 import com.smartchat.backend.auth.service.CustomUserDetailsService;
 import com.smartchat.backend.model.InviteToken;
 import com.smartchat.backend.model.User;
-import com.smartchat.backend.repository.InviteTokenRepository;
-import com.smartchat.backend.repository.UserRepository;
+import com.smartchat.backend.repository.jpa.InviteTokenRepository;
+import com.smartchat.backend.repository.jpa.UserRepository;
 import com.smartchat.backend.service.InviteTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,10 +27,23 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
 
+/**
+ * ==========================================================
+ * ✅ AuthService
+ * ----------------------------------------------------------
+ * Core authentication service responsible for:
+ * - User login
+ * - Registration
+ * - JWT token refresh
+ * - Invite/referral handling
+ * ==========================================================
+ */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class AuthService {
+
+    private static final String CLASS = "[AuthService]";
 
     private final AuthenticationManager authenticationManager;
     private final CustomUserDetailsService userDetailsService;
@@ -40,30 +53,43 @@ public class AuthService {
     private final InviteTokenRepository inviteTokenRepository;
     private final InviteTokenService inviteTokenService;
 
-    /**
-     * Handles user login by verifying mobile number and password.
-     */
+    // ==========================================================
+    // 🔹 LOGIN — Authenticate user and issue JWT tokens
+    // ==========================================================
     public AuthResponse login(String mobileNumber, String password) {
-        log.info("[AuthService] Attempting login for mobileNumber={}", mobileNumber);
+        log.info("{} ▶ Attempting login for mobileNumber={}", CLASS, mobileNumber);
 
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(mobileNumber, password)
-        );
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(mobileNumber, password)
+            );
+        } catch (Exception e) {
+            log.warn("{} ❌ Authentication failed for mobileNumber={} → {}", CLASS, mobileNumber, e.getMessage());
+            throw new RuntimeException("Invalid credentials");
+        }
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(mobileNumber);
-        User user = userRepository.findByMobileNumber(mobileNumber).orElseThrow();
+        User user = userRepository.findByMobileNumber(mobileNumber)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<String> roles = List.of(user.getRole());
 
         String accessToken = jwtUtil.generateAccessToken(
                 user.getId(),
                 userDetails.getUsername(),
-                List.of(user.getRole())
-        );
-        String refreshToken = jwtUtil.generateRefreshToken(
-                user.getId(),
-                userDetails.getUsername()
+                user.getEmail(),
+                user.getMobileNumber(),
+                roles
         );
 
-        log.info("[AuthService] Login successful for userId={}", user.getId());
+        String refreshToken = jwtUtil.generateRefreshToken(
+                user.getId(),
+                userDetails.getUsername(),
+                user.getEmail(),
+                user.getMobileNumber()
+        );
+
+        log.info("{} ✅ Login successful → userId={} roles={}", CLASS, user.getId(), roles);
 
         return AuthResponse.builder()
                 .authToken(accessToken)
@@ -76,42 +102,69 @@ public class AuthService {
                 .build();
     }
 
-    /**
-     * Refresh JWT access token using a valid refresh token.
-     */
+    // ==========================================================
+    // 🔹 REFRESH TOKEN — Issue new access token
+    // ==========================================================
     public AuthResponse refreshToken(String refreshToken) {
-        log.debug("[AuthService] Refreshing access token using refreshToken");
+        log.info("{} ▶ Refreshing access token", CLASS);
 
-        if (!jwtUtil.isTokenValid(refreshToken, jwtUtil.extractUsername(refreshToken))) {
-            log.error("[AuthService] Invalid refresh token");
+        if (refreshToken == null || refreshToken.isBlank()) {
+            log.warn("{} ⚠️ Missing refresh token in request", CLASS);
+            throw new RuntimeException("Missing refresh token");
+        }
+
+        String username;
+        try {
+            username = jwtUtil.extractUsername(refreshToken);
+        } catch (Exception e) {
+            log.error("{} ❌ Failed to extract username from refresh token → {}", CLASS, e.getMessage());
             throw new RuntimeException("Invalid refresh token");
         }
 
-        String username = jwtUtil.extractUsername(refreshToken);
-        User user = userRepository.findByMobileNumber(username).orElseThrow();
+        if (!jwtUtil.isTokenValid(refreshToken, username)) {
+            log.error("{} ❌ Invalid or expired refresh token for username={}", CLASS, username);
+            throw new RuntimeException("Invalid or expired refresh token");
+        }
+
+        User user = userRepository.findByMobileNumber(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<String> roles = List.of(user.getRole());
 
         String newAccessToken = jwtUtil.generateAccessToken(
                 user.getId(),
                 username,
-                List.of(user.getRole())
+                user.getEmail(),
+                user.getMobileNumber(),
+                roles
         );
 
-        log.info("[AuthService] Issued new access token for userId={}", user.getId());
+        log.info("{} ✅ Issued new access token for userId={}", CLASS, user.getId());
 
-        return new AuthResponse(newAccessToken, refreshToken, user.getId());
+        return AuthResponse.builder()
+                .authToken(newAccessToken)
+                .refreshToken(refreshToken)
+                .userId(user.getId())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .email(user.getEmail())
+                .message("Token refreshed successfully")
+                .build();
     }
 
-    /**
-     * Register a new user into the system.
-     */
+    // ==========================================================
+    // 🔹 REGISTER — Create a new SmartChat user
+    // ==========================================================
     public AuthResponse register(RegisterRequest request) {
-        log.info("[AuthService] Registering new user mobileNumber={}", request.getMobileNumber());
+        log.info("{} ▶ Registering new user → mobile={}", CLASS, request.getMobileNumber());
 
-        if (userRepository.findByMobileNumber(request.getMobileNumber()).isPresent()) {
-            log.warn("[AuthService] Mobile number already registered: {}", request.getMobileNumber());
+        // Prevent duplicate registration
+        userRepository.findByMobileNumber(request.getMobileNumber()).ifPresent(u -> {
+            log.warn("{} ❌ Mobile number already registered: {}", CLASS, request.getMobileNumber());
             throw new RuntimeException("Mobile number already registered");
-        }
+        });
 
+        // Create and populate user
         User newUser = new User();
         newUser.setFirstName(request.getFirstName());
         newUser.setLastName(request.getLastName());
@@ -122,45 +175,31 @@ public class AuthService {
         newUser.setRole("USER");
         newUser.setCreatedAt(Instant.now());
         newUser.setUpdatedAt(Instant.now());
+        newUser.setMobileNormalized(normalizePhone(request.getCountryCode(), request.getMobileNumber()));
 
-        // ✅ Simple normalization
-        String normalized = normalizePhone(request.getCountryCode(), request.getMobileNumber());
-        newUser.setMobileNormalized(normalized);
-
-        // Handle referral token
-        if (request.getReferralToken() != null && !request.getReferralToken().isBlank()) {
-            log.debug("[AuthService] Processing referral token {}", request.getReferralToken());
-
-            InviteToken inviteToken = inviteTokenRepository.findByToken(request.getReferralToken())
-                    .orElseThrow(() -> new RuntimeException("Invalid referral token"));
-            if (inviteToken.isUsed()) {
-                log.error("[AuthService] Referral token already used: {}", request.getReferralToken());
-                throw new RuntimeException("Referral token already used");
-            }
-
-            inviteToken.markUsed();
-            inviteTokenRepository.save(inviteToken);
-
-            User inviter = inviteToken.getInviter();
-            userRepository.save(inviter);
-
-            newUser.setReferredBy(inviter);
-            log.info("[AuthService] User {} referred by {}", newUser.getMobileNumber(), inviter.getMobileNumber());
-        }
+        // Handle referral/invite token if provided
+        handleReferral(request, newUser);
 
         userRepository.save(newUser);
+
+        List<String> roles = List.of(newUser.getRole());
 
         String accessToken = jwtUtil.generateAccessToken(
                 newUser.getId(),
                 newUser.getMobileNumber(),
-                List.of(newUser.getRole())
+                newUser.getEmail(),
+                newUser.getMobileNumber(),
+                roles
         );
+
         String refreshToken = jwtUtil.generateRefreshToken(
                 newUser.getId(),
+                newUser.getMobileNumber(),
+                newUser.getEmail(),
                 newUser.getMobileNumber()
         );
 
-        log.info("[AuthService] Registration successful for userId={}", newUser.getId());
+        log.info("{} ✅ Registration successful → userId={}", CLASS, newUser.getId());
 
         return AuthResponse.builder()
                 .authToken(accessToken)
@@ -173,15 +212,39 @@ public class AuthService {
                 .build();
     }
 
-    /**
-     * Simple phone normalization without libphonenumber.
-     */
+    // ==========================================================
+    // 🔹 Helper — Handle referral / invite logic
+    // ==========================================================
+    private void handleReferral(RegisterRequest request, User newUser) {
+        if (request.getReferralToken() == null || request.getReferralToken().isBlank()) {
+            return;
+        }
+
+        log.info("{} 🎟 Processing referral token {}", CLASS, request.getReferralToken());
+        InviteToken inviteToken = inviteTokenRepository.findByToken(request.getReferralToken())
+                .orElseThrow(() -> new RuntimeException("Invalid referral token"));
+
+        if (inviteToken.isUsed()) {
+            log.warn("{} ⚠️ Referral token already used → {}", CLASS, request.getReferralToken());
+            throw new RuntimeException("Referral token already used");
+        }
+
+        inviteToken.markUsed();
+        inviteTokenRepository.save(inviteToken);
+
+        User inviter = inviteToken.getInviter();
+        newUser.setReferredBy(inviter);
+
+        log.info("{} 🤝 User {} referred by {}", CLASS, newUser.getMobileNumber(), inviter.getMobileNumber());
+    }
+
+    // ==========================================================
+    // 🔹 Helper — Normalize phone numbers
+    // ==========================================================
     private String normalizePhone(String countryCode, String rawMobile) {
         if (rawMobile == null) return null;
         String cleaned = rawMobile.replaceAll("[\\s\\-()]", "");
-        if (cleaned.startsWith("+")) {
-            return cleaned;
-        }
+        if (cleaned.startsWith("+")) return cleaned;
         if (countryCode != null && !countryCode.isBlank()) {
             return countryCode + cleaned.replaceFirst("^0+", "");
         }

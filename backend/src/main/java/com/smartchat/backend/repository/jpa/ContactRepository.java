@@ -6,7 +6,7 @@
  * Author: $USER_NAME
  */
 
-package com.smartchat.backend.repository;
+package com.smartchat.backend.repository.jpa;
 
 import com.smartchat.backend.model.Contact;
 import org.springframework.data.jpa.repository.JpaRepository;

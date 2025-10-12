@@ -1,0 +1,197 @@
+/*
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
+ */
+
+/* ===============================
+   🌐 Container
+================================= */
+.toast-container {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 3000;
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+
+/* Desktop placement */
+@media (min-width: 900px) {
+  .toast-container {
+    top: 20px;
+    right: 20px;
+    bottom: auto;
+    left: auto;
+    align-items: flex-end;
+  }
+}
+
+/* ===============================
+   🔔 Toast Base
+================================= */
+.toast {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--toast-bg, #2a2f32);
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  font-weight: 500;
+  min-width: 250px;
+  max-width: 360px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  pointer-events: auto;
+  cursor: pointer;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(20px) scale(0.96);
+  animation: fadeInUp 0.35s ease forwards;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.toast:hover {
+  transform: translateY(-3px) scale(1.03);
+}
+
+/* Accent bar */
+.toast::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  border-radius: 12px 0 0 12px;
+  background: var(--accent, #4caf50);
+  animation: accentPulse 1.2s ease-in-out infinite;
+}
+
+/* ===============================
+   🎨 Variants
+================================= */
+.toast.success {
+  --accent: linear-gradient(180deg, #43a047, #66bb6a);
+  background: linear-gradient(135deg, #2e7d32, #43a047);
+  color: #f1fff0;
+}
+
+.toast.error {
+  --accent: linear-gradient(180deg, #c62828, #e53935);
+  background: linear-gradient(135deg, #8e0000, #b71c1c);
+  color: #ffeaea;
+}
+
+.toast.info {
+  --accent: linear-gradient(180deg, #1e88e5, #42a5f5);
+  background: linear-gradient(135deg, #1565c0, #2196f3);
+  color: #e9f5ff;
+}
+
+/* ===============================
+   🌙 Dark Mode
+================================= */
+body.dark .toast {
+  background: #1e272b;
+  color: #e9edef;
+}
+
+body.dark .toast.success {
+  background: linear-gradient(135deg, #1b5e20, #2e7d32);
+}
+
+body.dark .toast.error {
+  background: linear-gradient(135deg, #7f0000, #c62828);
+}
+
+body.dark .toast.info {
+  background: linear-gradient(135deg, #0d47a1, #1976d2);
+}
+
+/* ===============================
+   ✨ Direction Animations
+================================= */
+.toast[data-direction='bottom'] {
+  animation: fadeInUp 0.35s ease forwards;
+}
+
+.toast[data-direction='top'] {
+  animation: fadeInDown 0.35s ease forwards;
+}
+
+.toast[data-direction='left'] {
+  animation: fadeInLeft 0.35s ease forwards;
+}
+
+.toast[data-direction='right'] {
+  animation: fadeInRight 0.35s ease forwards;
+}
+
+/* ===============================
+   ⚡ Accent & Glow Animation
+================================= */
+@keyframes accentPulse {
+  0%, 100% {
+    opacity: 0.9;
+    transform: scaleY(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1.05);
+  }
+}
+
+/* ===============================
+   🎬 Entry / Exit Motion
+================================= */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(25px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-25px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-40px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(40px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}

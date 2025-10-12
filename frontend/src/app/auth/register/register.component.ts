@@ -11,6 +11,7 @@ import {Router} from '@angular/router';
 import {FormsModule, NgForm} from '@angular/forms';
 import {CommonModule} from '@angular/common';
 import {AuthService, RegisterRequest} from '../auth.service';
+import {LoggerService} from '../../core/logger.service';
 
 @Component({
   selector: 'app-register',
@@ -20,45 +21,56 @@ import {AuthService, RegisterRequest} from '../auth.service';
   styleUrls: ['./register.component.css']
 })
 export class RegisterComponent {
-  
-  user: RegisterRequest = {
-    firstName: '',
-    lastName: '',
-    countryCode: '+91',
-    mobileNumber: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    googleToken: null,
-    referralToken: ''
-  };
-
+  firstName = '';
+  lastName = '';
+  mobile = '';
+  email = '';
+  password = '';
+  confirm = '';
   isLoading = false;
-  loadingMessage = '';
 
-  constructor(private auth: AuthService, private router: Router) {
+  constructor(private auth: AuthService, private router: Router, private logger: LoggerService) {
   }
 
-  register(form: NgForm) {
-    if (form.invalid) return;
+  onRegister(form?: NgForm): void {
+    this.logger.info('RegisterComponent', 'Registration initiated');
 
-    if (this.user.password !== this.user.confirmPassword) {
+    if (form && form.invalid) {
+      this.logger.warn('RegisterComponent', 'Invalid form');
+      return;
+    }
+
+    if (this.password !== this.confirm) {
+      this.logger.warn('RegisterComponent', 'Password mismatch');
       alert('Passwords do not match');
       return;
     }
 
-    this.isLoading = true;
-    this.loadingMessage = 'Registering...';
+    const payload: RegisterRequest = {
+      firstName: this.firstName,
+      lastName: this.lastName,
+      countryCode: '+91',
+      mobileNumber: this.mobile,
+      email: this.email,
+      password: this.password,
+      confirmPassword: this.confirm,
+      googleToken: null,
+      referralToken: ''
+    };
 
-    this.auth.register(this.user).subscribe({
+    this.isLoading = true;
+    this.logger.debug('RegisterComponent', 'Payload', payload);
+
+    this.auth.register(payload).subscribe({
       next: () => {
+        this.logger.success('RegisterComponent', 'Registration successful');
         this.isLoading = false;
         this.router.navigate(['/chats'], {queryParams: {showGooglePopup: 'true'}});
       },
-      error: err => {
-        console.error('Register failed', err);
+      error: (err) => {
+        this.logger.error('RegisterComponent', 'Registration failed', err);
         this.isLoading = false;
-        alert(err?.error?.message || 'Registration failed');
+        alert(err?.error?.message || 'Registration failed. Please try again.');
       }
     });
   }

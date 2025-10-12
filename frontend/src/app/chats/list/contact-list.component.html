@@ -6,55 +6,80 @@
   ~ Author: $USER_NAME
   -->
 
-<div class="contact-list">
-  <!-- 🔍 Search -->
-  <div class="search-bar">
-    <input
-      type="text"
-      placeholder="Search contacts"
-      [(ngModel)]="searchQuery"
-      (input)="onSearch()"
-    />
+<!-- =========================================================
+     📇 SmartChat Contact List
+     ========================================================= -->
+<div class="contact-list" role="list">
+  <!-- 🌀 Loading Spinner -->
+  <div class="loading" *ngIf="isLoading">
+    <div class="spinner" role="status" aria-label="Loading contacts..."></div>
+    <p>Loading contacts...</p>
   </div>
 
-  <!-- 📋 Contacts -->
-  <div class="contact-items">
+  <!-- ✅ Contacts -->
+  <ng-container *ngIf="!isLoading && (contacts?.length || 0) > 0; else noContacts">
     <div
       class="contact-item"
-      *ngFor="let c of filtered; trackBy: trackById"
-      (click)="openChat(c)"
+      *ngFor="let contact of contacts; trackBy: trackById"
+      (click)="onSelect(contact)"
+      tabindex="0"
+      role="button"
+      aria-label="Select contact"
     >
+      <!-- 🧑 Avatar -->
       <div class="avatar">
-        <span>{{ c.contactName.charAt(0).toUpperCase() }}</span>
+        <img
+          *ngIf="contact.avatarUrl"
+          [src]="contact.avatarUrl"
+          [alt]="contact.contactName || 'User Avatar'"
+          width="48"
+          height="48"
+        />
+        <div *ngIf="!contact.avatarUrl" class="default-avatar">
+          {{ contact.contactName ? contact.contactName[0] : '?' }}
+        </div>
       </div>
+
+      <!-- 💬 Contact Info -->
       <div class="contact-info">
-        <div class="contact-name">{{ c.contactName }}</div>
-
-        <!-- Registered -->
-        <div *ngIf="c.registered" class="meta registered">
-          ✅ Registered
+        <div class="top">
+          <span class="name">{{ contact.contactName || 'Unknown Contact' }}</span>
         </div>
 
-        <!-- Invite -->
-        <a
-          *ngIf="c.canInvite && !c.registered"
-          href="javascript:void(0)"
-          class="meta invite-link"
-          (click)="$event.stopPropagation(); openChat(c)"
-        >➕ Invite</a
-        >
+        <div class="bottom">
+          <!-- 💭 Last message -->
+          <span class="last-message" *ngIf="contact.lastMessage; else noMsg">
+            {{ contact.lastMessage }}
+          </span>
+          <ng-template #noMsg>
+            <span class="last-message muted">No recent messages</span>
+          </ng-template>
 
-        <!-- Last message -->
-        <div class="last-message" *ngIf="c.lastMessage">
-          {{ c.lastMessage }}
+          <!-- 🟢 Online Status -->
+          <span class="status" *ngIf="contact.registered">
+            <app-presence-indicator
+              [userId]="contact.matchedUserId ?? contact.contactId"
+            ></app-presence-indicator>
+            {{ contact.online ? 'Online' : 'Offline' }}
+          </span>
+
+          <!-- ✉️ Invite Button -->
+          <button
+            *ngIf="!contact.registered && contact.canInvite"
+            class="invite-btn"
+            (click)="invite(contact, $event)"
+          >
+            Invite
+          </button>
         </div>
       </div>
-
-      <!-- Status dot -->
-      <div
-        class="status-dot"
-        [ngClass]="{ online: c.online, offline: !c.online }"
-      ></div>
     </div>
-  </div>
+  </ng-container>
+
+  <!-- 🚫 Empty State -->
+  <ng-template #noContacts>
+    <div class="no-contacts" *ngIf="!isLoading">
+      <p>📭 No contacts found. Try syncing Google contacts or adding new ones.</p>
+    </div>
+  </ng-template>
 </div>

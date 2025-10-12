@@ -1,8 +1,19 @@
-/* basic whatsapp-like chat window */
-.chat-window { display:flex; flex-direction:column; height:100%; }
-.messages { flex:1; padding:16px; overflow:auto; background:#efeae2; }
-.msg { display:inline-block; padding:10px 14px; border-radius:16px; margin:6px 0; max-width:70%; }
-.mine { background:#dcf8c6; margin-left:auto; }
-.theirs { background:#fff; margin-right:auto; }
-.chat-input { display:flex; padding:12px; gap:8px; border-top:1px solid #ddd; }
-.chat-input input { flex:1; padding:10px 12px; border-radius:20px; border:1px solid #ccc; }
+/*
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
+ */
+
+@import '../login/login.component.css'; /* Reuse base login styles */
+
+/* Add overrides for register form layout */
+.form-row {
+  display: flex;
+  gap: 12px;
+}
+
+.form-row .form-group {
+  flex: 1;
+}

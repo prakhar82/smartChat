@@ -1,0 +1,117 @@
+/*
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
+ */
+
+/* 🌈 Root color variables */
+:root {
+  --btn-radius: 8px;
+  --btn-font: 0.95rem;
+  --btn-transition: 0.25s ease;
+
+  /* Light theme */
+  --color-primary: #25d366; /* WhatsApp green */
+  --color-primary-hover: #1da955;
+  --color-secondary: #ddd;
+  --color-secondary-hover: #ccc;
+  --color-danger: #e53935;
+  --color-danger-hover: #d32f2f;
+  --color-text-light: #fff;
+  --color-text-dark: #111;
+}
+
+/* 🌙 Dark mode overrides */
+body.dark {
+  --color-primary: #00a884;
+  --color-primary-hover: #009973;
+  --color-secondary: #2a3942;
+  --color-secondary-hover: #3b4a54;
+  --color-danger: #f44336;
+  --color-danger-hover: #ef5350;
+  --color-text-light: #e9edef;
+  --color-text-dark: #e9edef;
+}
+
+/* 🔘 Base button */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--btn-font);
+  font-weight: 500;
+  border-radius: var(--btn-radius);
+  border: none;
+  cursor: pointer;
+  transition: background var(--btn-transition), transform 0.1s;
+  padding: 0.6rem 1.1rem;
+  text-decoration: none;
+  user-select: none;
+  outline: none;
+}
+
+.btn:hover {
+  transform: scale(1.02);
+}
+
+/* 💚 Primary */
+.btn-primary {
+  background: var(--color-primary);
+  color: var(--color-text-light);
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+}
+
+/* ⚪ Secondary */
+.btn-secondary {
+  background: var(--color-secondary);
+  color: var(--color-text-dark);
+}
+
+.btn-secondary:hover {
+  background: var(--color-secondary-hover);
+}
+
+/* ❤️ Danger */
+.btn-danger {
+  background: var(--color-danger);
+  color: var(--color-text-light);
+}
+
+.btn-danger:hover {
+  background: var(--color-danger-hover);
+}
+
+/* 🚫 Disabled */
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 🔲 Icon buttons */
+.icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-dark);
+  padding: 6px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.icon-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+body.dark .icon-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}

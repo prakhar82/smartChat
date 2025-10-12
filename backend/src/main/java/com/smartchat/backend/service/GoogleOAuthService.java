@@ -8,32 +8,43 @@
 
 package com.smartchat.backend.service;
 
+import com.smartchat.backend.dto.GoogleTokenDTO;
 import com.smartchat.backend.model.User;
-import com.smartchat.backend.repository.UserRepository;
+import com.smartchat.backend.model.cache.CachedOAuthToken;
+import com.smartchat.backend.repository.jpa.UserRepository;
+import com.smartchat.backend.repository.redis.CachedOAuthRepository;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Handles Google OAuth integration for SmartChat.
+ * This service exchanges OAuth codes, stores access tokens,
+ * refreshes expired tokens, and caches valid ones in Redis.
+ */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GoogleOAuthService {
 
-    private static final Logger log = LoggerFactory.getLogger(GoogleOAuthService.class);
-
     private final UserRepository userRepository;
+    private final CachedOAuthRepository cachedOAuthRepository;
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Value("${google.oauth.client-id}")
@@ -48,149 +59,257 @@ public class GoogleOAuthService {
     private static final String AUTH_BASE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
     private static final String TOKEN_URL = "https://oauth2.googleapis.com/token";
 
-    // ======== STEP 1: Build Google Auth URL ========
-    public String buildAuthUrl() {
-        String url = AUTH_BASE_URL +
-                "?client_id=" + clientId +
-                "&redirect_uri=" + redirectUri +
-                "&response_type=code" +
-                "&scope=" + "https://www.googleapis.com/auth/contacts.readonly" +
-                "&access_type=offline" +   // ensures refresh token
-                "&prompt=consent";         // always ask for consent (to get refresh token again)
+    /**
+     * Production mode — ensures real API calls instead of mocks
+     */
+    private static final boolean MOCK_MODE = false;
 
-        log.info("🌐 Generated Google OAuth URL: {}", url);
-        return url;
+    private static final String CLASS = "[GoogleOAuthService]";
+
+    private final WebClient webClient = WebClient.builder()
+            .baseUrl("https://oauth2.googleapis.com")
+            .build();
+
+    // ==========================================================
+    // STEP 1: Exchange authorization code for access/refresh tokens
+    // ==========================================================
+    public GoogleTokenDTO exchangeCodeForTokens(String code) {
+        log.info("{} 🔄 Exchanging OAuth code for tokens", CLASS);
+
+        try {
+            if (MOCK_MODE) {
+                log.warn("{} ⚙️ MOCK MODE ENABLED — returning simulated token", CLASS);
+                return new GoogleTokenDTO(
+                        "ya29.mocked_access_token_" + code.substring(0, Math.min(6, code.length())),
+                        "1//mocked_refresh_token",
+                        3600L
+                );
+            }
+
+            Map<String, String> requestBody = new HashMap<>();
+            requestBody.put("code", code);
+            requestBody.put("client_id", clientId);
+            requestBody.put("client_secret", clientSecret);
+            requestBody.put("redirect_uri", redirectUri);
+            requestBody.put("grant_type", "authorization_code");
+
+            Map<String, Object> tokenResponse = webClient.post()
+                    .uri("/token")
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
+                    })
+                    .block();
+
+            if (tokenResponse == null || !tokenResponse.containsKey("access_token")) {
+                log.warn("{} ⚠️ Empty or invalid token response for code={}", CLASS, code);
+                return null;
+            }
+
+            String accessToken = (String) tokenResponse.get("access_token");
+            String refreshToken = (String) tokenResponse.getOrDefault("refresh_token", "");
+            long expiresIn = Long.parseLong(tokenResponse.getOrDefault("expires_in", 3600).toString());
+
+            log.info("{} ✅ Received Google access token (expires in {}s)", CLASS, expiresIn);
+            return new GoogleTokenDTO(accessToken, refreshToken, expiresIn);
+
+        } catch (Exception e) {
+            log.error("{} ❌ Exception during token exchange: {}", CLASS, e.getMessage(), e);
+            return null;
+        }
     }
 
-    // ======== STEP 2a: Exchange code during callback (no userId yet) ========
-    public String exchangeCodeForTokens(String code) {
-        log.info("📥 Exchanging Google code for tokens...");
+    // ==========================================================
+    // STEP 2: Exchange code and persist tokens for a user
+    // ==========================================================
+    public void exchangeCodeForTokens(String code, Long userId) {
+        log.info("{} 🔄 Processing OAuth code for userId={}", CLASS, userId);
 
-        Map<String, Object> tokenResponse = doTokenRequest(code);
+        GoogleTokenDTO tokenData = exchangeCodeForTokens(code);
 
-        // You may want to return accessToken only here
-        return (String) tokenResponse.get("access_token");
-    }
-
-    // ======== STEP 2b: Exchange code with userId (after login/registration) ========
-    public void exchangeCodeForTokens(Long userId, String code) {
-        log.info("📥 Exchanging Google code for userId={}...", userId);
-
-        Map<String, Object> tokenResponse = doTokenRequest(code);
-
-        String accessToken = (String) tokenResponse.get("access_token");
-        String refreshToken = (String) tokenResponse.get("refresh_token");
-        Integer expiresIn = (Integer) tokenResponse.get("expires_in");
-
-        Optional<User> userOpt = userRepository.findById(userId);
-        if (userOpt.isEmpty()) {
-            throw new RuntimeException("User not found: " + userId);
+        if (tokenData == null || tokenData.getAccessToken() == null) {
+            log.warn("{} ❌ No token received for userId={}", CLASS, userId);
+            return;
         }
 
-        User user = userOpt.get();
-        user.setGoogleAccessToken(accessToken);
-        user.setGoogleRefreshToken(refreshToken);
-        user.setGoogleTokenExpiry(Instant.now().plusSeconds(expiresIn != null ? expiresIn : 3600));
-        userRepository.save(user);
-
-        log.info("✅ Stored Google tokens for user {}", userId);
+        userRepository.findById(userId).ifPresentOrElse(user -> {
+            user.setGoogleAccessToken(tokenData.getAccessToken());
+            user.setGoogleRefreshToken(tokenData.getRefreshToken());
+            user.setGoogleTokenExpiry(Instant.now().plusSeconds(tokenData.getExpiresIn()));
+            userRepository.save(user);
+            cacheToken(user);
+            log.info("{} ✅ Stored new Google tokens for userId={}", CLASS, userId);
+        }, () -> log.warn("{} ⚠️ User not found for userId={}", CLASS, userId));
     }
 
-    // ======== STEP 3: Get valid access token (refresh if expired) ========
+    // ==========================================================
+    // STEP 3: Build Google authorization URL with user-specific state
+    // ==========================================================
+    public String buildAuthUrlWithState(Long userId) {
+        log.debug("{} 🌐 Building auth URL for userId={}", CLASS, userId);
+
+        return String.format(
+                "%s?client_id=%s&redirect_uri=%s&response_type=code&scope=%s&access_type=offline&prompt=consent&state=%d",
+                AUTH_BASE_URL,
+                clientId,
+                redirectUri,
+                "https://www.googleapis.com/auth/contacts.readonly",
+                userId
+        );
+    }
+
+    // ==========================================================
+    // STEP 4: Resolve SmartChat user ID from principal string
+    // ==========================================================
+    public Long resolveUserIdFromPrincipal(String principal) {
+        if (principal == null || principal.isBlank()) {
+            log.warn("{} ⚠️ Principal is null or blank", CLASS);
+            return null;
+        }
+
+        log.debug("{} 🔍 Resolving user from principal='{}'", CLASS, principal);
+
+        // Try by mobile number
+        var byMobile = userRepository.findByMobileNumber(principal);
+        if (byMobile.isPresent()) {
+            log.debug("{} ✅ Found user by mobile number", CLASS);
+            return byMobile.get().getId();
+        }
+
+        // Try numeric userId
+        try {
+            Long userId = Long.parseLong(principal);
+            if (userRepository.existsById(userId)) {
+                log.debug("{} ✅ Found user by numeric ID", CLASS);
+                return userId;
+            }
+        } catch (NumberFormatException ignored) {
+        }
+
+        // Try by email
+        var byEmail = userRepository.findByEmail(principal);
+        if (byEmail.isPresent()) {
+            log.debug("{} ✅ Found user by email", CLASS);
+            return byEmail.get().getId();
+        }
+
+        log.warn("{} ⚠️ No user found for principal={}", CLASS, principal);
+        return null;
+    }
+
+    // ==========================================================
+    // STEP 5: Get valid access token (cache → DB → refresh)
+    // ==========================================================
     public String getValidAccessToken(Long userId) {
+        log.debug("{} 🔄 Fetching valid access token for userId={}", CLASS, userId);
+
+        // 1️⃣ Try cache first
+        CachedOAuthToken cached = cachedOAuthRepository.findById("google:" + userId).orElse(null);
+        if (cached != null && Instant.now().isBefore(Instant.ofEpochMilli(cached.getExpiresAt()))) {
+            log.info("{} ⚡ Cache hit: valid token found for userId={}", CLASS, userId);
+            return cached.getAccessToken();
+        }
+
+        // 2️⃣ Fetch from DB
         Optional<User> userOpt = userRepository.findById(userId);
         if (userOpt.isEmpty()) {
-            log.warn("❌ No user found with id={}", userId);
+            log.warn("{} ❌ No user found with userId={}", CLASS, userId);
             return null;
         }
 
         User user = userOpt.get();
+
         if (user.getGoogleAccessToken() == null) {
-            log.warn("❌ No Google access token stored for user {}", userId);
+            log.warn("{} ⚠️ No access token stored for userId={}", CLASS, userId);
             return null;
         }
 
-        // Check expiry
-        if (user.getGoogleTokenExpiry() == null || Instant.now().isBefore(user.getGoogleTokenExpiry())) {
+        // 3️⃣ If token not expired, re-cache it
+        if (user.getGoogleTokenExpiry() != null && Instant.now().isBefore(user.getGoogleTokenExpiry())) {
+            log.debug("{} ♻️ DB token still valid — recaching for userId={}", CLASS, userId);
+            cacheToken(user);
             return user.getGoogleAccessToken();
         }
 
-        // Expired -> refresh using refresh_token
+        // 4️⃣ Otherwise refresh using refresh token
+        return refreshAccessToken(user);
+    }
+
+    // ==========================================================
+    // STEP 6: Refresh expired Google token using refresh_token
+    // ==========================================================
+    private String refreshAccessToken(User user) {
+        log.info("{} ♻️ Refreshing access token for userId={}", CLASS, user.getId());
+
         if (user.getGoogleRefreshToken() == null) {
-            log.error("❌ Cannot refresh token because refresh_token is missing for user {}", userId);
+            log.error("{} ❌ Cannot refresh — missing refresh token for userId={}", CLASS, user.getId());
             return null;
         }
 
-        log.info("♻️ Refreshing Google access token for user {}", userId);
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+            MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+            params.add("client_id", clientId);
+            params.add("client_secret", clientSecret);
+            params.add("refresh_token", user.getGoogleRefreshToken());
+            params.add("grant_type", "refresh_token");
 
-        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.add("client_id", clientId);
-        params.add("client_secret", clientSecret);
-        params.add("refresh_token", user.getGoogleRefreshToken());
-        params.add("grant_type", "refresh_token");
+            ResponseEntity<Map> response =
+                    restTemplate.postForEntity(TOKEN_URL, new HttpEntity<>(params, headers), Map.class);
 
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
-        ResponseEntity<Map> response = restTemplate.postForEntity(TOKEN_URL, request, Map.class);
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                log.error("{} ❌ Invalid response from Google during refresh", CLASS);
+                return null;
+            }
 
-        if (!response.getStatusCode().is2xxSuccessful()) {
-            log.error("❌ Failed to refresh Google token: {}", response);
-            return null;
-        }
+            Map<String, Object> body = response.getBody();
+            String newAccessToken = (String) body.get("access_token");
+            Number expiresIn = (Number) body.getOrDefault("expires_in", 3600);
 
-        Map<String, Object> tokenResponse = response.getBody();
-        if (tokenResponse == null || !tokenResponse.containsKey("access_token")) {
-            log.error("❌ Invalid Google refresh response: {}", response);
-            return null;
-        }
-
-        String newAccessToken = (String) tokenResponse.get("access_token");
-        Integer expiresIn = (Integer) tokenResponse.get("expires_in");
-
-        user.setGoogleAccessToken(newAccessToken);
-        user.setGoogleTokenExpiry(Instant.now().plusSeconds(expiresIn != null ? expiresIn : 3600));
-        userRepository.save(user);
-
-        log.info("✅ Refreshed Google access token for user {}", userId);
-
-        return newAccessToken;
-    }
-
-    // ======== Helper: Perform token exchange request ========
-    private Map<String, Object> doTokenRequest(String code) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
-        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.add("client_id", clientId);
-        params.add("client_secret", clientSecret);
-        params.add("code", code);
-        params.add("redirect_uri", redirectUri);
-        params.add("grant_type", "authorization_code");
-
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
-
-        ResponseEntity<Map> response = restTemplate.postForEntity(TOKEN_URL, request, Map.class);
-
-        if (!response.getStatusCode().is2xxSuccessful()) {
-            log.error("❌ Google token request failed: {}", response);
-            throw new RuntimeException("Failed to exchange code for tokens");
-        }
-
-        Map<String, Object> body = response.getBody();
-        log.debug("🔑 Google token response: {}", body);
-        return body;
-    }
-
-    public void saveAccessToken(Long userId, String accessToken) {
-        userRepository.findById(userId).ifPresent(user -> {
-            user.setGoogleAccessToken(accessToken);
-            user.setGoogleTokenExpiry(Instant.now().plusSeconds(3600)); // assume 1 hour
+            user.setGoogleAccessToken(newAccessToken);
+            user.setGoogleTokenExpiry(Instant.now().plusSeconds(expiresIn.longValue()));
             userRepository.save(user);
-            log.info("✅ Saved Google access token for user {}", userId);
-        });
+            cacheToken(user);
+
+            log.info("{} ✅ Successfully refreshed Google token for userId={}", CLASS, user.getId());
+            return newAccessToken;
+
+        } catch (Exception e) {
+            log.error("{} ❌ Token refresh failed for userId={}: {}", CLASS, user.getId(), e.getMessage(), e);
+            return null;
+        }
     }
 
+    // ==========================================================
+    // STEP 7: Save and cache new tokens
+    // ==========================================================
+    @Transactional
+    public void saveAccessToken(Long userId, String accessToken) {
+        userRepository.findById(userId).ifPresentOrElse(user -> {
+            user.setGoogleAccessToken(accessToken);
+            user.setGoogleTokenExpiry(Instant.now().plusSeconds(3600));
+            userRepository.save(user);
+            cacheToken(user);
+            log.info("{} 💾 Saved Google access token for userId={}", CLASS, userId);
+        }, () -> log.warn("{} ⚠️ Tried to save token but user not found (userId={})", CLASS, userId));
+    }
+
+    // ==========================================================
+    // Helper: Cache token in Redis
+    // ==========================================================
+    private void cacheToken(User user) {
+        cachedOAuthRepository.save(
+                CachedOAuthToken.builder()
+                        .id("google:" + user.getId())
+                        .ownerUserId(user.getId())
+                        .accessToken(user.getGoogleAccessToken())
+                        .expiresAt(user.getGoogleTokenExpiry() != null
+                                ? user.getGoogleTokenExpiry().toEpochMilli()
+                                : Instant.now().plusSeconds(3600).toEpochMilli())
+                        .build()
+        );
+        log.debug("{} 🧠 Cached token for userId={}", CLASS, user.getId());
+    }
 }

@@ -18,7 +18,7 @@ public interface ChatService {
 
     ChatMessage saveAndSend(ChatMessage msg);
 
-    ChatMessage updateStatus(Long messageId, String status);
+    ChatMessage updateStatus(String messageId, String status);
 
-    ChatMessage deleteMessage(Long id, Long userId);
+    ChatMessage deleteMessage(String id, Long userId);
 }

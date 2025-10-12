@@ -9,23 +9,25 @@
 package com.smartchat.backend.controller;
 
 import com.smartchat.backend.auth.JwtUtil;
-import com.smartchat.backend.repository.UserRepository;
+import com.smartchat.backend.repository.jpa.UserRepository;
 import com.smartchat.backend.service.GoogleOAuthService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.time.Instant;
+import java.security.Principal;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -33,89 +35,137 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class GoogleOAuthController {
 
+    private static final Logger log = LoggerFactory.getLogger(GoogleOAuthController.class);
+    private static final String CLASS = "[GoogleOAuthController]";
+    private static final DateTimeFormatter FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
+
     private final GoogleOAuthService oauthService;
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
     private final RedisTemplate<String, Object> redisTemplate;
 
-    private static final Logger log = LoggerFactory.getLogger(GoogleOAuthController.class);
-    private static final String CLASS = "[GoogleOAuthController]";
-
-    private static final String CACHE_PREFIX = "google:accessToken:";
-
-    private static final DateTimeFormatter FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-                    .withZone(ZoneId.systemDefault());
-
-    /**
-     * Start OAuth flow: redirect user to Google's consent screen.
-     */
+    // ==========================================================
+    // STEP 1: Initiate OAuth Flow (handles popup JWT param)
+    // ==========================================================
     @GetMapping("/init")
-    public void initOAuth(HttpServletResponse response) throws IOException {
-        String redirectUrl = oauthService.buildAuthUrl();
-        log.info("{} 🌐 Redirecting user to Google OAuth: {}", CLASS, redirectUrl);
+    public void initOAuth(
+            @RequestParam(value = "access_token", required = false) String token,
+            HttpServletResponse response,
+            Principal principal) throws IOException {
+
+        String principalName = principal != null ? principal.getName() : null;
+        Long userId = oauthService.resolveUserIdFromPrincipal(principalName);
+
+        // 🧩 If opened via popup without Authorization header, use JWT query param
+        if (userId == null && token != null && token.startsWith("ey")) {
+            try {
+                String username = jwtUtil.extractUsername(token);
+                userId = oauthService.resolveUserIdFromPrincipal(username);
+                log.info("{} 🧩 Resolved userId={} from access_token param", CLASS, userId);
+            } catch (Exception e) {
+                log.error("{} ❌ Invalid access_token param: {}", CLASS, e.getMessage());
+            }
+        }
+
+        if (userId == null) {
+            log.warn("{} ⚠️ Unauthorized attempt to initiate OAuth — no valid user context", CLASS);
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+            return;
+        }
+
+        String redirectUrl = oauthService.buildAuthUrlWithState(userId);
+        log.info("{} 🌐 Redirecting userId={} to Google OAuth: {}", CLASS, userId, redirectUrl);
+
         response.sendRedirect(redirectUrl);
     }
 
-    /**
-     * Callback from Google with authorization code.
-     */
+    // ==========================================================
+    // STEP 2: Handle Google callback (popup success/failure)
+    // ==========================================================
     @GetMapping("/callback")
-    public void callback(@RequestParam String code, HttpServletResponse response) throws IOException {
-        log.info("{} 📥 Received Google OAuth callback with code={}", CLASS, code);
+    public void callback(
+            @RequestParam String code,
+            @RequestParam(required = false) String state,
+            HttpServletResponse response) throws IOException {
 
-        // Exchange for token
-        String googleToken = oauthService.exchangeCodeForTokens(code);
+        log.info("{} 📥 Received Google OAuth callback with code={} and state={}", CLASS, code, state);
 
-        // ✅ Redirect to Angular with snake_case param
-        String frontendUrl = "http://localhost/chats?access_token=" +
-                URLEncoder.encode(googleToken, StandardCharsets.UTF_8);
+        try {
+            Long userId = (state != null && state.matches("\\d+")) ? Long.parseLong(state) : null;
+            if (userId == null) {
+                throw new IllegalArgumentException("Missing or invalid user state");
+            }
 
-        log.info("{} 🔁 Redirecting back to frontend: {}", CLASS, frontendUrl);
-        response.sendRedirect(frontendUrl);
+            // ✅ Exchange code for tokens and save them
+            oauthService.exchangeCodeForTokens(code, userId);
+
+            // Allow popup to close safely
+            response.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+            response.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
+            response.setHeader("Access-Control-Allow-Origin", "*");
+            response.setHeader("Access-Control-Allow-Credentials", "true");
+
+            String htmlResponse = """
+                    <!DOCTYPE html>
+                    <html lang="en">
+                    <head><meta charset="UTF-8"><title>Google Sync | SmartChat</title>
+                    <style>
+                      body { font-family: "Segoe UI", Arial, sans-serif; background: #f9fafc; text-align: center; color: #333; padding: 60px; }
+                      .card { background: #fff; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); padding: 40px; display: inline-block; }
+                      h2 { color: #4caf50; margin-bottom: 10px; }
+                    </style></head>
+                    <body>
+                      <div class="card">
+                        <h2>✅ Google Account Linked!</h2>
+                        <p>You can close this window. SmartChat will sync your contacts automatically.</p>
+                      </div>
+                      <script>setTimeout(() => window.close(), 1500);</script>
+                    </body></html>
+                    """;
+
+            response.setContentType("text/html; charset=UTF-8");
+            response.getWriter().write(htmlResponse);
+
+            log.info("{} ✅ OAuth callback handled successfully for userId={}", CLASS, userId);
+        } catch (Exception e) {
+            log.error("{} ❌ Error during Google OAuth callback: {}", CLASS, e.getMessage(), e);
+            response.setContentType("text/html; charset=UTF-8");
+            response.getWriter().write("""
+                    <html><body style='font-family:sans-serif;text-align:center;'>
+                        <h2 style='color:red;'>❌ Google authorization failed!</h2>
+                        <p>Please try again.</p>
+                        <script>setTimeout(() => window.close(), 2500);</script>
+                    </body></html>
+                    """);
+        }
     }
 
-    /**
-     * Fetch a valid access token for logged-in user.
-     */
+    // ==========================================================
+    // STEP 3: Return current user's valid Google access token
+    // ==========================================================
     @GetMapping("/token")
-    public ResponseEntity<?> getAccessToken(@RequestHeader("Authorization") String authHeader) {
-        Long ownerUserId = extractUserId(authHeader);
-        String cacheKey = CACHE_PREFIX + ownerUserId;
+    public ResponseEntity<?> getAccessToken(Principal principal) {
+        String principalName = principal != null ? principal.getName() : null;
+        Long userId = oauthService.resolveUserIdFromPrincipal(principalName);
 
-        Object cached = redisTemplate.opsForValue().get(cacheKey);
-        if (cached instanceof String token) {
-            log.info("{} ✅ Returning cached Google access token for user {}", CLASS, ownerUserId);
-            return ResponseEntity.ok(Map.of("access_token", token));
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Unauthorized user"));
         }
 
-        String token = oauthService.getValidAccessToken(ownerUserId);
-        if (token == null) {
-            log.warn("{} ❌ No valid access token found for user {}", CLASS, ownerUserId);
-            return ResponseEntity.notFound().build();
+        String googleToken = oauthService.getValidAccessToken(userId);
+
+        if (googleToken == null) {
+            Map<String, Object> body = new HashMap<>();
+            body.put("accessToken", null);
+            body.put("message", "No Google token found for user");
+            return ResponseEntity.ok(body);
         }
 
-        Duration ttl = Duration.ofMinutes(50);
-        Instant expiryAt = Instant.now().plus(ttl);
-        redisTemplate.opsForValue().set(cacheKey, token, ttl);
-
-        log.info("{} ✅ Returning fresh Google access token for user {} (cached until {})",
-                CLASS, ownerUserId, FORMATTER.format(expiryAt));
-
-        return ResponseEntity.ok(Map.of("access_token", token));
-    }
-
-    // =======================
-    // Helpers
-    // =======================
-    private Long extractUserId(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new RuntimeException("Missing or invalid Authorization header");
-        }
-        String token = authHeader.substring(7);
-        String username = jwtUtil.extractUsername(token);
-        return userRepository.findByMobileNumber(username)
-                .map(u -> u.getId())
-                .orElseThrow(() -> new RuntimeException("User not found for token"));
+        return ResponseEntity.ok(Map.of(
+                "accessToken", googleToken,
+                "userId", userId
+        ));
     }
 }

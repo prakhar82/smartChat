@@ -6,78 +6,79 @@
   ~ Author: $USER_NAME
   -->
 
-<div class="chats-grid" [ngClass]="{ mobile: isMobile }">
-  <!-- 📱 Left side: Contact list -->
-  <aside class="left-panel" *ngIf="showContactsList">
-    <!-- Header -->
-    <header class="app-header">
-      <div class="header-left">
-        <div class="app-title">SmartChat</div>
-        <div class="app-subtitle">Hi, {{ firstName }}</div>
-      </div>
-      <div class="header-actions">
-        <button class="icon-btn" (click)="openGooglePopup()">
-          <img src="assets/google-icon.png" alt="Google Sync"/>
-        </button>
-      </div>
-    </header>
+<!-- =========================================================
+     💬 SmartChat Main Workspace Layout
+     - Left Sidebar
+     - Contact Panel (with Header + Search + List)
+     - Chat Panel (active conversation)
+========================================================= -->
 
-    <!-- 🔌 Connection status -->
-    <div
-      class="connection-status"
-      [ngClass]="{ connected: isConnected, disconnected: !isConnected }"
-    >
-      <ng-container *ngIf="isConnected; else disconnectedTpl">
-        🟢 Connected
-      </ng-container>
-      <ng-template #disconnectedTpl>
-        🔴 Disconnected
-        <button class="reconnect-btn" (click)="reconnect()">🔄 Reconnect</button>
-      </ng-template>
-    </div>
-
-    <!-- Contact list -->
-    <app-contact-list></app-contact-list>
-  </aside>
-
-  <!-- 💬 Right side: Chat window (desktop only) -->
-  <main class="right-panel" *ngIf="!isMobile && (activeChatId || !isMobile)">
-    <router-outlet name="chat"></router-outlet>
-
-    <!-- Empty state (desktop only) -->
-    <div class="empty-state" *ngIf="!activeChatId && !isMobile">
-      <h3>Welcome to SmartChat</h3>
-      <p>Select a conversation or sync contacts to get started.</p>
-    </div>
-  </main>
-</div>
-
-<!-- 📱 Bottom mini-panel (mobile only, always visible) -->
-<div class="mini-panel" *ngIf="isMobile">
-  <button class="mini-btn">⚙️ Settings</button>
-  <button class="mini-btn">🔔 Notifications</button>
-  <button class="mini-btn" (click)="openGooglePopup()">📥 Sync</button>
-</div>
-
-<!-- 🔄 Google Sync Modal -->
-<app-modal
-  [title]="'Sync Google Contacts'"
-  [show]="showGooglePopup"
-  (closed)="closePopup()"
->
-  <p>Connect your Google account to import contacts and start chatting.</p>
-
-  <div *ngIf="errorMsg" class="error-msg">{{ errorMsg }}</div>
-  <div *ngIf="success" class="success-msg">✅ Contacts synced successfully!</div>
-
-  <div class="modal-actions">
-    <button
-      class="btn btn-primary"
-      (click)="connectWithGoogle()"
-      [disabled]="syncing"
-    >
-      {{ syncing ? '⏳ Connecting...' : '🔗 Connect with Google' }}
-    </button>
-    <button class="btn btn-secondary" (click)="closePopup()">Cancel</button>
+<div class="workspace" [class.dark]="isDarkTheme">
+  <!-- =========================
+       📂 LEFT SIDEBAR
+  ========================== -->
+  <div class="sidebar">
+    <app-left-sidebar></app-left-sidebar>
   </div>
-</app-modal>
+
+  <!-- =========================
+       👥 CONTACTS PANEL
+  ========================== -->
+  <div class="contacts-panel">
+    <!-- 🧭 Top Header (limited to contact panel) -->
+    <app-top-header
+      class="contacts-header"
+      [firstName]="firstName"
+      [isConnected]="isConnected"
+      [isDarkTheme]="isDarkTheme"
+      [userStatus]="userStatus"
+      (toggleTheme)="toggleTheme()"
+    ></app-top-header>
+
+    <!-- 🔍 Search Bar -->
+    <div class="search-bar">
+      <input
+        type="text"
+        [(ngModel)]="searchQuery"
+        (input)="filterContacts()"
+        placeholder="Search by name or number..."
+      />
+    </div>
+
+    <!-- 📇 Contact List -->
+    <app-contact-list
+      [contacts]="filteredContacts"
+      (contactSelected)="openChat($event)"
+    ></app-contact-list>
+  </div>
+
+  <!-- =========================
+       💬 CHAT PANEL
+  ========================== -->
+  <div class="chat-panel">
+    <!-- Active Chat Window -->
+    <ng-container *ngIf="selectedContactId; else welcomeScreen">
+      <app-chat-window
+        [contactId]="selectedContactId"
+        (closeChat)="closeChat()"
+      ></app-chat-window>
+    </ng-container>
+
+    <!-- Empty State -->
+    <ng-template #welcomeScreen>
+      <div class="welcome">
+        <h2>Welcome to SmartChat 👋</h2>
+        <p>Select a contact to start chatting.</p>
+      </div>
+    </ng-template>
+  </div>
+</div>
+
+<!-- =========================
+     📱 MOBILE BOTTOM NAVBAR
+     (visible only in mobile view)
+========================= -->
+<div class="bottom-nav" *ngIf="isMobileView">
+  <button (click)="reconnect()">Reconnect</button>
+  <button (click)="toggleTheme()">Toggle Theme</button>
+</div>

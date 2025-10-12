@@ -1,0 +1,102 @@
+/*!
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
+ */
+
+/* =========================================================
+ * SmartChat Theme Variables
+ * ========================================================= */
+
+:root {
+  /* 🎨 Brand Colors */
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+
+  /* 🧱 Backgrounds */
+  --app-bg: #f5f6fa;
+  --sidebar-bg: #ffffff;
+  --contacts-bg: #f9fafb;
+  --chat-bg: #ffffff;
+  --messages-bg: #fafafa;
+  --input-bg: #ffffff;
+  --header-bg: #ffffff;
+  --avatar-bg: #3b82f6;
+  --panel-bg: #ffffff;
+
+  /* ✉️ Message bubbles */
+  --bubble-out: #3b82f6;
+  --bubble-in: #e5e7eb;
+
+  /* ⚙️ Borders */
+  --border-color: #e5e7eb;
+
+  /* 🌐 Status Colors */
+  --online-color: #22c55e;
+  --offline-color: #9ca3af;
+
+  /* 🖤 Text Colors */
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --toast-bg: #2a2f32;
+  --search-bg: #f9fafb;
+}
+
+body.light {
+  --sidebar-bg: #f8f9fa;
+  --text-secondary: #555;
+  --primary: #007bff;
+  --primary-hover: #0056b3;
+}
+
+body.dark {
+  --sidebar-bg: #1f1f1f;
+  --text-secondary: #bbb;
+  --primary: #4dabf7;
+  --primary-hover: #1a8cff;
+}
+
+/* =========================================================
+ * Dark Theme Override
+ * ========================================================= */
+
+[data-theme='dark'] {
+  /* Base backgrounds - slightly lighter so black icons show clearly */
+  --app-bg: #1e293b; /* Deep gray-blue, black icons visible */
+  --sidebar-bg: #273449; /* Slightly lighter sidebar */
+  --contacts-bg: #273449;
+  --chat-bg: #1e293b;
+  --messages-bg: #2b3a55; /* Contrast for chat area */
+  --input-bg: #2d3e5f; /* Slightly lighter input field */
+  --header-bg: #273449;
+
+  /* Accent colors (blue emphasis) */
+  --primary: #3b82f6; /* Standard bright blue */
+  --primary-hover: #2563eb; /* Darker hover tone */
+
+  /* Chat bubbles */
+  --bubble-out: #3b82f6; /* Sent message bubble */
+  --bubble-in: #374357; /* Received message bubble */
+
+  /* Borders & dividers */
+  --border-color: #3b4b63;
+
+  /* Text colors */
+  --text-primary: #f1f5f9; /* Very light text */
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+
+  /* Icon and avatar contrast */
+  --icon-color: #3b82f6; /* Blue icons pop nicely */
+  --icon-hover: #60a5fa;
+  --black-icon: #0f172a; /* Black icon stays visible */
+  --avatar-bg: #2563eb;
+
+  /* Shadows & depth */
+  --shadow-color: rgba(0, 0, 0, 0.4);
+  --card-shadow: 0 4px 10px var(--shadow-color);
+}
+
+

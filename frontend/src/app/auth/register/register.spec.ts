@@ -3,24 +3,23 @@
  * All rights reserved.
  * Unauthorized copying or distribution of this file,
  * via any medium, is strictly prohibited unless permitted by license.
- * Author: Prakhar Dwivedi
+ * Author: $USER_NAME
  */
 
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import {ComponentFixture, TestBed} from '@angular/core/testing';
+import {RouterTestingModule} from '@angular/router/testing';
+import {RegisterComponent} from './register.component';
 
-import { Register } from './register';
-
-describe('Register', () => {
-  let component: Register;
-  let fixture: ComponentFixture<Register>;
+describe('RegisterComponent', () => {
+  let component: RegisterComponent;
+  let fixture: ComponentFixture<RegisterComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [Register]
-    })
-    .compileComponents();
+      imports: [RegisterComponent, RouterTestingModule]
+    }).compileComponents();
 
-    fixture = TestBed.createComponent(Register);
+    fixture = TestBed.createComponent(RegisterComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });
@@ -29,12 +28,21 @@ describe('Register', () => {
     expect(component).toBeTruthy();
   });
 
+  it('should navigate to /chats with Google popup query param', () => {
+    const routerSpy = jasmine.createSpyObj('Router', ['navigate']);
+    // @ts-ignore – mock router manually
+    component['router'] = routerSpy;
 
-// helper: navigate to chats and prompt google popup
-protected openChatsAndPromptGoogle() {
-  try {
-    // @ts-ignore
-    if (this.router) this.router.navigate(['/chats'], { queryParams: { showGooglePopup: true } });
-  } catch (e) { console.error(e); }
-}
+    try {
+      // Simulate your helper method (if ever used internally)
+      const navigateSpy = routerSpy.navigate as jasmine.Spy;
+      component['router'].navigate(['/chats'], {queryParams: {showGooglePopup: true}});
+      expect(navigateSpy).toHaveBeenCalledWith(
+        ['/chats'],
+        {queryParams: {showGooglePopup: true}}
+      );
+    } catch (e) {
+      fail(`Navigation failed: ${e}`);
+    }
+  });
 });

@@ -13,9 +13,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartchat.backend.dto.ContactSyncRequest;
 import com.smartchat.backend.model.Contact;
 import com.smartchat.backend.model.User;
-import com.smartchat.backend.repository.ContactRepository;
-import com.smartchat.backend.repository.UserRepository;
+import com.smartchat.backend.repository.jpa.ContactRepository;
+import com.smartchat.backend.repository.jpa.UserRepository;
 import com.smartchat.backend.util.ContactUtil;
+import com.smartchat.backend.util.GoogleApiClient;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,30 +26,35 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
+/**
+ * [GoogleContactService]
+ * ------------------------------------------------------------
+ * Handles full Google Contacts synchronization lifecycle:
+ * ✅ Validates Google OAuth token
+ * ✅ Fetches contacts from Google People API
+ * ✅ Deduplicates, normalizes, and saves to database
+ * ✅ Sorts contacts: with numbers (A→Z) first, without numbers (A→Z) last
+ * ✅ Caches contact data in Redis
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class GoogleContactService {
 
-    private final WebClient webClient = WebClient.builder().build();
     private final ObjectMapper mapper = new ObjectMapper();
+    private final WebClient webClient = WebClient.builder().build();
+
     private final UserRepository userRepository;
     private final ContactRepository contactRepository;
     private final GoogleOAuthService oauthService;
     private final ContactService contactService;
     private final RedisContactCacheService redisCache;
-
+    private final GoogleApiClient googleApiClient;
 
     @Value("${google.client.id:}")
     private String googleClientId;
-
-    @Value("${google.people.personFields:names,phoneNumbers,emailAddresses}")
-    private String personFields;
 
     @Value("${google.people.pageSize:1000}")
     private int pageSize;
@@ -56,140 +62,96 @@ public class GoogleContactService {
     @Value("${google.cache.ttl.minutes:10}")
     private int cacheTtlMinutes;
 
+    private static final String CLASS = "[GoogleContactService]";
     private static final String TOKENINFO_ENDPOINT = "https://oauth2.googleapis.com/tokeninfo";
-    private static final String PEOPLE_API_BASE = "https://people.googleapis.com/v1/people/me/connections";
 
     @Data
     public static class GoogleContactDto {
         private String name;
-        private List<String> phoneNumbers = new ArrayList<>(); // format: "label:value"
-        private List<String> emails = new ArrayList<>();       // format: "label:value"
+        private List<String> phoneNumbers = new ArrayList<>();
+        private List<String> emails = new ArrayList<>();
         private Map<String, Object> raw;
-
     }
 
+    // =====================================================
+    // 🟢 MAIN SYNC FLOW
+    // =====================================================
     @Transactional
     public void fetchAndSync(Long ownerUserId, String accessToken) {
-        log.info("[GoogleContactService] 🚀 Starting Google sync for userId={}", ownerUserId);
+        log.info("{} 🚀 Starting Google contact sync for userId={}", CLASS, ownerUserId);
 
         validateGoogleToken(accessToken);
 
-        List<GoogleContactDto> contacts = fetchFromGoogleApi(accessToken);
-        log.info("[GoogleContactService] 📥 Google API returned {} contacts for userId={}", contacts.size(), ownerUserId);
+        // 🔹 Fetch from Google API
+        List<GoogleContactDto> contacts = googleApiClient.fetchContacts(accessToken, pageSize);
+        log.info("{} 📥 Retrieved {} contacts from Google API for userId={}", CLASS, contacts.size(), ownerUserId);
 
+        // 🔹 Apply sorting: with-number contacts first (A→Z), then no-number contacts (A→Z)
+        contacts = sortContactsAlphabetically(contacts);
+        log.info("{} 🔡 Contacts sorted: {} with numbers, {} without numbers", CLASS,
+                contacts.stream().filter(c -> !c.getPhoneNumbers().isEmpty()).count(),
+                contacts.stream().filter(c -> c.getPhoneNumbers().isEmpty()).count()
+        );
+
+        // 🔹 Persist contacts to DB
         saveContactsToDb(ownerUserId, contacts);
 
+        // 🔹 Cache contacts
         try {
             redisCache.cacheRawContacts(ownerUserId, mapper.writeValueAsString(contacts), cacheTtlMinutes);
-
-            log.info("[GoogleContactService] 💾 Cached {} contacts in Redis for userId={}", contacts.size(), ownerUserId);
+            log.info("{} 💾 Cached {} contacts in Redis (TTL={}m) for userId={}", CLASS, contacts.size(), cacheTtlMinutes, ownerUserId);
         } catch (Exception e) {
-            log.warn("[GoogleContactService] ⚠️ Failed to cache Google contacts in Redis for userId={}: {}", ownerUserId, e.getMessage());
+            log.warn("{} ⚠️ Failed to cache Google contacts for userId={}: {}", CLASS, ownerUserId, e.getMessage());
         }
 
+        // 🔹 Save token
         oauthService.saveAccessToken(ownerUserId, accessToken);
-        log.info("[GoogleContactService] ✅ Google sync complete for userId={}", ownerUserId);
+        log.info("{} ✅ Google sync completed successfully for userId={}", CLASS, ownerUserId);
     }
 
+    // =====================================================
+    // 🔍 TOKEN VALIDATION
+    // =====================================================
     private void validateGoogleToken(String accessToken) {
-        if (googleClientId == null || googleClientId.isBlank()) return;
+        if (googleClientId == null || googleClientId.isBlank()) {
+            log.debug("{} ⚠️ Skipping token validation (google.client.id not configured)", CLASS);
+            return;
+        }
 
         try {
             String tokenInfo = webClient.get()
                     .uri(TOKENINFO_ENDPOINT + "?access_token=" + accessToken)
                     .retrieve()
                     .onStatus(status -> status.is4xxClientError(),
-                            resp -> Mono.error(new RuntimeException("Invalid Google token")))
+                            resp -> Mono.error(new RuntimeException("Invalid Google access token")))
                     .bodyToMono(String.class)
                     .block();
 
-            JsonNode tokenInfoNode = mapper.readTree(tokenInfo);
-            if (tokenInfoNode.has("aud")) {
-                String aud = tokenInfoNode.get("aud").asText();
-                if (!googleClientId.equals(aud)) {
-                    throw new RuntimeException("Google token audience mismatch");
-                }
+            JsonNode tokenNode = mapper.readTree(tokenInfo);
+            String aud = tokenNode.path("aud").asText(null);
+
+            if (aud != null && !aud.equals(googleClientId)) {
+                throw new RuntimeException("Google token audience mismatch");
             }
-            log.debug("[GoogleContactService] 🔑 Google token validated successfully");
+
+            log.debug("{} 🔑 Google token validated successfully for aud={}", CLASS, aud);
         } catch (Exception ex) {
-            log.error("[GoogleContactService] ❌ Google token validation failed: {}", ex.getMessage());
+            log.error("{} ❌ Google token validation failed: {}", CLASS, ex.getMessage());
             throw new RuntimeException("Google token validation failed", ex);
         }
     }
 
-    private List<GoogleContactDto> fetchFromGoogleApi(String accessToken) {
-        List<GoogleContactDto> result = new ArrayList<>();
-        String nextPageToken = null;
-
-        do {
-            final String pageTokenParam = nextPageToken;
-
-            String responseBody = webClient.get()
-                    .uri(PEOPLE_API_BASE + "?personFields=" + personFields +
-                            "&pageSize=" + pageSize +
-                            (pageTokenParam != null ? "&pageToken=" + pageTokenParam : ""))
-                    .headers(h -> h.setBearerAuth(accessToken))
-                    .retrieve()
-                    .onStatus(status -> status.isError(),
-                            resp -> Mono.error(new RuntimeException("Google People API error")))
-                    .bodyToMono(String.class)
-                    .block();
-            log.debug("[GoogleContactService] Raw People API response: {}", responseBody);
-
-
-            try {
-                JsonNode root = mapper.readTree(responseBody);
-                if (root.has("connections")) {
-                    for (JsonNode conn : root.get("connections")) {
-                        GoogleContactDto dto = new GoogleContactDto();
-                        dto.setRaw(mapper.convertValue(conn, Map.class));
-
-                        if (conn.has("names") && conn.get("names").isArray() && conn.get("names").size() > 0) {
-                            dto.setName(conn.get("names").get(0).get("displayName").asText(null));
-                        }
-
-                        if (conn.has("phoneNumbers")) {
-                            for (JsonNode phone : conn.get("phoneNumbers")) {
-                                String raw = phone.path("value").asText(null);
-                                if (raw != null) {
-                                    String type = phone.has("type") ? phone.get("type").asText("mobile") : "mobile";
-                                    dto.getPhoneNumbers().add(type + ":" + raw);
-                                }
-                            }
-                        }
-
-                        if (conn.has("emailAddresses")) {
-                            for (JsonNode email : conn.get("emailAddresses")) {
-                                String raw = email.path("value").asText(null);
-                                if (raw != null) {
-                                    String type = email.has("type") ? email.get("type").asText("home") : "home";
-                                    dto.getEmails().add(type + ":" + raw);
-                                }
-                            }
-                        }
-
-                        result.add(dto);
-                    }
-                }
-                nextPageToken = root.has("nextPageToken") ? root.get("nextPageToken").asText(null) : null;
-            } catch (Exception e) {
-                log.error("[GoogleContactService] ❌ Failed to parse People API response: {}", e.getMessage());
-                throw new RuntimeException("Failed to parse People API response", e);
-            }
-        } while (nextPageToken != null);
-
-        return result;
-    }
-
+    // =====================================================
+    // 💾 SAVE CONTACTS TO DATABASE (duplicate-safe)
+    // =====================================================
     private void saveContactsToDb(Long ownerUserId, List<GoogleContactDto> contacts) {
         List<User> allUsers = userRepository.findAll();
-
         int saved = 0, skipped = 0, matched = 0;
 
         for (GoogleContactDto dto : contacts) {
             String name = dto.getName();
 
-            // 🔹 Phones
+            // 🔹 Handle phone contacts
             for (String rawPhone : dto.getPhoneNumbers()) {
                 String[] parts = rawPhone.split(":", 2);
                 String label = parts[0];
@@ -200,7 +162,6 @@ public class GoogleContactService {
 
                 if (contactRepository.findByOwnerUserIdAndNormalizedPhone(ownerUserId, normalized).isPresent()) {
                     skipped++;
-                    log.debug("[GoogleContactService] ⚠️ Duplicate phone={} skipped for userId={}", normalized, ownerUserId);
                     continue;
                 }
 
@@ -223,10 +184,9 @@ public class GoogleContactService {
 
                 contactRepository.save(contact);
                 saved++;
-                log.info("[GoogleContactService] ✅ Saved phone contact={} [{}] for userId={}", name, normalized, ownerUserId);
             }
 
-            // 🔹 Emails
+            // 🔹 Handle email-only contacts
             for (String rawEmail : dto.getEmails()) {
                 String[] parts = rawEmail.split(":", 2);
                 String label = parts[0];
@@ -237,7 +197,6 @@ public class GoogleContactService {
 
                 if (contactRepository.findByOwnerUserIdAndNormalizedEmail(ownerUserId, normalizedEmail).isPresent()) {
                     skipped++;
-                    log.debug("[GoogleContactService] ⚠️ Duplicate email={} skipped for userId={}", normalizedEmail, ownerUserId);
                     continue;
                 }
 
@@ -258,17 +217,48 @@ public class GoogleContactService {
 
                 contactRepository.save(contact);
                 saved++;
-                log.info("[GoogleContactService] ✅ Saved email contact={} [{}] for userId={}", name, normalizedEmail, ownerUserId);
             }
         }
 
-        log.info("[GoogleContactService] 📊 Sync summary for userId={}: saved={}, skipped={}, matched={}", ownerUserId, saved, skipped, matched);
+        log.info("{} 📊 Sync summary for userId={}: saved={}, skipped={}, matched={}", CLASS, ownerUserId, saved, skipped, matched);
 
         try {
             redisCache.evictMatchedCache(ownerUserId);
-            log.info("[GoogleContactService] 🗑️ Evicted matched contact cache after Google sync for userId={}", ownerUserId);
+            log.info("{} 🗑️ Evicted matched contact cache for userId={}", CLASS, ownerUserId);
         } catch (Exception e) {
-            log.warn("[GoogleContactService] ⚠️ Failed to evict contact cache for userId={}: {}", ownerUserId, e.getMessage());
+            log.warn("{} ⚠️ Failed to evict Redis cache for userId={}: {}", CLASS, ownerUserId, e.getMessage());
         }
+    }
+
+    // =====================================================
+    // 🔡 SORTING LOGIC — with numbers first, both alphabetically
+    // =====================================================
+    private List<GoogleContactDto> sortContactsAlphabetically(List<GoogleContactDto> contacts) {
+        // Split into two lists: has phone(s) vs no phone(s)
+        List<GoogleContactDto> withNumbers = new ArrayList<>();
+        List<GoogleContactDto> withoutNumbers = new ArrayList<>();
+
+        for (GoogleContactDto c : contacts) {
+            if (c.getPhoneNumbers() != null && !c.getPhoneNumbers().isEmpty()) {
+                withNumbers.add(c);
+            } else {
+                withoutNumbers.add(c);
+            }
+        }
+
+        // Sort each alphabetically (case-insensitive)
+        Comparator<GoogleContactDto> byName = Comparator.comparing(
+                dto -> Optional.ofNullable(dto.getName()).orElse("").toLowerCase()
+        );
+
+        withNumbers.sort(byName);
+        withoutNumbers.sort(byName);
+
+        // Combine: withNumbers first, then withoutNumbers
+        List<GoogleContactDto> sorted = new ArrayList<>();
+        sorted.addAll(withNumbers);
+        sorted.addAll(withoutNumbers);
+
+        return sorted;
     }
 }

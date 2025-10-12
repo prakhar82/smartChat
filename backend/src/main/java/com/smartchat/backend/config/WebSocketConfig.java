@@ -8,8 +8,10 @@
 
 package com.smartchat.backend.config;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
@@ -30,6 +32,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Value("${spring.rabbitmq.password:guest}")
     private String rabbitPass;
+
+
+    @Autowired
+    private WebSocketAuthInterceptor webSocketAuthInterceptor;
+
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
@@ -52,4 +59,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 .setSystemHeartbeatSendInterval(10000)   // ms (10s)
                 .setSystemHeartbeatReceiveInterval(10000);
     }
+
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        registration.interceptors(webSocketAuthInterceptor);
+    }
+
 }

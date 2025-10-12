@@ -6,29 +6,91 @@
   ~ Author: $USER_NAME
   -->
 
-<div class="chat-window">
+<!-- =========================================================
+     💬 CHAT WINDOW
+     Displays chat header, messages, and input area.
+========================================================= -->
+<div class="chat-container">
+  <!-- =========================
+       🧭 CHAT HEADER
+  ========================== -->
   <div class="chat-header">
-    <button class="back-btn" (click)="goBack()" *ngIf="isMobile">←</button>
-    <div class="chat-title">Chat with {{ otherUserId }}</div>
+    <!-- ⬅️ Back Button (Mobile Only) -->
+    <button
+      class="back-btn"
+      *ngIf="isMobileView"
+      (click)="onBackClick()"
+      aria-label="Go back"
+    >
+      ←
+    </button>
+
+    <!-- 👤 Contact Name -->
+    <div class="contact-info">
+      <h3 class="contact-name">
+        {{ contactInfo?.contactName || 'Chat User' }}
+      </h3>
+      <p class="status">
+        {{ contactInfo?.online ? 'Online' : 'Offline' }}
+        <span
+          class="dot"
+          [class.online]="contactInfo?.online"
+          [class.offline]="!contactInfo?.online"
+        ></span>
+      </p>
+    </div>
+
+    <!-- ❌ Close Chat (Desktop) -->
+    <button
+      class="close-btn"
+      *ngIf="!isMobileView"
+      (click)="onCloseChat()"
+      aria-label="Close chat"
+    >
+      ✕
+    </button>
   </div>
 
-  <div class="chat-messages" #messagesContainer>
+  <!-- =========================
+       💬 MESSAGES AREA
+  ========================== -->
+  <div class="chat-body" #messageContainer>
     <div
-      *ngFor="let msg of messages; trackBy: trackByIdx"
       class="message"
-      [class.mine]="msg.senderId === myUserId"
+      *ngFor="let msg of messages; trackBy: trackByMsgId"
+      [ngClass]="{ 'from-me': msg.senderId === currentUserId, 'from-them': msg.senderId !== currentUserId }"
     >
-      <div class="message-text">{{ msg.message }}</div>
-      <div class="message-time">{{ msg.timestamp | date: 'shortTime' }}</div>
+      <div class="bubble">
+        <span class="text">{{ msg.message }}</span>
+        <span class="timestamp">{{ msg.timestamp | date: 'shortTime' }}</span>
+      </div>
+    </div>
+
+    <!-- ✏️ Typing Indicator -->
+    <div class="typing-indicator" *ngIf="isOtherTyping">
+      <span></span><span></span><span></span>
     </div>
   </div>
 
+  <!-- =========================
+       📝 INPUT BAR
+  ========================== -->
   <div class="chat-input">
-    <textarea
+    <input
+      type="text"
+      placeholder="Type a message..."
       [(ngModel)]="newMessage"
-      (input)="onInput($event)"
-      placeholder="Type a message"
-    ></textarea>
-    <button (click)="sendMessage()">Send</button>
+      (input)="notifyTyping()"
+      (keydown.enter)="sendMessage()"
+      aria-label="Type message"
+    />
+    <button
+      class="send-btn"
+      (click)="sendMessage()"
+      [disabled]="!newMessage.trim()"
+      aria-label="Send message"
+    >
+      ➤
+    </button>
   </div>
 </div>

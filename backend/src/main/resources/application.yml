@@ -1,10 +1,22 @@
+############################################################
+# 🧠 SmartChat Backend Configuration
+# Environment-variable ready for Docker + Kubernetes
+############################################################
+
 spring:
   application:
     name: smartchat-backend
+  mvc:
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      add-mappings: false
+  main:
+    allow-bean-definition-overriding: true
 
-  # =========================
-  # Datasource (Postgres)
-  # =========================
+  ########################################################
+  # 🗄️ Database (PostgreSQL)
+  ########################################################
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:postgres}:${POSTGRES_PORT:5432}/${POSTGRES_DB:smartchat}
     username: ${POSTGRES_USER:smartchat}
@@ -20,17 +32,23 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  ########################################################
+  # 🕊️ Flyway Migration
+  ########################################################
   flyway:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+  ########################################################
+  # 💾 Redis + MongoDB (Caching & Contacts)
+  ########################################################
   data:
     mongodb:
       uri: mongodb://${MONGO_INITDB_ROOT_USERNAME:root}:${MONGO_INITDB_ROOT_PASSWORD:change_me}@${MONGO_HOST:mongo}:${MONGO_PORT:27017}/${MONGO_DB:smartchat}?authSource=admin
@@ -46,51 +64,64 @@ spring:
           min-idle: 1
           max-wait: 10000
 
-  rabbitmq: # ✅ fixed (no nested spring)
+  ########################################################
+  # 🐇 RabbitMQ (for message relay)
+  ########################################################
+  rabbitmq:
     host: ${RABBITMQ_HOST:rabbitmq}
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASS:guest}
 
+############################################################
+# 💬 STOMP Relay (WebSocket backend)
+############################################################
 stomp:
   relay:
     port: ${STOMP_RELAY_PORT:61613}
 
-# =========================
-# Server
-# =========================
+############################################################
+# 🌐 Server Config
+############################################################
 server:
   port: ${API_PORT:8080}
   forward-headers-strategy: framework
 
-# =========================
-# Security / JWT
-# =========================
+############################################################
+# 🔐 Security / JWT Configuration
+############################################################
 security:
   jwt:
+    # Base64 or plaintext HMAC secret key
     secret: ${JWT_SECRET:7n4f+JzS2M8gFvE3x+H8Yk5jA6lV2bQmR9tX1pE3r0M=}
-    expiration: ${JWT_EXPIRATION:3600000}
-    refresh-expiration: ${JWT_REFRESH_EXPIRATION:86400000}
-    password:
-      strength: 10
-    reset-token-expiration: ${RESET_TOKEN_EXPIRATION:900000}
-    verification-token-expiration: ${VERIFICATION_TOKEN_EXPIRATION:86400000}
-    max-login-attempts: ${MAX_LOGIN_ATTEMPTS:5}
-    lockout-duration: ${LOCKOUT_DURATION:900000}
 
-# =========================
-# CORS
-# =========================
+    # Expiration durations (in ms)
+    expiration: ${JWT_EXPIRATION:3600000}                   # 1 hour
+    refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000} # 7 days
+    reset-token-expiration: ${RESET_TOKEN_EXPIRATION:900000} # 15 min
+    verification-token-expiration: ${VERIFICATION_TOKEN_EXPIRATION:86400000} # 24 hours
+
+    # Security hardening
+    max-login-attempts: ${MAX_LOGIN_ATTEMPTS:5}
+    lockout-duration: ${LOCKOUT_DURATION:900000} # 15 minutes
+
+    # Password encoding strength (BCrypt)
+    password:
+      strength: ${PASSWORD_STRENGTH:12}
+
+############################################################
+# 🌍 Global CORS Policy (for documentation only)
+############################################################
 cors:
-  allowed-origins: ${CORS_ORIGINS:http://localhost:4200,http://localhost}
-  allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+  allowed-origins: http://localhost,http://localhost:4200,http://127.0.0.1,https://smartchat.vercel.app,https://smartchat.ai,https://app.smartchat.ai,https://chat.smartchat.ai
+  allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
   allowed-headers: "*"
   allow-credentials: true
-  max-age: 1h
+  max-age: 3600
 
-# =========================
-# Actuator
-# =========================
+############################################################
+# 🩺 Actuator Health Endpoints
+############################################################
 management:
   endpoints:
     web:
@@ -107,19 +138,22 @@ management:
     readinessstate:
       enabled: true
 
-# =========================
-# Logging
-# =========================
+############################################################
+# 🧾 Logging Configuration
+############################################################
 logging:
   level:
+    root: INFO
+    com.smartchat: DEBUG
+    org.springframework: INFO
     org.hibernate.SQL: OFF
     org.hibernate.type.descriptor.sql: OFF
-    org.springframework: INFO
-    root: INFO
+  pattern:
+    console: "%clr(%d{HH:mm:ss}){blue} %clr([%t]){faint} %clr(%-5p) %clr(%c{1}){cyan} - %m%n"
 
-# =========================
-# Google Contacts Config
-# =========================
+############################################################
+# 🧭 Google Contacts Integration
+############################################################
 google:
   client:
     id: ${GOOGLE_CLIENT_ID}
@@ -130,31 +164,20 @@ google:
   oauth:
     client-id: ${GOOGLE_CLIENT_ID}
     client-secret: ${GOOGLE_CLIENT_SECRET}
-    redirect-uri: http://localhost:8080/api/auth/google/callback
+    redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8080/api/auth/google/callback}
 
+############################################################
+# 📇 Contacts Service
+############################################################
 contacts:
-
   cache:
-    ttl: ${CONTACTS_CACHE_TTL_SECONDS:300}
+    ttl: ${CONTACTS_CACHE_TTL_SECONDS:300} # 5 minutes
 
+############################################################
+# 💬 Chat Configuration
+############################################################
 chat:
   history:
-    limit: 30
+    limit: ${CHAT_HISTORY_LIMIT:30}
   cache:
-    ttl-minutes: 60
-
-  management:
-    endpoints:
-      web:
-        exposure:
-          include: health,info
-      health:
-        show-details: always
-        probes:
-          enabled: true
-        livenessState:
-          enabled: true
-        readinessState:
-          enabled: true
-
-
+    ttl-minutes: ${CHAT_CACHE_TTL_MINUTES:60}

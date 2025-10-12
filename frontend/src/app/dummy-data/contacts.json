@@ -1,0 +1,48 @@
+[
+  {
+    "contactId": "1",
+    "contactName": "Alice Johnson",
+    "registered": true,
+    "canInvite": false,
+    "phones": [
+      {
+        "label": "mobile",
+        "value": "+1 555-1234",
+        "registered": true
+      }
+    ],
+    "emails": [
+      {
+        "label": "home",
+        "value": "alice@example.com"
+      }
+    ],
+    "matchedUserId": 1,
+    "online": true,
+    "lastMessage": "Hi, this is Alice!",
+    "lastMessageTime": "2025-10-01T09:00:00Z"
+  },
+  {
+    "contactId": "2",
+    "contactName": "Bob Smith",
+    "registered": true,
+    "canInvite": false,
+    "phones": [
+      {
+        "label": "mobile",
+        "value": "+1 555-5678",
+        "registered": true
+      }
+    ],
+    "emails": [
+      {
+        "label": "home",
+        "value": "bob@example.com"
+      }
+    ],
+    "matchedUserId": 2,
+    "online": false,
+    "lastMessage": "Hey, are we still on?",
+    "lastMessageTime": "2025-10-01T09:05:00Z"
+  }
+]

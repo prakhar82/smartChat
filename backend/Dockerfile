@@ -1,58 +1,73 @@
 ###############################################################################
-# Dockerfile for SmartChat Backend (Spring Boot API)
-# ---------------------------------------------------------------------------
-# - Multi-stage build for smaller runtime image.
-# - Configurable ports via .env (API_PORT & DEBUG_PORT).
-# - Debugging support (ENABLE_DEBUG=true).
-# - Log directory mapped to host (backend/logs/api).
+# 🧠 SmartChat Backend - Dockerfile (Spring Boot API)
+# -----------------------------------------------------------------------------
+# Features:
+# ✅ Multi-stage build for minimal runtime size
+# ✅ Maven dependency caching
+# ✅ ENV-based dynamic port control
+# ✅ JVM remote debugging support
+# ✅ Logs written to /var/log/api (mapped to host)
+# ✅ Compatible with docker-compose.yml & .env
+#
+# Author: SmartChat Contributors
+# Date: 2025
 ###############################################################################
 
-# ---------- Build stage ----------
+# =========================
+# 🔨 Build Stage
+# =========================
 FROM maven:3.9-eclipse-temurin-17 AS build
+
 WORKDIR /app
 
-# Copy Maven configuration and download dependencies first (cache efficient)
+# Copy Maven project files and prefetch dependencies (for faster rebuilds)
 COPY pom.xml ./
-RUN mvn -q -e -DskipTests dependency:go-offline
+RUN mvn -B -q -e -DskipTests dependency:go-offline
 
-# Copy actual source code
+# Copy source and build the JAR
 COPY src ./src
+RUN mvn -B -q -DskipTests package
 
-# Build JAR file
-RUN mvn -q -DskipTests package
+# =========================
+# 🚀 Runtime Stage
+# =========================
+FROM eclipse-temurin:17-jre-alpine AS runtime
 
-# ---------- Runtime stage ----------
-FROM eclipse-temurin:17-jre
 WORKDIR /app
 
-# ===== Default Environment Variables =====
-# Can be overridden by .env or docker-compose.yml
+# ----------- Environment Variables -----------
 ENV TZ=${TZ:-Asia/Kolkata}
 ENV ENABLE_DEBUG=false
 ENV DEBUG_SUSPEND=n
 ENV DEBUG_PORT=5005
 ENV API_PORT=8080
 
-# Copy built JAR from build stage
-COPY --from=build /app/target/*.jar app.jar
+# ----------- System Setup -----------
+RUN apk add --no-cache curl bash tzdata \
+    && mkdir -p /var/log/api \
+    && chmod -R 777 /var/log/api \
+    && echo "$TZ" > /etc/timezone
 
-# Create log directory inside container and allow writing
-RUN mkdir -p /var/log/api && chmod -R 777 /var/log/api
+# ----------- Copy JAR from Build Stage -----------
+COPY --from=build /app/target/*.jar /app/app.jar
 
-# Expose ports dynamically:
-# - API_PORT → REST API
-# - DEBUG_PORT → JVM remote debugging
-EXPOSE ${API_PORT} ${DEBUG_PORT}
+# ----------- Ports -----------
+EXPOSE ${API_PORT}
+EXPOSE ${DEBUG_PORT}
 
-# Entrypoint:
-# - If ENABLE_DEBUG=true → starts JVM with debug agent
-# - Else → starts normally
+# ----------- Healthcheck (Spring Boot Actuator) -----------
+# Uses internal port API_PORT to test readiness
+HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
+  CMD curl -fsS http://localhost:${API_PORT}/actuator/health || exit 1
+
+# ----------- Startup Script -----------
 ENTRYPOINT ["/bin/sh", "-c", "\
   if [ \"$ENABLE_DEBUG\" = \"true\" ]; then \
-    echo '🚀 Starting in DEBUG mode on port '$DEBUG_PORT' (suspend='$DEBUG_SUSPEND')...'; \
-    exec java -agentlib:jdwp=transport=dt_socket,server=y,suspend=$DEBUG_SUSPEND,address=*:$DEBUG_PORT -jar /app/app.jar --server.port=$API_PORT; \
+    echo '🛠️  Starting SmartChat API in DEBUG mode (port '$DEBUG_PORT', suspend='$DEBUG_SUSPEND')...'; \
+    exec java -agentlib:jdwp=transport=dt_socket,server=y,suspend=$DEBUG_SUSPEND,address=*:$DEBUG_PORT \
+         -jar /app/app.jar --server.port=$API_PORT; \
   else \
-    echo '🚀 Starting in NORMAL mode on port '$API_PORT'...'; \
+    echo '🚀 Starting SmartChat API in NORMAL mode on port '$API_PORT'...'; \
     exec java -jar /app/app.jar --server.port=$API_PORT; \
   fi \
 "]

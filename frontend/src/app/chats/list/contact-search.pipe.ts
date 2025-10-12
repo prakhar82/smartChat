@@ -10,19 +10,19 @@ import {Pipe, PipeTransform} from '@angular/core';
 import {MatchedContact} from '../../contacts/contact.service';
 
 @Pipe({
-  name: 'contactFilter',
-  standalone: true, // <-- IMPORTANT for standalone component
+  name: 'contactSearch',
+  standalone: true,
 })
-export class ContactFilterPipe implements PipeTransform {
+export class ContactSearchPipe implements PipeTransform {
   transform(contacts: MatchedContact[], query: string): MatchedContact[] {
-    if (!contacts) return [];
-    if (!query || query.trim() === '') return contacts;
+    if (!query?.trim()) return contacts;
 
     const lowerQuery = query.toLowerCase();
-    return contacts.filter(
-      (c) =>
-        c.contactName.toLowerCase().includes(lowerQuery) ||
-        c.phones.some((p) => p.value.includes(lowerQuery))
+
+    return contacts.filter((c) =>
+      c.contactName.toLowerCase().includes(lowerQuery) ||
+      c.phones?.some((p) => p.value.includes(lowerQuery)) ||
+      c.emails?.some((e) => e.value.toLowerCase().includes(lowerQuery))
     );
   }
 }

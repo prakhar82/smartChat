@@ -5,295 +5,199 @@
  * via any medium, is strictly prohibited unless permitted by license.
  * Author: $USER_NAME
  */
+@use 'styles/theme' as *;
 
-/* === Reset & Global === */
-html, body {
+/* ----------------------------------
+   Reset & Base
+---------------------------------- */
+* {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+html,
+body {
   height: 100%;
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-
-  /* ✅ Global wallpaper */
-  background: url('/assets/chat-bg.svg') no-repeat center center fixed;
-  background-size: cover;
+  font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--app-bg);
+  color: var(--text-primary);
+  overflow: hidden; /* Layout scrolls only inside sections */
 }
 
-/* Ensure Angular root takes full height */
-app-root {
-  display: block;
-  min-height: 100vh;
+/* ----------------------------------
+   Scrollbars (for desktop)
+---------------------------------- */
+::-webkit-scrollbar {
+  width: 8px;
 }
 
-/* === Buttons (global) === */
-button {
-  padding: 10px 25px;
-  font-size: 1rem;
-  border: 2px solid #27ae60;
-  border-radius: 25px;
+::-webkit-scrollbar-track {
   background: transparent;
-  color: #27ae60;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s ease-in-out;
 }
 
-button:hover {
-  background: #27ae60;
-  color: #fff;
-  opacity: 1;
+::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
 }
 
-/* === Inputs === */
-input, textarea {
-  width: 100%;
-  padding: 10px;
-  margin: 6px 0 12px 0;
-  border-radius: 20px;
-  border: 1px solid #ccc;
-  outline: none;
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.4);
 }
 
-input:focus, textarea:focus {
-  border-color: #25d366;
+/* ----------------------------------
+   Root Theme Variables - Light Mode
+---------------------------------- */
+:root {
+  /* Layout Backgrounds */
+  --app-bg: #f0f2f5;
+  --sidebar-bg: #111b21;
+  --contacts-bg: #ffffff;
+  --chat-bg: #efeae2;
+
+  /* Text Colors */
+  --text-primary: #111;
+  --text-secondary: #555;
+  --text-muted: #777;
+
+  /* Borders & Shadows */
+  --border-color: #ddd;
+  --shadow-light: 0 1px 2px rgba(0, 0, 0, 0.1);
+  --shadow-medium: 0 2px 4px rgba(0, 0, 0, 0.2);
+
+  /* Buttons, Accents */
+  --accent-green: #25d366;
+  --accent-blue: #34b7f1;
+
+  /* Input / Cards */
+  --input-bg: #ffffff;
+  --input-border: #ccc;
 }
 
-/* === Auth Container === */
-.auth-container {
-  max-width: 450px;
-  margin: 50px auto;
-  padding: 20px;
-  background-color: rgba(255, 255, 255, 0.9); /* ✅ slight transparency */
-  border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+/* ----------------------------------
+   Dark Mode Overrides
+---------------------------------- */
+body.dark-mode {
+  --app-bg: #0b141a;
+  --sidebar-bg: #111b21;
+  --contacts-bg: #202c33;
+  --chat-bg: #111b21;
+
+  --text-primary: #e9edef;
+  --text-secondary: #8696a0;
+  --text-muted: #667781;
+
+  --border-color: #2a3942;
+  --shadow-light: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-medium: 0 2px 4px rgba(0, 0, 0, 0.5);
+
+  --accent-green: #25d366;
+  --accent-blue: #34b7f1;
+
+  --input-bg: #2a3942;
+  --input-border: #3c4a52;
 }
 
-.auth-container h2 {
-  color: #075e54;
-  margin-bottom: 16px;
-}
-
-/* === Chats Container === */
-.chats-container {
+/* ----------------------------------
+   Layout Containers
+---------------------------------- */
+.app-container {
   display: flex;
-  height: 100vh;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.8); /* ✅ overlay for readability */
+  flex-direction: row;
+  height: 100%;
+  background-color: var(--app-bg);
 }
 
-/* Chat list panel */
-.chat-list {
-  width: 30%;
-  border-right: 1px solid #ddd;
-  background-color: #fff;
-  overflow-y: auto;
-}
-
-/* Chat window panel */
-.chat-window {
-  width: 70%;
-  display: flex;
-  flex-direction: column-reverse;
-  padding: 12px;
-  overflow-y: auto;
-  background-color: rgba(236, 229, 221, 0.9); /* ✅ keep WhatsApp feel */
-}
-
-/* === Shared Popup Styles (Google Sync + Invite) === */
-
-/* nice centered popup */
-.popup-backdrop {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 2000;
-}
-
-.popup-box {
-  width: 420px;
-  background: #fff;
-  padding: 22px;
-  border-radius: 12px;
-  text-align: center;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.2);
-}
-
-.popup-actions {
-  margin-top: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-}
-
-.popup-box .checkmark {
-  color: #27ae60;
-  font-size: 18px;
-  display: inline-block;
-  animation: pop 420ms ease-out;
-}
-
-@keyframes pop {
-  0% {
-    transform: scale(0.4);
-    opacity: 0;
-  }
-  60% {
-    transform: scale(1.08);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-/* ✅ All buttons look consistent (green outline, hover fill) */
-button {
-  padding: 10px 20px;
-  border-radius: 25px;
-  font-weight: 600;
-  cursor: pointer;
-  border: 2px solid #25d366;
-  background: #fff;
-  color: #25d366;
-  transition: all 0.2s ease-in-out;
-}
-
-button:hover:not(:disabled) {
-  background: #25d366;
-  color: #fff;
-}
-
-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-
-/*****************************************************/
-chats-page.component.css
-  /****************************************************/
-  /* Empty state centered in chat window */
-.right-panel {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #efeae2;
-  overflow: hidden;
-}
-
-.empty-state {
-  text-align: center;
-  color: #444;
-  max-width: 300px;
-}
-
-/* Mobile: hide empty state until contact clicked */
+/* For mobile view: stack panels vertically */
 @media (max-width: 768px) {
-  .empty-state {
-    display: none;
+  .app-container {
+    flex-direction: column;
   }
 }
 
-.chats-grid {
-  display: grid;
-  grid-template-columns: 320px 1fr;
-  height: 100vh;
-  overflow: hidden; /* prevent double scrollbar */
-}
-
-.left-panel {
-  overflow-y: auto;
-}
-
-.right-panel {
-  overflow-y: auto;
-}
-
-
-/***************Scroll bar******************/
-/* Global: prevent unwanted horizontal scroll */
-html, body {
-  overflow-x: hidden;
-  height: 100%;
-}
-
-/* Contact list (left panel) - vertical only */
-.left-panel {
-  overflow-y: auto;
-  overflow-x: hidden;
-
-  /* keeps layout stable when scrollbar appears/disappears */
-  scrollbar-gutter: stable;
-}
-
-/* Right panel - no horizontal scroll */
-.right-panel {
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-/* Custom Webkit scrollbar (Chrome, Edge, Safari) */
-.left-panel::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.left-panel::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 3px;
-  visibility: hidden; /* hidden by default */
-}
-
-.left-panel:hover::-webkit-scrollbar-thumb {
-  visibility: visible; /* show only when hovering/scrolling */
-}
-
-/* Firefox scrollbar auto-hide */
-.left-panel {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
-}
-
-
-/* Shared button styles */
-.btn {
-  cursor: pointer;
-  border-radius: 20px;
-  padding: 8px 16px;
-  font-weight: bold;
-  border: 2px solid #25d366;
+/* ----------------------------------
+   Utility Classes
+---------------------------------- */
+.icon-btn {
   background: transparent;
-  color: #25d366;
-  transition: all 0.2s ease-in-out;
-  margin: 4px;
+  border: none;
+  cursor: pointer;
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 50%;
+  transition: background 0.2s ease;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
 }
 
-.btn:hover {
-  background: #25d366;
-  color: #fff;
+body.dark-mode .icon-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Button Variants */
+.btn {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
 }
 
 .btn-primary {
-  border-color: #25d366;
-  color: #25d366;
+  background-color: var(--accent-green);
+  color: #fff;
+
+  &:hover {
+    background-color: #1ebe5b;
+  }
 }
 
-.btn-secondary {
-  border-color: #999;
-  color: #999;
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
 }
 
-
-.status.success {
-  color: #25d366;
+/* ----------------------------------
+   Toasts / Alerts (global placeholder)
+---------------------------------- */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: var(--sidebar-bg);
+  color: var(--text-primary);
+  padding: 10px 16px;
+  border-radius: 8px;
+  box-shadow: var(--shadow-medium);
+  z-index: 2000;
 }
 
-.status.error {
-  color: #e53935;
+/* ----------------------------------
+   Transitions
+---------------------------------- */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
 }
 
-/* ... keep your other rules (chat list, input, custom-btn etc.) ... */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

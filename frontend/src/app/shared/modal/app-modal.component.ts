@@ -6,7 +6,7 @@
  * Author: $USER_NAME
  */
 
-import {Component, EventEmitter, Input, Output} from '@angular/core';
+import {Component, EventEmitter, HostListener, Input, Output} from '@angular/core';
 import {CommonModule} from '@angular/common';
 
 @Component({
@@ -21,7 +21,32 @@ export class AppModalComponent {
   @Input() show = false;
   @Output() closed = new EventEmitter<void>();
 
-  close() {
+  constructor() {
+    console.log('[AppModalComponent] Initialized');
+  }
+
+  /** Close modal */
+  close(): void {
+    console.log('[AppModalComponent] Close triggered');
+    this.show = false;
     this.closed.emit();
+  }
+
+  /** Handle ESC key press globally (Angular 17 safe) */
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscape(event: any): void {
+    if (event?.key === 'Escape' && this.show) {
+      console.log('[AppModalComponent] ESC pressed — closing modal');
+      this.close();
+    }
+  }
+
+  /** Handle backdrop click */
+  onBackdropClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (target.classList.contains('modal-backdrop')) {
+      console.log('[AppModalComponent] Backdrop clicked');
+      this.close();
+    }
   }
 }

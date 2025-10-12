@@ -6,222 +6,207 @@
  * Author: $USER_NAME
  */
 
-import {Component, OnDestroy, OnInit} from '@angular/core';
-import {ActivatedRoute, NavigationEnd, Router, RouterOutlet} from '@angular/router';
+/**
+ * 💬 ChatsPageComponent
+ * ---------------------------------------------------------
+ * The main SmartChat workspace container.
+ * Displays:
+ *  - Left sidebar
+ *  - Contact list
+ *  - Chat window
+ * Handles:
+ *  - Reactive user presence & theme
+ *  - Search & filtering of contacts
+ *  - Responsive layout (desktop/mobile)
+ *  - Smooth fade/slide transitions
+ * ---------------------------------------------------------
+ */
+
+import {Component, HostListener, OnInit} from '@angular/core';
 import {CommonModule} from '@angular/common';
-import {Subscription} from 'rxjs';
-import {filter} from 'rxjs/operators';
-import {AuthService} from '../../auth/auth.service';
-import {ChatService} from '../chat.service';
+import {FormsModule} from '@angular/forms';
+import {animate, style, transition, trigger,} from '@angular/animations';
+
+import {UserService} from '../../auth/user.service';
 import {ContactService, MatchedContact} from '../../contacts/contact.service';
-import {AppModalComponent} from '../../shared/modal/app-modal.component';
+import {LeftSidebarComponent} from '../sidebar/left-sidebar.component';
 import {ContactListComponent} from '../list/contact-list.component';
+import {ChatWindowComponent} from '../window/chat-window.component';
+import {TopHeaderComponent} from '../top-header/top-header.component';
 
 @Component({
   selector: 'app-chats-page',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, AppModalComponent, ContactListComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    LeftSidebarComponent,
+    ContactListComponent,
+    ChatWindowComponent,
+    TopHeaderComponent,
+  ],
   templateUrl: './chats-page.component.html',
-  styleUrls: ['./chats-page.component.css'],
+  styleUrls: ['./chats-page.component.scss'],
+  animations: [
+    // 🌟 Smooth fade + slide animation for chat and welcome panels
+    trigger('fadeSlideIn', [
+      transition(':enter', [
+        style({opacity: 0, transform: 'translateY(10px)'}),
+        animate('400ms ease-out', style({opacity: 1, transform: 'translateY(0)'})),
+      ]),
+      transition(':leave', [
+        animate('300ms ease-in', style({opacity: 0, transform: 'translateY(10px)'})),
+      ]),
+    ]),
+  ],
 })
-export class ChatsPageComponent implements OnInit, OnDestroy {
-  userId: number | null = null;
-  firstName: string | null = null;
-  isConnected = false;
+export class ChatsPageComponent implements OnInit {
+  /** 👤 User Info */
+  firstName = '';
+  isConnected = true;
+  isDarkTheme = false;
+  userStatus: 'available' | 'away' = 'available';
+  private lastActivity = new Date();
 
-  activeChatId: string | null = null;
-  currentContact: MatchedContact | null = null;
-  showContactsList = true;
-
-  // popup state
-  showGooglePopup = false;
-  errorMsg = '';
-  syncing = false;
-  success = false;
-
-  // contacts state
-  allContacts: MatchedContact[] = [];
+  /** 📇 Contacts & Search */
+  contacts: MatchedContact[] = [];
   filteredContacts: MatchedContact[] = [];
+  searchQuery = '';
 
-  private connectionSub?: Subscription;
-  private routerSub?: Subscription;
-  private reconnectTimer?: any;
-  protected isMobile = window.innerWidth < 768;
+  /** 💬 UI States */
+  selectedContactId?: number;
+  isMobileView = false;
 
   constructor(
-    private router: Router,
-    private route: ActivatedRoute,
-    private authService: AuthService,
-    private chatService: ChatService,
-    protected contactService: ContactService
+    private readonly userService: UserService,
+    private readonly contactService: ContactService
   ) {
   }
 
+  /* =========================================================
+   * 🚀 Lifecycle
+   * ========================================================= */
   ngOnInit(): void {
-    // ✅ SmartChat JWT
-    const jwt = this.authService.getToken();
-    if (!jwt) {
-      this.router.navigate(['/login']);
+    console.log('[ChatsPage] 🚀 Initialized');
+    this.loadUserProfile();
+    this.loadContacts();
+    this.startIdleWatcher();
+  }
+
+  /* =========================================================
+   * 👤 Load User
+   * ========================================================= */
+  private loadUserProfile(): void {
+    this.userService.getUserProfile().subscribe({
+      next: (user) => {
+        this.firstName = user?.firstName || 'User';
+        console.log('[ChatsPage] 👤 User profile loaded:', this.firstName);
+      },
+      error: (err) => console.error('[ChatsPage] ❌ Failed to load profile:', err),
+    });
+  }
+
+  /* =========================================================
+   * 📇 Contacts
+   * ========================================================= */
+  private loadContacts(): void {
+    console.log('[ChatsPage] 📥 Loading contacts...');
+    this.contactService.getMatchedContacts().subscribe({
+      next: (list) => {
+        this.contacts = list;
+        this.filteredContacts = list;
+        console.log(`[ChatsPage] ✅ Loaded ${list.length} contacts`);
+      },
+      error: (err) => console.error('[ChatsPage] ❌ Failed to fetch contacts:', err),
+    });
+  }
+
+  /** 🔍 Live Search Filter */
+  filterContacts(): void {
+    const term = this.searchQuery.toLowerCase().trim();
+    if (!term) {
+      this.filteredContacts = this.contacts;
       return;
     }
 
-    // ✅ Handle google_token from callback
-    this.route.queryParams.subscribe(params => {
-      const token = params['google_token'] || params['access_token'];
-      if (token) {
-        localStorage.setItem('google_token', token);
-        console.log("✅ Google token saved");
-
-        this.contactService.syncGoogleContacts(token).subscribe({
-          next: () => {
-            console.log("✅ Google contacts sync triggered");
-            this.refreshContacts();
-          },
-          error: (err) => console.error("❌ Google contacts sync failed", err)
-        });
-
-        this.closePopup();
-      }
+    this.filteredContacts = this.contacts.filter((c) => {
+      const name = c.contactName?.toLowerCase() || '';
+      const phone =
+        c.phones?.map((p) => p.value?.toLowerCase()).join(' ') || '';
+      return name.includes(term) || phone.includes(term);
     });
+  }
 
-    // ✅ Always reload contacts after login
-    this.refreshContacts();
-
-    this.firstName = this.authService.getFirstName();
-    const uid = this.authService.getUserId();
-    if (!uid) {
-      this.router.navigate(['/login']);
-      return;
-    }
-    this.userId = Number(uid);
-
-    // 🔌 Connect websocket
-    this.chatService.connectWebSocket(this.userId);
-
-    // ✅ monitor WebSocket connection
-    this.connectionSub = this.chatService.connection$.subscribe((state) => {
-      this.isConnected = state;
-      if (!state && this.userId && !this.reconnectTimer) {
-        this.reconnectTimer = setTimeout(() => {
-          this.reconnectTimer = null;
-          this.reconnect();
-        }, 5000);
+  /* =========================================================
+   * 🕒 Idle / Presence Handling
+   * ========================================================= */
+  private startIdleWatcher(): void {
+    setInterval(() => {
+      const idle = (Date.now() - this.lastActivity.getTime()) / 1000;
+      if (idle > 60 && this.userStatus !== 'away') {
+        this.userStatus = 'away';
+        console.log('[ChatsPage] 💤 User is now away');
       }
-    });
-
-    // ✅ handle route changes
-    this.routerSub = this.router.events
-      .pipe(filter((e) => e instanceof NavigationEnd))
-      .subscribe(() => {
-        const tree = this.router.parseUrl(this.router.url);
-        const chatSegment = tree.root.children['chat']?.segments[0];
-        this.activeChatId = chatSegment ? chatSegment.path : null;
-
-        if (this.activeChatId) {
-          this.currentContact =
-            this.allContacts.find((c) => String(c.matchedUserId) === this.activeChatId) || null;
-        } else {
-          this.currentContact = null;
-        }
-
-        if (this.isMobile) {
-          this.showContactsList = !this.activeChatId;
-        } else {
-          this.showContactsList = true;
-        }
-      });
+    }, 10000);
   }
 
-  ngOnDestroy(): void {
-    this.connectionSub?.unsubscribe();
-    this.routerSub?.unsubscribe();
-    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-    this.chatService.disconnectWebSocket();
+  @HostListener('window:mousemove')
+  @HostListener('window:keydown')
+  resetTimer(): void {
+    if (this.userStatus !== 'available')
+      console.log('[ChatsPage] ✅ User active again');
+    this.userStatus = 'available';
+    this.lastActivity = new Date();
   }
 
-  reconnect(): void {
-    if (this.userId) {
-      this.chatService.disconnectWebSocket();
-      this.chatService.connectWebSocket(this.userId);
-    }
-  }
-
-  // When user taps a contact → show chat panel full screen
-  openChat(contactId: number): void {
-    this.router.navigate([{outlets: {chat: [contactId]}}]);
-    if (this.isMobile) {
-      this.showContactsList = false; // hide list
-    }
-  }
-
-  // Back button → return to list
-  goBack(): void {
-    this.router.navigate([{outlets: {primary: ['chats'], chat: null}}]);
-    if (this.isMobile) {
-      this.showContactsList = true; // show list again
-    }
-  }
-
-  // 🔹 popup handlers
-  openGooglePopup(): void {
-    this.showGooglePopup = true;
-    this.errorMsg = '';
-    this.syncing = false;
-    this.success = false;
-  }
-
-  closePopup(): void {
-    this.showGooglePopup = false;
-    this.errorMsg = '';
-    this.syncing = false;
-    this.success = false;
-  }
-
-  connectWithGoogle(): void {
-    this.syncing = true;
-    this.errorMsg = '';
-    this.authService.connectWithGoogle();
-  }
-
-  // 🔹 Search contacts
-  onSearch(term: string): void {
-    const lower = term.toLowerCase();
-    this.filteredContacts = this.allContacts.filter(
-      (c) =>
-        (c.contactName || '').toLowerCase().includes(lower) ||
-        c.emails.some((e) => e.value.toLowerCase().includes(lower)) ||
-        c.phones.some((p) => p.value.includes(lower))
+  /* =========================================================
+   * 🎨 Theme + Connection
+   * ========================================================= */
+  toggleTheme(): void {
+    this.isDarkTheme = !this.isDarkTheme;
+    console.log(
+      '[ChatsPage] 🎨 Theme toggled →',
+      this.isDarkTheme ? 'Dark' : 'Light'
     );
   }
 
-  // 🔹 Refresh contacts with sorting
-  private refreshContacts(): void {
-    this.contactService.getMatchedContacts(true).subscribe({
-      next: (list) => {
-        if (list && list.length > 0) {
-          this.allContacts = this.sortContacts(list);
-          this.filteredContacts = this.allContacts;
-          console.log('[ChatsPage] ✅ Loaded contacts automatically after login');
-        } else {
-          console.warn('[ChatsPage] ⚠️ No contacts found → opening sync popup');
-          this.openGooglePopup();
-        }
-        this.contactService.setCachedContacts(this.allContacts);
-        this.contactService.notifyContactsUpdated();
-      },
-      error: (err) => {
-        console.error('[ChatsPage] ❌ Failed to load contacts', err);
-        this.openGooglePopup();
-      },
-    });
+  reconnect(): void {
+    this.isConnected = true;
+    console.log('[ChatsPage] 🔌 Reconnected');
   }
 
-  // 🔹 Sort contacts: registered users first (alphabetical), then invites
-  private sortContacts(list: MatchedContact[]): MatchedContact[] {
-    return [...list].sort((a, b) => {
-      if (a.registered && !b.registered) return -1;
-      if (!a.registered && b.registered) return 1;
-      return (a.contactName || '').localeCompare(b.contactName || '');
-    });
+  /* =========================================================
+   * 💬 Chat Actions
+   * ========================================================= */
+  openChat(contact: MatchedContact): void {
+    this.selectedContactId =
+      contact?.matchedUserId || Number(contact?.contactId);
+    console.log('[ChatsPage] 💬 Opened chat with:', contact.contactName);
+  }
+
+  closeChat(): void {
+    console.log('[ChatsPage] ⬅️ Closed chat window');
+    this.selectedContactId = undefined;
+  }
+
+  /* =========================================================
+   * 🔍 Search
+   * ========================================================= */
+  onSearch(query: string): void {
+    const q = query.trim().toLowerCase();
+    if (!q) {
+      this.filteredContacts = this.contactService.getCachedContacts();
+      return;
+    }
+
+    this.filteredContacts = this.contactService
+      .getCachedContacts()
+      .filter(
+        (c) =>
+          c.contactName?.toLowerCase().includes(q) ||
+          c.phones?.some((p) => p.value.includes(q))
+      );
+
+    console.log(`[ChatsPage] 🔍 Filtered ${this.filteredContacts.length} contacts`);
   }
 }

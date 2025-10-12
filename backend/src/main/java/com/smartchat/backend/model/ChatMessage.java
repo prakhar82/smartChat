@@ -8,43 +8,71 @@
 
 package com.smartchat.backend.model;
 
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "chat_messages")
+/**
+ * ChatMessage (MongoDB Document)
+ * ----------------------------------------
+ * - Stores messages exchanged between two users
+ * - Indexed for fast sender/receiver queries
+ * - Compatible with Redis caching and WebSocket broadcasting
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Document(collection = "chat_messages")
+@CompoundIndexes({
+        @CompoundIndex(name = "sender_receiver_idx", def = "{'senderId': 1, 'receiverId': 1}"),
+        @CompoundIndex(name = "receiver_sender_idx", def = "{'receiverId': 1, 'senderId': 1}")
+})
 public class ChatMessage implements Serializable {
+
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
     private Long senderId;
     private Long receiverId;
 
-    @Column(columnDefinition = "TEXT")
     private String message;
-
     private String emoji;
     private String fileUrl;
     private String fileName;
-
     private String status; // SENT / DELIVERED / READ
 
+    @CreatedDate
     private LocalDateTime timestamp;
 
-    @PrePersist
-    protected void onCreate() {
+    @Builder.Default
+    private boolean deleted = false;
+
+    /**
+     * Automatically initialize message defaults.
+     */
+    public void onCreate() {
         if (timestamp == null) timestamp = LocalDateTime.now();
         if (status == null) status = "SENT";
+    }
+
+    /**
+     * Soft-delete message contents safely.
+     */
+    public void markDeleted() {
+        this.message = "This message was deleted";
+        this.fileUrl = null;
+        this.fileName = null;
+        this.emoji = null;
+        this.deleted = true;
     }
 }

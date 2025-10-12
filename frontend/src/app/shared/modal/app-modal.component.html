@@ -6,17 +6,28 @@
   ~ Author: $USER_NAME
   -->
 
-<div class="modal-backdrop" *ngIf="show">
-  <div class="modal">
+<!-- ✅ Modal Backdrop -->
+<div
+  class="modal-backdrop"
+  *ngIf="show"
+  (click)="onBackdropClick($event)"
+>
+  <!-- ✅ Modal Window -->
+  <div class="modal-container" (click)="$event.stopPropagation()">
+    <!-- Header -->
     <div class="modal-header">
-      <span>{{ title }}</span>
-      <button (click)="close()">×</button>
+      <h3 class="modal-title">{{ title }}</h3>
+      <button class="close-btn" (click)="close()" title="Close">✖</button>
     </div>
-    <div class="modal-content">
+
+    <!-- Body -->
+    <div class="modal-body">
       <ng-content></ng-content>
     </div>
-    <div class="modal-actions">
-      <ng-content select=".modal-actions"></ng-content>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <ng-content select="[modal-footer]"></ng-content>
     </div>
   </div>
 </div>

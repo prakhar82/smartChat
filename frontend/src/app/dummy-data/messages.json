@@ -1,0 +1,18 @@
+[
+  {
+    "id": 1,
+    "senderId": 1,
+    "receiverId": 2,
+    "message": "Hi Bob!",
+    "timestamp": "2025-10-01T10:00:00Z",
+    "status": "SENT"
+  },
+  {
+    "id": 2,
+    "senderId": 2,
+    "receiverId": 1,
+    "message": "Hey Alice, all good!",
+    "timestamp": "2025-10-01T10:01:00Z",
+    "status": "DELIVERED"
+  }
+]

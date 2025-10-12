@@ -6,13 +6,16 @@
  * Author: $USER_NAME
  */
 
-package com.smartchat.backend.repository;
+package com.smartchat.backend.repository.jpa;
 
 import com.smartchat.backend.model.GoogleOAuthToken;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
+@Repository
 public interface GoogleOAuthTokenRepository extends JpaRepository<GoogleOAuthToken, Long> {
+
     Optional<GoogleOAuthToken> findByOwnerUserId(Long ownerUserId);
 }

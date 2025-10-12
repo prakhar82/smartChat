@@ -1,0 +1,78 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<div class="app-container">
+  <!-- Sidebar: Contacts + Filters -->
+  <aside class="sidebar">
+    <header class="sidebar-header">
+      <h2>SmartChat</h2>
+    </header>
+
+    <div class="filters">
+      <button
+        mat-button
+        class="filter"
+        *ngFor="let f of filters"
+        (click)="applyFilter(f)"
+        [class.active]="f === activeFilter"
+      >
+        {{ f }}
+      </button>
+    </div>
+
+    <div class="contacts" *ngIf="contacts.length; else noContacts">
+      <div
+        class="contact"
+        *ngFor="let c of contacts"
+        (click)="selectContact(c)"
+      >
+        <span class="avatar">{{ c.name[0] }}</span>
+        <div class="contact-info">
+          <h4>{{ c.name }}</h4>
+          <p>{{ c.phone }}</p>
+        </div>
+      </div>
+    </div>
+    <ng-template #noContacts>
+      <p class="empty">No contacts available</p>
+    </ng-template>
+  </aside>
+
+  <!-- Chat Window -->
+  <section class="chat-window" *ngIf="activeContact; else noChat">
+    <header class="chat-header">
+      <h3>{{ activeContact.name }}</h3>
+    </header>
+
+    <div class="messages">
+      <div
+        class="message"
+        *ngFor="let m of messages"
+        [class.sent]="m.sender === 'me'"
+        [class.received]="m.sender !== 'me'"
+      >
+        {{ m.content }}
+      </div>
+    </div>
+
+    <footer class="chat-input">
+      <input
+        [(ngModel)]="newMessage"
+        placeholder="Type a message"
+        (keyup.enter)="sendMessage()"
+      />
+      <button (click)="sendMessage()">Send</button>
+    </footer>
+  </section>
+
+  <ng-template #noChat>
+    <div class="chat-placeholder">
+      <p>Select a contact to start chatting</p>
+    </div>
+  </ng-template>
+</div>

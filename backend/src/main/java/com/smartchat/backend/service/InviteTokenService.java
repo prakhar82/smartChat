@@ -10,12 +10,15 @@ package com.smartchat.backend.service;
 
 import com.smartchat.backend.model.InviteToken;
 import com.smartchat.backend.model.User;
-import com.smartchat.backend.repository.InviteTokenRepository;
+import com.smartchat.backend.model.cache.CachedInviteToken;
+import com.smartchat.backend.repository.jpa.InviteTokenRepository;
+import com.smartchat.backend.repository.redis.CachedInviteTokenRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.util.Base64;
 
 @Service
@@ -24,9 +27,11 @@ import java.util.Base64;
 public class InviteTokenService {
 
     private final InviteTokenRepository inviteTokenRepository;
+    private final CachedInviteTokenRepository cachedInviteTokenRepository;
 
     /**
      * Generate a new invite token for a user.
+     * Stored in both PostgreSQL and Redis for quick lookup.
      */
     public InviteToken generateToken(User inviter) {
         String tokenValue = generateRandomToken();
@@ -39,49 +44,66 @@ public class InviteTokenService {
 
         InviteToken saved = inviteTokenRepository.save(token);
 
-        log.info("[InviteTokenService] 🎟 Generated new invite token for inviterId={} (token={}...)",
-                inviter.getId(), tokenValue.substring(0, 8));
+        // Cache in Redis
+        cachedInviteTokenRepository.save(
+                CachedInviteToken.builder()
+                        .token(tokenValue)
+                        .inviterId(inviter.getId())
+                        .used(false)
+                        .expiry(Instant.now().plusSeconds(86400).toEpochMilli()) // 1 day cache
+                        .build()
+        );
+
+        log.info("[InviteTokenService] 🎟 Generated invite token for inviterId={} ({}...)", inviter.getId(), tokenValue.substring(0, 8));
 
         return saved;
     }
 
     /**
      * Validate and mark token as used.
+     * Also invalidates Redis cache.
      */
     public InviteToken useToken(String tokenValue) {
         InviteToken token = inviteTokenRepository.findByToken(tokenValue)
                 .orElseThrow(() -> {
-                    log.warn("[InviteTokenService] ❌ Invalid invite token attempted: {}...", tokenValue.substring(0, 8));
+                    log.warn("[InviteTokenService] ❌ Invalid invite token: {}...", tokenValue.substring(0, 8));
                     return new IllegalArgumentException("Invalid invite token");
                 });
 
         if (token.isUsed()) {
-            log.warn("[InviteTokenService] ⚠ Attempted reuse of already used token={}...", tokenValue.substring(0, 8));
+            log.warn("[InviteTokenService] ⚠️ Token already used: {}...", tokenValue.substring(0, 8));
             throw new IllegalStateException("Invite token already used");
         }
 
         token.markUsed();
         InviteToken updated = inviteTokenRepository.save(token);
 
-        log.info("[InviteTokenService] ✅ Invite token={}... successfully marked as used", tokenValue.substring(0, 8));
+        // Remove from cache
+        cachedInviteTokenRepository.deleteById(tokenValue);
 
+        log.info("[InviteTokenService] ✅ Invite token {}... marked as used", tokenValue.substring(0, 8));
         return updated;
     }
 
     /**
-     * Check if token exists and is not yet used.
+     * Fast validity check with Redis fallback.
      */
     public boolean isValid(String tokenValue) {
+        // 1️⃣ Try Redis first
+        CachedInviteToken cached = cachedInviteTokenRepository.findById(tokenValue).orElse(null);
+        if (cached != null && !cached.isUsed()) {
+            log.debug("[InviteTokenService] ⚡ Cache hit: token={}... valid=true", tokenValue.substring(0, 8));
+            return true;
+        }
+
+        // 2️⃣ Fallback to PostgreSQL
         boolean valid = inviteTokenRepository.existsByTokenAndUsedFalse(tokenValue);
-        log.debug("[InviteTokenService] 🔎 Token={}... valid={}", tokenValue.substring(0, 8), valid);
+        log.debug("[InviteTokenService] 🔍 DB check: token={}... valid={}", tokenValue.substring(0, 8), valid);
         return valid;
     }
 
-    /**
-     * Helper: Generate a random, secure token string.
-     */
     private String generateRandomToken() {
-        byte[] randomBytes = new byte[32]; // 256-bit
+        byte[] randomBytes = new byte[32]; // 256-bit token
         new SecureRandom().nextBytes(randomBytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
     }

@@ -6,7 +6,7 @@
  * Author: $USER_NAME
  */
 
-package com.smartchat.backend.repository;
+package com.smartchat.backend.repository.jpa;
 
 import com.smartchat.backend.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,6 +17,8 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<com.smartchat.backend.model.User> findByMobileNumber(String mobileNumber);
+
+    Optional<com.smartchat.backend.model.User> findByEmail(String email);
 
     Optional<User> findByMobileNormalized(String mobileNormalized);
 

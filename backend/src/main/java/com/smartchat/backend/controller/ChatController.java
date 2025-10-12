@@ -11,8 +11,9 @@ package com.smartchat.backend.controller;
 import com.smartchat.backend.auth.JwtUtil;
 import com.smartchat.backend.dto.RecentChatResponse;
 import com.smartchat.backend.model.ChatMessage;
-import com.smartchat.backend.repository.ChatMessageRepository;
-import com.smartchat.backend.repository.UserRepository;
+import com.smartchat.backend.model.User;
+import com.smartchat.backend.repository.jpa.UserRepository;
+import com.smartchat.backend.repository.mongo.ChatMessageRepository;
 import com.smartchat.backend.service.ChatService;
 import com.smartchat.backend.service.cache.ChatCacheService;
 import lombok.RequiredArgsConstructor;
@@ -32,8 +33,26 @@ import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * ==========================================================
+ * ✅ ChatController
+ * ----------------------------------------------------------
+ * Handles:
+ * - Fetching recent chats
+ * - Fetching chat history
+ * - Sending messages
+ * - Updating message status
+ * - Uploading files
+ * - Deleting messages
+ * <p>
+ * Uses a robust JWT resolver that supports:
+ * - Email or mobile-based tokens
+ * - Direct `userId` claim (preferred)
+ * ==========================================================
+ */
 @Slf4j
 @RestController
 @RequestMapping("/api/chats")
@@ -49,53 +68,93 @@ public class ChatController {
     @Value("${chat.history.limit:30}")
     private int historyLimit;
 
+    // ==========================================================
+    // 🔹 Fetch recent chat list
+    // ==========================================================
     @GetMapping("/recent")
-    public List<RecentChatResponse> recentChats(@RequestHeader("Authorization") String authHeader) {
-        Long userId = extractUserId(authHeader);
-        log.info("[ChatController] ▶ Fetching recent chats for userId={}", userId);
-        return chatService.getRecentChats(userId);
-    }
+    public ResponseEntity<?> recentChats(@RequestHeader("Authorization") String authHeader) {
+        try {
+            Long userId = resolveUserId(authHeader);
+            log.info("[ChatController] ▶ Fetching recent chats for userId={}", userId);
 
-    @GetMapping("/{contactId}")
-    public List<ChatMessage> getChatHistory(@PathVariable Long contactId,
-                                            @RequestHeader("Authorization") String authHeader) {
-        Long userId = extractUserId(authHeader);
-        log.info("[ChatController] ▶ Fetching chat history for userId={} with contactId={}", userId, contactId);
+            List<RecentChatResponse> chats = chatService.getRecentChats(userId);
+            return ResponseEntity.ok(chats);
 
-        List<ChatMessage> cached = chatCache.get(userId, contactId);
-        if (!cached.isEmpty()) {
-            log.debug("[ChatController] 💾 Returning {} cached messages for {} <-> {}", cached.size(), userId, contactId);
-            return cached;
+        } catch (RuntimeException e) {
+            log.error("[ChatController] ❌ Failed to load recent chats: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage(), "status", 500));
         }
-
-        List<ChatMessage> dbMessages = chatRepo.findConversationMessages(
-                userId, contactId,
-                contactId, userId,
-                PageRequest.of(0, historyLimit)
-        );
-
-        chatCache.put(userId, contactId, dbMessages);
-        log.info("[ChatController] ✅ Loaded {} messages from DB for {} <-> {}", dbMessages.size(), userId, contactId);
-        return dbMessages;
     }
 
+    // ==========================================================
+    // 🔹 Fetch chat history between two users
+    // ==========================================================
+    @GetMapping("/{contactId}")
+    public ResponseEntity<?> getChatHistory(@PathVariable Long contactId,
+                                            @RequestHeader("Authorization") String authHeader) {
+        try {
+            Long userId = resolveUserId(authHeader);
+            log.info("[ChatController] ▶ Fetching chat history for userId={} with contactId={}", userId, contactId);
+
+            List<ChatMessage> cached = chatCache.get(userId, contactId);
+            if (!cached.isEmpty()) {
+                log.debug("[ChatController] 💾 Returning {} cached messages for {} <-> {}", cached.size(), userId, contactId);
+                return ResponseEntity.ok(cached);
+            }
+
+            List<ChatMessage> dbMessages = chatRepo.findConversationMessages(
+                    userId, contactId,
+                    contactId, userId,
+                    PageRequest.of(0, historyLimit)
+            );
+
+            chatCache.put(userId, contactId, dbMessages);
+            log.info("[ChatController] ✅ Loaded {} messages from DB for {} <-> {}", dbMessages.size(), userId, contactId);
+
+            return ResponseEntity.ok(dbMessages);
+        } catch (Exception e) {
+            log.error("[ChatController] ❌ Failed to fetch chat history: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ==========================================================
+    // 🔹 Send message
+    // ==========================================================
     @PostMapping("/send")
-    public ChatMessage sendMessage(@RequestBody ChatMessage message,
-                                   @RequestHeader("Authorization") String authHeader) {
-        Long userId = extractUserId(authHeader);
-        message.setSenderId(userId);
-        log.info("[ChatController] 🚀 Sending message from userId={} to userId={}", message.getSenderId(), message.getReceiverId());
-        return chatService.saveAndSend(message);
+    public ResponseEntity<?> sendMessage(@RequestBody ChatMessage message,
+                                         @RequestHeader("Authorization") String authHeader) {
+        try {
+            Long userId = resolveUserId(authHeader);
+            message.setSenderId(userId);
+            log.info("[ChatController] 🚀 Sending message from userId={} to userId={}", message.getSenderId(), message.getReceiverId());
+
+            ChatMessage saved = chatService.saveAndSend(message);
+            return ResponseEntity.ok(saved);
+
+        } catch (Exception e) {
+            log.error("[ChatController] ❌ Failed to send message: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
     }
 
+    // ==========================================================
+    // 🔹 Update message status
+    // ==========================================================
     @PatchMapping("/status/{id}")
-    public ChatMessage updateStatus(@PathVariable Long id,
+    public ChatMessage updateStatus(@PathVariable String id,
                                     @RequestBody Map<String, String> body) {
         String status = body.get("status");
         log.info("[ChatController] ✏️ Updating status for messageId={} to {}", id, status);
         return chatService.updateStatus(id, status);
     }
 
+    // ==========================================================
+    // 🔹 Upload attachment
+    // ==========================================================
     @PostMapping("/upload")
     public ResponseEntity<Map<String, Object>> uploadFile(
             @RequestParam("file") MultipartFile file,
@@ -107,6 +166,7 @@ public class ChatController {
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
+
             Path filePath = uploadPath.resolve(fileName);
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
@@ -119,7 +179,6 @@ public class ChatController {
             msg.setStatus("SENT");
 
             ChatMessage saved = chatService.saveAndSend(msg);
-
             log.info("[ChatController] 📁 File uploaded: senderId={} -> receiverId={}, messageId={}", senderId, receiverId, saved.getId());
 
             return ResponseEntity.ok(Map.of(
@@ -133,19 +192,54 @@ public class ChatController {
         }
     }
 
+    // ==========================================================
+    // 🔹 Delete message
+    // ==========================================================
     @DeleteMapping("/delete/{id}")
-    public ChatMessage deleteMessage(@PathVariable Long id,
-                                     @RequestHeader("Authorization") String authHeader) {
-        Long requesterId = extractUserId(authHeader);
-        log.info("[ChatController] 🗑 Delete request: messageId={} by userId={}", id, requesterId);
-        return chatService.deleteMessage(id, requesterId);
+    public ResponseEntity<?> deleteMessage(@PathVariable String id,
+                                           @RequestHeader("Authorization") String authHeader) {
+        try {
+            Long requesterId = resolveUserId(authHeader);
+            log.info("[ChatController] 🗑 Delete request: messageId={} by userId={}", id, requesterId);
+
+            ChatMessage deleted = chatService.deleteMessage(id, requesterId);
+            return ResponseEntity.ok(deleted);
+        } catch (Exception e) {
+            log.error("[ChatController] ❌ Delete failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
     }
 
-    private Long extractUserId(String authHeader) {
+    // ==========================================================
+    // 🔹 Unified JWT User Resolver
+    // ==========================================================
+    private Long resolveUserId(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new RuntimeException("Missing or invalid Authorization header");
+        }
+
         String token = authHeader.substring(7);
-        String username = jwtUtil.extractUsername(token);
-        return userRepository.findByMobileNumber(username)
-                .map(u -> u.getId())
+
+        // ✅ Prefer the userId claim directly if available
+        Long userId = jwtUtil.extractUserId(token);
+        if (userId != null) {
+            return userId;
+        }
+
+        // ⚙️ Fallback: extract subject (email or mobile)
+        String subject = jwtUtil.extractUsername(token);
+        if (subject == null) {
+            throw new RuntimeException("Token missing subject");
+        }
+
+        Optional<User> userOpt = userRepository.findByMobileNumber(subject);
+        if (userOpt.isEmpty() && subject.contains("@")) {
+            userOpt = userRepository.findByEmail(subject);
+        }
+
+        return userOpt
+                .map(User::getId)
                 .orElseThrow(() -> new RuntimeException("User not found for token"));
     }
 }

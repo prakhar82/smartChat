@@ -41,7 +41,7 @@ public class RedisConfig {
     }
 
     /**
-     * RedisTemplate for MatchedContactResponse list caching.
+     * RedisTemplate for MatchedContactResponse and other cached objects.
      */
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
@@ -59,7 +59,6 @@ public class RedisConfig {
         return template;
     }
 
-
     /**
      * Dedicated ObjectMapper for Redis serialization only.
      * 🚫 Does NOT affect Spring Boot’s HTTP ObjectMapper (used in controllers).
@@ -68,7 +67,6 @@ public class RedisConfig {
     public ObjectMapper redisObjectMapper() {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
-        // ❌ Removed activateDefaultTyping (caused WRAPPER_ARRAY issue in REST)
         return objectMapper;
     }
 }

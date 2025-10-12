@@ -13,6 +13,7 @@ import com.smartchat.backend.model.ChatMessage;
 import java.util.List;
 
 public interface ChatCacheService {
+
     List<ChatMessage> get(Long userA, Long userB);
 
     void put(Long userA, Long userB, List<ChatMessage> messages);
