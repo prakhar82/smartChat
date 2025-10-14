@@ -8,61 +8,53 @@
 
 package com.smartchat.backend.config;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import com.smartchat.backend.websocket.JwtChannelInterceptor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
 @Configuration
 @EnableWebSocketMessageBroker
+@RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    @Value("${spring.rabbitmq.host:localhost}")
-    private String rabbitHost;
-
-    @Value("${stomp.relay.port:61613}")
-    private int stompPort;
-
-    @Value("${spring.rabbitmq.username:guest}")
-    private String rabbitUser;
-
-    @Value("${spring.rabbitmq.password:guest}")
-    private String rabbitPass;
-
-
-    @Autowired
-    private WebSocketAuthInterceptor webSocketAuthInterceptor;
-
+    private final JwtChannelInterceptor jwtChannelInterceptor;
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // ✅ Native WebSocket only (no SockJS fallback)
         registry.addEndpoint("/ws-chat")
-                .setAllowedOriginPatterns("*");
+                // 🔧 Allow multiple origins for frontend devs (localhost, Vercel, etc.)
+                .setAllowedOriginPatterns("*")
+                .withSockJS(); // ✅ SockJS fallback for Angular/STOMP
     }
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        // Application destination prefix for @MessageMapping handlers
+        // 🔧 Standard prefix for controller mapping
         registry.setApplicationDestinationPrefixes("/app");
 
-        // RabbitMQ STOMP relay with heartbeats
-        registry.enableStompBrokerRelay("/topic", "/queue")
-                .setRelayHost(rabbitHost)
-                .setRelayPort(stompPort)
-                .setClientLogin(rabbitUser)
-                .setClientPasscode(rabbitPass)
-                .setSystemHeartbeatSendInterval(10000)   // ms (10s)
-                .setSystemHeartbeatReceiveInterval(10000);
+        // 🔧 Enable simple in-memory broker for all /topic and /queue
+        registry.enableSimpleBroker("/topic", "/queue")
+                .setHeartbeatValue(new long[]{5000, 5000})  // 🔧 faster heartbeat
+                .setTaskScheduler(heartBeatScheduler());
     }
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(webSocketAuthInterceptor);
+        // 🔧 Attach custom JWT-based authentication interceptor
+        registration.interceptors(jwtChannelInterceptor);
     }
 
+    private ThreadPoolTaskScheduler heartBeatScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(2);
+        scheduler.setThreadNamePrefix("ws-heartbeat-thread-");
+        scheduler.initialize();
+        return scheduler;
+    }
 }

@@ -9,35 +9,29 @@
 import {Injectable} from '@angular/core';
 import {HttpClient} from '@angular/common/http';
 import {BehaviorSubject, Observable, of} from 'rxjs';
-import {tap} from 'rxjs/operators';
+import {catchError, tap} from 'rxjs/operators';
 import {environment} from '../../environments/environment';
 import {LoggerService} from '../core/logger.service';
 
-/*
-export interface UserProfile {
-  id: number;
-  name: string;
-  mobileNumber: string;
-}
-*/
-
 export interface SmartChatUser {
-  id?: string | number;
+  id?: number | null;           // allow null safely
+  userId?: number | null;       // allow null safely
   firstName?: string;
   lastName?: string;
   email?: string;
   mobileNumber?: string;
+  username?: string;
+  tokenExpires?: number;
   token?: string;
 }
 
 @Injectable({providedIn: 'root'})
 export class UserService {
-
   /** 🧭 Cached user profile */
   private userProfile?: SmartChatUser;
 
   /** 🔁 Reactive stream for components */
-  private userProfile$ = new BehaviorSubject<SmartChatUser | null>(null);
+  private readonly userProfile$ = new BehaviorSubject<SmartChatUser | null>(null);
 
   private readonly baseUrl = `${environment.apiUrl}/auth`;
   private readonly currentUserSubject = new BehaviorSubject<SmartChatUser | null>(null);
@@ -46,74 +40,113 @@ export class UserService {
   constructor(private http: HttpClient, private logger: LoggerService) {
   }
 
-  refreshProfile() {
-    this.logger.debug('UserService', `Fetching profile from ${this.baseUrl}/me`);
-    return this.http.get<SmartChatUser>(`${this.baseUrl}/me`).pipe(
-      tap({
-        next: (profile) => {
-          this.logger.success('UserService', 'Profile refreshed', profile);
-          this.currentUserSubject.next(profile);
-          localStorage.setItem('smartchat.userId', String(profile.id));
-          localStorage.setItem('smartchat.userName', profile.firstName || '');
-        },
-        error: (err) => this.logger.warn('UserService', 'Failed to refresh', err)
-      })
-    ).subscribe();
+  /* =========================================================
+   * 🌐 Fetch profile from backend
+   * ========================================================= */
+  refreshProfile(): void {
+    this.logger.debug('UserService', `Fetching profile from ${this.baseUrl}/profile`);
+    this.http
+      .get<SmartChatUser>(`${this.baseUrl}/profile`)
+      .pipe(
+        tap((profile) => {
+          const normalizedProfile = this.normalizeProfile(profile);
+          this.userProfile = normalizedProfile;
+          this.userProfile$.next(normalizedProfile);
+          this.currentUserSubject.next(normalizedProfile);
+
+          localStorage.setItem('smartchat.userId', String(normalizedProfile.id || normalizedProfile.userId || ''));
+          localStorage.setItem('smartchat.userName', normalizedProfile.firstName || normalizedProfile.username || '');
+          this.logger.success('UserService', '✅ Profile refreshed', normalizedProfile);
+        }),
+        catchError((err) => {
+          this.logger.warn('UserService', '❌ Failed to refresh profile', err);
+          return of(null);
+        })
+      )
+      .subscribe();
   }
 
   /* =========================================================
    * 📦 Public API
    * ========================================================= */
-
-  /**
-   * ✅ Returns cached user profile if available.
-   *    Otherwise, fetches it from backend `/api/profile`.
-   */
   getUserProfile(): Observable<SmartChatUser> {
     if (this.userProfile) {
-      console.log('[UserService] 🧠 Returning cached profile');
+      this.logger.debug('UserService', '🧠 Returning cached profile');
       return of(this.userProfile);
     }
 
-    console.log('[UserService] 🌐 Fetching profile from API...');
-    return this.http
-      .get<SmartChatUser>(`${this.baseUrl}/profile`)
-      .pipe(
-        tap((profile) => {
-          this.userProfile = profile;
-          this.userProfile$.next(profile);
-          console.log('[UserService] ✅ Profile loaded:', profile.firstName);
-        })
-      );
+    this.logger.debug('UserService', '🌐 Fetching profile from API...');
+    return this.http.get<SmartChatUser>(`${this.baseUrl}/profile`).pipe(
+      tap((profile) => {
+        const normalizedProfile = this.normalizeProfile(profile);
+        this.userProfile = normalizedProfile;
+        this.userProfile$.next(normalizedProfile);
+        this.currentUserSubject.next(normalizedProfile);
+
+        localStorage.setItem('smartchat.userId', String(normalizedProfile.id || normalizedProfile.userId || ''));
+        localStorage.setItem('smartchat.userName', normalizedProfile.firstName || normalizedProfile.username || '');
+        this.logger.success('UserService', '✅ Profile loaded', normalizedProfile);
+      }),
+      catchError((err) => {
+        this.logger.warn('UserService', '❌ Failed to load profile', err);
+        return of({} as SmartChatUser);
+      })
+    );
   }
 
-  /**
-   * 🔄 Reactive profile observable for live updates.
-   */
+  /* =========================================================
+   * 📡 Reactive stream
+   * ========================================================= */
   get userProfileChanges(): Observable<SmartChatUser | null> {
     return this.userProfile$.asObservable();
   }
 
-  /**
-   * 🧹 Clears cached data on logout or token expiry.
-   */
+  /* =========================================================
+   * 🧹 Clear + Reset
+   * ========================================================= */
   clearProfile(): void {
-    console.warn('[UserService] 🧹 Clearing cached profile');
+    this.logger.warn('UserService', '🧹 Clearing cached profile');
     this.userProfile = undefined;
     this.userProfile$.next(null);
+    localStorage.removeItem('smartchat.userId');
+    localStorage.removeItem('smartchat.userName');
   }
 
-  /**
-   * 🧠 Manually set user profile (post-login or OAuth).
-   */
+  /* =========================================================
+   * 💾 Manual set (used post-login)
+   * ========================================================= */
   setUserProfile(profile: SmartChatUser): void {
-    this.userProfile = profile;
-    this.userProfile$.next(profile);
-    console.log('[UserService] 💾 Profile set manually:', profile.firstName);
+    const normalizedProfile = this.normalizeProfile(profile);
+    this.userProfile = normalizedProfile;
+    this.userProfile$.next(normalizedProfile);
+    this.currentUserSubject.next(normalizedProfile);
+
+    localStorage.setItem('smartchat.userId', String(normalizedProfile.id || normalizedProfile.userId || ''));
+    localStorage.setItem('smartchat.userName', normalizedProfile.firstName || normalizedProfile.username || '');
+    this.logger.success('UserService', '💾 Profile set manually', normalizedProfile);
   }
 
+  /* =========================================================
+   * 🧠 Utilities
+   * ========================================================= */
   getUserId(): number | null {
-    const v = localStorage.getItem('smartchat.userId');
-    return v ? Number(v) : null;
+    const cached = this.userProfile?.id || this.userProfile?.userId;
+    if (cached) return Number(cached);
+
+    const fromLocal = localStorage.getItem('smartchat.userId');
+    return fromLocal ? Number(fromLocal) : null;
   }
+
+  private normalizeProfile(profile: SmartChatUser): SmartChatUser {
+    return {
+      ...profile,
+      id: profile.id ?? profile.userId ?? undefined,
+      userId: profile.userId ?? profile.id ?? undefined,
+      firstName: profile.firstName ?? '',
+      lastName: profile.lastName ?? '',
+      email: profile.email ?? '',
+      mobileNumber: profile.mobileNumber ?? '',
+    };
+  }
+
 }

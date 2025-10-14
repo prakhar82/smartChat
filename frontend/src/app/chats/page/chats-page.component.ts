@@ -6,29 +6,15 @@
  * Author: $USER_NAME
  */
 
-/**
- * 💬 ChatsPageComponent
- * ---------------------------------------------------------
- * The main SmartChat workspace container.
- * Displays:
- *  - Left sidebar
- *  - Contact list
- *  - Chat window
- * Handles:
- *  - Reactive user presence & theme
- *  - Search & filtering of contacts
- *  - Responsive layout (desktop/mobile)
- *  - Smooth fade/slide transitions
- * ---------------------------------------------------------
- */
-
-import {Component, HostListener, OnInit} from '@angular/core';
+import {Component, HostListener, OnDestroy, OnInit} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {FormsModule} from '@angular/forms';
-import {animate, style, transition, trigger,} from '@angular/animations';
+import {animate, style, transition, trigger} from '@angular/animations';
+import {Subscription} from 'rxjs';
 
 import {UserService} from '../../auth/user.service';
 import {ContactService, MatchedContact} from '../../contacts/contact.service';
+import {ChatService} from '../chat.service';
 import {LeftSidebarComponent} from '../sidebar/left-sidebar.component';
 import {ContactListComponent} from '../list/contact-list.component';
 import {ChatWindowComponent} from '../window/chat-window.component';
@@ -48,7 +34,6 @@ import {TopHeaderComponent} from '../top-header/top-header.component';
   templateUrl: './chats-page.component.html',
   styleUrls: ['./chats-page.component.scss'],
   animations: [
-    // 🌟 Smooth fade + slide animation for chat and welcome panels
     trigger('fadeSlideIn', [
       transition(':enter', [
         style({opacity: 0, transform: 'translateY(10px)'}),
@@ -60,10 +45,10 @@ import {TopHeaderComponent} from '../top-header/top-header.component';
     ]),
   ],
 })
-export class ChatsPageComponent implements OnInit {
+export class ChatsPageComponent implements OnInit, OnDestroy {
   /** 👤 User Info */
   firstName = '';
-  isConnected = true;
+  userId?: number;
   isDarkTheme = false;
   userStatus: 'available' | 'away' = 'available';
   private lastActivity = new Date();
@@ -75,11 +60,15 @@ export class ChatsPageComponent implements OnInit {
 
   /** 💬 UI States */
   selectedContactId?: number;
+  selectedContactInfo?: MatchedContact;
   isMobileView = false;
+
+  private subs = new Subscription(); // ✅ manage subscriptions
 
   constructor(
     private readonly userService: UserService,
-    private readonly contactService: ContactService
+    private readonly contactService: ContactService,
+    private readonly chatService: ChatService
   ) {
   }
 
@@ -88,22 +77,40 @@ export class ChatsPageComponent implements OnInit {
    * ========================================================= */
   ngOnInit(): void {
     console.log('[ChatsPage] 🚀 Initialized');
-    this.loadUserProfile();
+    this.initUserAndConnect(); // ✅ merged loadUserProfile + connect logic
     this.loadContacts();
     this.startIdleWatcher();
   }
 
+  ngOnDestroy(): void {
+    this.subs.unsubscribe();
+  }
+
   /* =========================================================
-   * 👤 Load User
+   * 👤 Load User & Connect STOMP (reactively)
    * ========================================================= */
-  private loadUserProfile(): void {
-    this.userService.getUserProfile().subscribe({
-      next: (user) => {
-        this.firstName = user?.firstName || 'User';
-        console.log('[ChatsPage] 👤 User profile loaded:', this.firstName);
-      },
-      error: (err) => console.error('[ChatsPage] ❌ Failed to load profile:', err),
-    });
+  private initUserAndConnect(): void {
+    const sub = this.userService
+      .getUserProfile()
+      .subscribe({
+        next: (user) => {
+          this.firstName = user?.firstName || 'User';
+          this.userId = user?.id ?? user?.userId ?? undefined;
+
+          if (this.userId) {
+            console.log(`[ChatsPage] 👤 User profile loaded: ${this.firstName} (ID: ${this.userId})`);
+
+            // ✅ Only connect STOMP once, after valid ID is confirmed
+            console.log('[ChatsPage] 🔌 Connecting STOMP for user:', this.userId);
+            this.chatService.connectStomp(String(this.userId));
+          } else {
+            console.warn('[ChatsPage] ⚠️ No valid userId found, STOMP not connected');
+          }
+        },
+        error: (err) => console.error('[ChatsPage] ❌ Failed to load profile:', err),
+      });
+
+    this.subs.add(sub);
   }
 
   /* =========================================================
@@ -111,7 +118,7 @@ export class ChatsPageComponent implements OnInit {
    * ========================================================= */
   private loadContacts(): void {
     console.log('[ChatsPage] 📥 Loading contacts...');
-    this.contactService.getMatchedContacts().subscribe({
+    const sub = this.contactService.getMatchedContacts().subscribe({
       next: (list) => {
         this.contacts = list;
         this.filteredContacts = list;
@@ -119,6 +126,7 @@ export class ChatsPageComponent implements OnInit {
       },
       error: (err) => console.error('[ChatsPage] ❌ Failed to fetch contacts:', err),
     });
+    this.subs.add(sub);
   }
 
   /** 🔍 Live Search Filter */
@@ -131,10 +139,11 @@ export class ChatsPageComponent implements OnInit {
 
     this.filteredContacts = this.contacts.filter((c) => {
       const name = c.contactName?.toLowerCase() || '';
-      const phone =
-        c.phones?.map((p) => p.value?.toLowerCase()).join(' ') || '';
+      const phone = c.phones?.map((p) => p.value?.toLowerCase()).join(' ') || '';
       return name.includes(term) || phone.includes(term);
     });
+
+    console.log(`[ChatsPage] 🔍 Filtered ${this.filteredContacts.length} results`);
   }
 
   /* =========================================================
@@ -153,60 +162,33 @@ export class ChatsPageComponent implements OnInit {
   @HostListener('window:mousemove')
   @HostListener('window:keydown')
   resetTimer(): void {
-    if (this.userStatus !== 'available')
+    if (this.userStatus !== 'available') {
       console.log('[ChatsPage] ✅ User active again');
+    }
     this.userStatus = 'available';
     this.lastActivity = new Date();
   }
 
   /* =========================================================
-   * 🎨 Theme + Connection
+   * 🎨 Theme
    * ========================================================= */
   toggleTheme(): void {
     this.isDarkTheme = !this.isDarkTheme;
-    console.log(
-      '[ChatsPage] 🎨 Theme toggled →',
-      this.isDarkTheme ? 'Dark' : 'Light'
-    );
-  }
-
-  reconnect(): void {
-    this.isConnected = true;
-    console.log('[ChatsPage] 🔌 Reconnected');
+    console.log('[ChatsPage] 🎨 Theme switched to', this.isDarkTheme ? 'Dark' : 'Light');
   }
 
   /* =========================================================
    * 💬 Chat Actions
    * ========================================================= */
   openChat(contact: MatchedContact): void {
-    this.selectedContactId =
-      contact?.matchedUserId || Number(contact?.contactId);
+    this.selectedContactId = Number(contact?.matchedUserId || contact?.contactId);
+    this.selectedContactInfo = contact;
     console.log('[ChatsPage] 💬 Opened chat with:', contact.contactName);
   }
 
   closeChat(): void {
     console.log('[ChatsPage] ⬅️ Closed chat window');
     this.selectedContactId = undefined;
-  }
-
-  /* =========================================================
-   * 🔍 Search
-   * ========================================================= */
-  onSearch(query: string): void {
-    const q = query.trim().toLowerCase();
-    if (!q) {
-      this.filteredContacts = this.contactService.getCachedContacts();
-      return;
-    }
-
-    this.filteredContacts = this.contactService
-      .getCachedContacts()
-      .filter(
-        (c) =>
-          c.contactName?.toLowerCase().includes(q) ||
-          c.phones?.some((p) => p.value.includes(q))
-      );
-
-    console.log(`[ChatsPage] 🔍 Filtered ${this.filteredContacts.length} contacts`);
+    this.selectedContactInfo = undefined;
   }
 }

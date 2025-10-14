@@ -16,38 +16,40 @@
     <p>Loading contacts...</p>
   </div>
 
-  <!-- ✅ Contacts -->
-  <ng-container *ngIf="!isLoading && (contacts?.length || 0) > 0; else noContacts">
+  <!-- ✅ Contact Items -->
+  <ng-container *ngIf="!isLoading && (contacts?.length ?? 0) > 0; else noContacts">
     <div
       class="contact-item"
       *ngFor="let contact of contacts; trackBy: trackById"
       (click)="onSelect(contact)"
       tabindex="0"
       role="button"
-      aria-label="Select contact"
+      aria-label="Select contact {{ contact.contactName }}"
     >
       <!-- 🧑 Avatar -->
       <div class="avatar">
         <img
-          *ngIf="contact.avatarUrl"
+          *ngIf="contact.avatarUrl; else fallbackAvatar"
           [src]="contact.avatarUrl"
           [alt]="contact.contactName || 'User Avatar'"
           width="48"
           height="48"
         />
-        <div *ngIf="!contact.avatarUrl" class="default-avatar">
-          {{ contact.contactName ? contact.contactName[0] : '?' }}
-        </div>
+        <ng-template #fallbackAvatar>
+          <div class="default-avatar">
+            {{ contact.contactName ? contact.contactName[0] : '?' }}
+          </div>
+        </ng-template>
       </div>
 
-      <!-- 💬 Contact Info -->
+      <!-- 💬 Contact Details -->
       <div class="contact-info">
         <div class="top">
           <span class="name">{{ contact.contactName || 'Unknown Contact' }}</span>
         </div>
 
         <div class="bottom">
-          <!-- 💭 Last message -->
+          <!-- 💭 Last Message -->
           <span class="last-message" *ngIf="contact.lastMessage; else noMsg">
             {{ contact.lastMessage }}
           </span>
@@ -56,18 +58,21 @@
           </ng-template>
 
           <!-- 🟢 Online Status -->
-          <span class="status" *ngIf="contact.registered">
-            <app-presence-indicator
-              [userId]="contact.matchedUserId ?? contact.contactId"
-            ></app-presence-indicator>
-            {{ contact.online ? 'Online' : 'Offline' }}
-          </span>
+          <ng-container *ngIf="contact.registered">
+            <span class="status">
+              <app-presence-indicator
+                [userId]="contact.matchedUserId ?? contact.contactId"
+              ></app-presence-indicator>
+              {{ contact.online ? 'Online' : ('Last seen ' + (contact.lastSeen | lastSeen)) }}
+            </span>
+          </ng-container>
 
           <!-- ✉️ Invite Button -->
           <button
             *ngIf="!contact.registered && contact.canInvite"
             class="invite-btn"
             (click)="invite(contact, $event)"
+            aria-label="Invite {{ contact.contactName || 'contact' }}"
           >
             Invite
           </button>

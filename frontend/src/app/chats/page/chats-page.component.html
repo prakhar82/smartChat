@@ -24,12 +24,14 @@
   <!-- =========================
        👥 CONTACTS PANEL
   ========================== -->
-  <div class="contacts-panel">
-    <!-- 🧭 Top Header (limited to contact panel) -->
+  <div
+    class="contacts-panel"
+    [class.hide]="selectedContactId && isMobileView"
+  >
+    <!-- 🧭 Top Header -->
     <app-top-header
       class="contacts-header"
       [firstName]="firstName"
-      [isConnected]="isConnected"
       [isDarkTheme]="isDarkTheme"
       [userStatus]="userStatus"
       (toggleTheme)="toggleTheme()"
@@ -55,11 +57,17 @@
   <!-- =========================
        💬 CHAT PANEL
   ========================== -->
-  <div class="chat-panel">
+  <div
+    class="chat-panel"
+    [class.active]="selectedContactId && isMobileView"
+  >
     <!-- Active Chat Window -->
     <ng-container *ngIf="selectedContactId; else welcomeScreen">
       <app-chat-window
         [contactId]="selectedContactId"
+        [contactInfo]="selectedContactInfo"
+        [isMobileView]="isMobileView"
+        (back)="closeChat()"
         (closeChat)="closeChat()"
       ></app-chat-window>
     </ng-container>
@@ -76,9 +84,7 @@
 
 <!-- =========================
      📱 MOBILE BOTTOM NAVBAR
-     (visible only in mobile view)
 ========================= -->
 <div class="bottom-nav" *ngIf="isMobileView">
-  <button (click)="reconnect()">Reconnect</button>
   <button (click)="toggleTheme()">Toggle Theme</button>
 </div>

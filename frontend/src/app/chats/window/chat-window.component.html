@@ -8,7 +8,7 @@
 
 <!-- =========================================================
      💬 CHAT WINDOW
-     Displays chat header, messages, and input area.
+     Displays chat header, messages, connection status, and input.
 ========================================================= -->
 <div class="chat-container">
   <!-- =========================
@@ -25,22 +25,51 @@
       ←
     </button>
 
-    <!-- 👤 Contact Name -->
+    <!-- 👤 Contact Info -->
     <div class="contact-info">
-      <h3 class="contact-name">
-        {{ contactInfo?.contactName || 'Chat User' }}
-      </h3>
-      <p class="status">
-        {{ contactInfo?.online ? 'Online' : 'Offline' }}
-        <span
-          class="dot"
-          [class.online]="contactInfo?.online"
-          [class.offline]="!contactInfo?.online"
-        ></span>
-      </p>
+      <!-- 🖼️ Avatar -->
+      <div class="avatar">
+        <img
+          *ngIf="contactInfo?.avatarUrl; else initials"
+          [src]="contactInfo?.avatarUrl"
+          alt="Avatar"
+          class="avatar-img"
+        />
+        <ng-template #initials>
+          <div class="avatar-fallback">
+            {{ contactInfo?.contactName?.charAt(0) || 'U' }}
+          </div>
+        </ng-template>
+      </div>
+
+      <!-- 🧾 Name & Details -->
+      <div class="details">
+        <h3 class="contact-name">
+          {{ contactInfo?.contactName || 'Unknown User' }}
+        </h3>
+        <p class="contact-number" *ngIf="contactInfo?.phones?.length">
+          {{ contactInfo?.phones?.[0]?.value || '' }}
+        </p>
+        <p class="status">
+          <span
+            class="dot"
+            [class.online]="contactInfo?.online"
+            [class.offline]="!contactInfo?.online"
+          ></span>
+
+          <ng-container *ngIf="!isConnected">
+            Connecting...
+          </ng-container>
+
+          <ng-container *ngIf="isConnected">
+            {{ contactInfo?.online ? 'Online' : ('Last seen ' + (contactInfo?.lastSeen | lastSeen)) }}
+          </ng-container>
+        </p>
+
+      </div>
     </div>
 
-    <!-- ❌ Close Chat (Desktop) -->
+    <!-- ❌ Close Chat (Desktop Only) -->
     <button
       class="close-btn"
       *ngIf="!isMobileView"
@@ -52,23 +81,82 @@
   </div>
 
   <!-- =========================
+       📡 CONNECTION STATUS
+  ========================== -->
+  <div
+    class="connection-status"
+    *ngIf="!isConnected"
+  >
+    🔄 Connecting to chat server...
+  </div>
+
+  <!-- =========================
        💬 MESSAGES AREA
   ========================== -->
   <div class="chat-body" #messageContainer>
     <div
       class="message"
       *ngFor="let msg of messages; trackBy: trackByMsgId"
-      [ngClass]="{ 'from-me': msg.senderId === currentUserId, 'from-them': msg.senderId !== currentUserId }"
+      [ngClass]="{
+        'from-me': msg.senderId === currentUserId,
+        'from-them': msg.senderId !== currentUserId
+      }"
+      (mouseenter)="hoveredMessage = msg.id || null"
+      (mouseleave)="hoveredMessage = null"
     >
       <div class="bubble">
         <span class="text">{{ msg.message }}</span>
-        <span class="timestamp">{{ msg.timestamp | date: 'shortTime' }}</span>
+        <span class="timestamp">
+          {{ msg.timestamp | date: 'shortTime' }}
+          <span class="ticks" [ngClass]="msg.status?.toLowerCase()">
+            ✔✔
+          </span>
+        </span>
+
+        <!-- 💞 Reactions Display -->
+        <div
+          class="reaction-display"
+          *ngIf="msg.reactions?.length"
+        >
+          <span
+            class="reaction-item"
+            *ngFor="let r of msg.reactions"
+          >
+            {{ r }}
+          </span>
+        </div>
+
+        <!-- 💞 Reaction Bar (on hover) -->
+        <div
+          class="reaction-bar"
+          *ngIf="hoveredMessage === msg.id"
+        >
+          <button
+            *ngFor="let emoji of reactionEmojis"
+            class="reaction-emoji"
+            (click)="addReaction(msg, emoji)"
+          >
+            {{ emoji }}
+          </button>
+        </div>
       </div>
     </div>
 
     <!-- ✏️ Typing Indicator -->
     <div class="typing-indicator" *ngIf="isOtherTyping">
       <span></span><span></span><span></span>
+    </div>
+
+    <!-- 🎈 Floating Emoji Reactions -->
+    <div class="floating-reactions">
+      <div
+        class="floating-emoji"
+        *ngFor="let r of floatingReactions"
+        [style.left.px]="r.x"
+        [style.bottom.px]="r.y"
+      >
+        {{ r.emoji }}
+      </div>
     </div>
   </div>
 

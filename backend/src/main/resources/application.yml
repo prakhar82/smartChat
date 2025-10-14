@@ -13,6 +13,8 @@ spring:
       add-mappings: false
   main:
     allow-bean-definition-overriding: true
+  codec:
+    max-in-memory-size: 10MB
 
   ########################################################
   # 🗄️ Database (PostgreSQL)

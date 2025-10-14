@@ -138,19 +138,45 @@ public class AuthController {
     public ResponseEntity<?> getUserProfile(HttpServletRequest request) {
         try {
             String token = jwtUtil.extractTokenFromRequest(request);
-            String username = jwtUtil.extractUsername(token);
             Long userId = jwtUtil.extractUserId(token);
-            String email = username; // since your username = email
+            String username = jwtUtil.extractUsername(token);
+            String email = jwtUtil.extractEmail(token);
+            String mobile = jwtUtil.extractMobile(token);
 
-            log.info("[AuthController] ✅ Returning profile for userId={}", userId);
+            log.info("[AuthController] ▶ Fetching profile for userId={} (email={}, mobile={})", userId, email, mobile);
+
+            Optional<User> userOpt = Optional.empty();
+            if (userId != null) {
+                userOpt = userRepo.findById(userId);
+            }
+            if (userOpt.isEmpty() && email != null) {
+                userOpt = userRepo.findByEmail(email);
+            }
+            if (userOpt.isEmpty() && mobile != null) {
+                userOpt = userRepo.findByMobileNumber(mobile);
+            }
+
+            if (userOpt.isEmpty()) {
+                log.warn("[AuthController] ⚠️ No user found for token principal={}", username);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "User not found"));
+            }
+
+            User user = userOpt.get();
 
             Map<String, Object> profile = new HashMap<>();
-            profile.put("userId", userId);
-            profile.put("email", email);
+            profile.put("userId", user.getId());
+            profile.put("email", user.getEmail());
             profile.put("username", username);
+            profile.put("countryCode", user.getCountryCode());
+            profile.put("mobileNumber", user.getMobileNumber());
+            profile.put("firstName", user.getFirstName());
+            profile.put("lastName", user.getLastName());
             profile.put("tokenExpires", jwtUtil.extractExpiration(token));
 
+            log.info("[AuthController] ✅ Returning enriched profile for userId={} → {}", user.getId(), profile);
             return ResponseEntity.ok(profile);
+
         } catch (Exception e) {
             log.error("[AuthController] ❌ Failed to return profile", e);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

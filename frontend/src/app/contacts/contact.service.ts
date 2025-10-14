@@ -22,21 +22,51 @@ export interface ContactPayload {
 }
 
 export interface MatchedContact {
-  id?: number | string;
-  contactId: string;
-  contactName: string;
-  phones: { label: string; value: string; registered: boolean }[];
-  emails: { label: string; value: string }[];
-  registered: boolean;
-  canInvite: boolean;
+  /** 🆔 Internal SmartChat record ID */
+  id?: number;
+
+  /** 🔗 Contact’s local ID or system reference (always numeric) */
+  contactId: number;
+
+  /** 🔗 If this contact is linked to a registered SmartChat user */
   matchedUserId?: number;
+
+  /** 🧍 Contact’s display name */
+  contactName: string;
+
+  /** ☎️ List of phone numbers associated with the contact */
+  phones: { label: string; value: string; registered: boolean }[];
+
+  /** 📧 Contact’s email addresses */
+  emails: { label: string; value: string }[];
+
+  /** ✅ Whether this contact is a SmartChat user */
+  registered: boolean;
+
+  /** 💌 Whether this contact can be invited */
+  canInvite: boolean;
+
+  /** 🖼️ Optional avatar URL */
   avatarUrl?: string;
+
+  /** 🟢 Online presence status */
   online?: boolean;
+
+  /** 💬 Latest message snippet */
   lastMessage?: string | null;
+
+  /** ⏱️ Last message timestamp */
   lastMessageTime?: string | null;
+
+  /** 🌍 Contact source (GOOGLE, PHONE, APP) */
   source?: ContactSource;
+
+  lastSeen?: Date | null;
+
+  /** 🔁 Last synced timestamp */
   lastSyncedAt?: string;
 }
+
 
 @Injectable({providedIn: 'root'})
 export class ContactService {

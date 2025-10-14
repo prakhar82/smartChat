@@ -8,8 +8,6 @@
 
 /* =========================================================
    💬 SmartChat Main Layout
-   Desktop:  Sidebar | Contacts Panel | Chat Panel
-   Mobile:   Full-width panels with bottom nav
 ========================================================= */
 
 .workspace {
@@ -24,17 +22,11 @@
     box-sizing: border-box;
   }
 
-  /* ==============================
-     🧭 LEFT SIDEBAR
-  ============================== */
   .sidebar {
     background: #111b21;
     border-right: 1px solid #0a141a;
   }
 
-  /* ==============================
-     👥 CONTACTS PANEL
-  ============================== */
   .contacts-panel {
     display: flex;
     flex-direction: column;
@@ -44,7 +36,6 @@
     overflow: hidden;
     position: relative;
 
-    /* 🧭 TOP HEADER (sticky, full-width inside contact panel) */
     app-top-header.contacts-header {
       position: sticky;
       top: 0;
@@ -62,7 +53,6 @@
       box-sizing: border-box;
     }
 
-    /* 🔍 SEARCH BAR */
     .search-bar {
       flex-shrink: 0;
       position: sticky;
@@ -89,7 +79,6 @@
       }
     }
 
-    /* 👥 CONTACT LIST AREA */
     app-contact-list {
       flex: 1;
       overflow-y: auto;
@@ -112,9 +101,6 @@
     }
   }
 
-  /* ==============================
-     💬 CHAT PANEL
-  ============================== */
   .chat-panel {
     display: flex;
     flex-direction: column;
@@ -125,9 +111,6 @@
     overflow: hidden;
   }
 
-  /* ==============================
-     💡 WELCOME (Empty Chat)
-  ============================== */
   .welcome {
     display: flex;
     flex-direction: column;
@@ -155,8 +138,9 @@
 ========================================================= */
 @media (max-width: 768px) {
   .workspace {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
     overflow: hidden;
 
     .sidebar {
@@ -166,34 +150,35 @@
     .contacts-panel {
       width: 100%;
       border-right: none;
+      flex: 1;
+      transition: all 0.3s ease;
+      z-index: 10;
 
-      app-top-header.contacts-header {
-        position: sticky;
-        top: 0;
-        background: #f2f3f5;
-        z-index: 30;
-      }
-
-      .search-bar {
-        position: sticky;
-        top: 60px;
-        z-index: 25;
-        background: #f2f3f5;
-      }
-
-      app-contact-list {
-        flex: 1;
-        overflow-y: auto;
-        scroll-margin-top: 110px;
+      &.hide {
+        display: none; /* Hide contact list when chat opens */
       }
     }
 
     .chat-panel {
       display: none;
+      flex-direction: column;
+      flex: 1;
+      background: #f4f5f7;
+      overflow: hidden;
+      z-index: 20;
+      transition: all 0.3s ease;
+
+      &.active {
+        display: flex; /* Show chat window full screen on mobile */
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
     }
   }
 
-  /* 📱 Bottom Navigation Bar */
   .bottom-nav {
     display: flex;
     position: fixed;

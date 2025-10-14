@@ -20,6 +20,7 @@ import reactor.core.publisher.Mono;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @Component
@@ -27,7 +28,9 @@ import java.util.Map;
 public class GoogleApiClient {
 
     private final ObjectMapper mapper;
-    private final WebClient webClient = WebClient.builder().build();
+    //private final WebClient webClient = WebClient.builder().build();
+    private final WebClient.Builder webClientBuilder;
+
 
     private static final String BASE_URL = "https://people.googleapis.com/v1/people/me/connections";
     private static final String DEFAULT_FIELDS = "names,phoneNumbers,emailAddresses";
@@ -43,14 +46,33 @@ public class GoogleApiClient {
             final String pageParam = nextPageToken != null ? "&pageToken=" + nextPageToken : "";
             final String url = BASE_URL + "?personFields=" + DEFAULT_FIELDS + "&pageSize=" + pageSize + pageParam;
 
-            String response = webClient.get()
+            /*String response = webClient.get()
                     .uri(url)
                     .headers(h -> h.setBearerAuth(accessToken))
                     .retrieve()
                     .onStatus(status -> status.isError(),
                             resp -> Mono.error(new RuntimeException("Google People API error: " + resp.statusCode())))
                     .bodyToMono(String.class)
+                    .block();*/
+
+            String finalNextPageToken = nextPageToken;
+            String response = webClientBuilder
+                    .baseUrl("https://people.googleapis.com")
+                    .build()
+                    .get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/v1/people/me/connections")
+                            .queryParam("personFields", DEFAULT_FIELDS)
+                            .queryParam("pageSize", pageSize)
+                            .queryParamIfPresent("pageToken", Optional.ofNullable(finalNextPageToken))
+                            .build())
+                    .headers(h -> h.setBearerAuth(accessToken))
+                    .retrieve()
+                    .onStatus(status -> status.isError(),
+                            resp -> Mono.error(new RuntimeException("Google People API error: " + resp.statusCode())))
+                    .bodyToMono(String.class)
                     .block();
+
 
             try {
                 JsonNode root = mapper.readTree(response);
