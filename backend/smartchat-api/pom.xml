@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<!--
+  ================================================================
+  💬 SmartChat :: API Gateway
+  ================================================================
+  Central entry point for all SmartChat microservices.
+  Provides:
+   • Reactive routing via Spring Cloud Gateway
+   • Global authentication / JWT verification
+   • Resilience4J circuit-breaking and rate-limiting
+   • Eureka service discovery
+   • Centralized actuator endpoints
+  ================================================================
+  Author: $USER_NAME
+  License: SmartChat Contributors © 2025 — All rights reserved.
+  ================================================================
+-->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ========================================================= -->
+    <!-- 🧩 Parent BOM Inheritance -->
+    <!-- ========================================================= -->
+    <parent>
+        <groupId>com.smartchat</groupId>
+        <artifactId>backend</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>smartchat-api</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>SmartChat :: API Gateway</name>
+    <description>Reactive gateway routing and security hub for SmartChat microservices.</description>
+
+    <properties>
+        <java.version>17</java.version>
+    </properties>
+
+    <!-- ========================================================= -->
+    <!-- 📦 Dependencies -->
+    <!-- ========================================================= -->
+    <dependencies>
+
+        <!-- 🔗 Shared Common Library -->
+        <dependency>
+            <groupId>com.smartchat</groupId>
+            <artifactId>smartchat-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- ⚡ Reactive Web Stack -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+
+        <!-- 🌐 Spring Cloud Gateway -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-gateway</artifactId>
+        </dependency>
+
+        <!-- 🔍 Eureka Client for Service Discovery -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+
+        <!-- 🛡️ Security (JWT + Authorization Filters) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- 🔁 Load Balancer (Reactive Ribbon Replacement) -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
+        </dependency>
+
+        <!-- 🧩 Circuit Breaker / Resilience -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
+        </dependency>
+
+        <!-- ☁️ Feign Client for Microservice Calls (Reactive) -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+
+        <!-- Temporary bridge for Feign in reactive gateway -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+
+        <!-- 📊 Actuator (includes /actuator/gateway endpoints) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- 🧠 Lombok (compile-time annotations) -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- 🧪 Testing -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.junit.vintage</groupId>
+                    <artifactId>junit-vintage-engine</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+    </dependencies>
+
+    <!-- ========================================================= -->
+    <!-- ⚙️ Build Configuration -->
+    <!-- ========================================================= -->
+    <build>
+        <finalName>smartchat-api</finalName>
+        <plugins>
+
+            <!-- Java Compiler -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <encoding>UTF-8</encoding>
+                    <parameters>true</parameters>
+                </configuration>
+            </plugin>
+
+            <!-- Spring Boot Plugin -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>com.smartchat.api.SmartChatApiApplication</mainClass>
+                    <layers enabled="true"/>
+                </configuration>
+            </plugin>
+
+        </plugins>
+    </build>
+
+    <!-- ========================================================= -->
+    <!-- 🔧 Profiles (for environment-specific builds) -->
+    <!-- ========================================================= -->
+    <profiles>
+        <profile>
+            <id>dev</id>
+            <properties>
+                <spring.profiles.active>dev</spring.profiles.active>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>prod</id>
+            <properties>
+                <spring.profiles.active>prod</spring.profiles.active>
+            </properties>
+        </profile>
+    </profiles>
+
+</project>

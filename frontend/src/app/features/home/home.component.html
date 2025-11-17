@@ -1,0 +1,21 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<div class="home-container">
+  <img src="assets/logo.png" alt="SmartChat Logo" class="logo"/>
+  <h1>Welcome to SmartChat</h1>
+  <p>Connect with your friends.</p>
+
+  <div class="buttons">
+    <button class="btn custom-btn" (click)="goLogin()">Login</button>
+    <button class="btn custom-btn" (click)="goRegister()">Register</button>
+  </div>
+
+  <router-outlet></router-outlet>
+</div>
+

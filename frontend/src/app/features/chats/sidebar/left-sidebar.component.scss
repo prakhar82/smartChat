@@ -1,0 +1,390 @@
+/*!
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
+ */
+
+/* =========================================================
+   🧭 SmartChat Expanding Sidebar (Discord-Style)
+   ---------------------------------------------------------
+   - Expands smoothly on hover (80px → 220px)
+   - Reveals text labels beside icons
+   - Auto hides tooltips when expanded
+   - Optional shimmer (triggered only once via .shimmer class)
+   - Theme-aware glowing pulse + smooth animations
+========================================================= */
+
+.left-sidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 80px;
+  height: 100vh;
+  background: var(--sidebar-bg, #111b21);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  position: relative;
+  transition: width 0.35s ease, background 0.3s ease, box-shadow 0.3s ease;
+
+  /* 🌈 Hover Expand Animation */
+  &:hover:not(.pinned),
+  &.pinned {
+    width: 220px;
+
+    .icon-btn {
+      justify-content: flex-start;
+      padding-left: 20px;
+
+      .label {
+        opacity: 1;
+        transform: translateX(0);
+      }
+
+      .tooltip {
+        display: none !important;
+      }
+    }
+
+    .profile-section {
+      flex-direction: row;
+      justify-content: flex-start;
+      gap: 12px;
+      padding-left: 18px;
+
+      .profile-info {
+        display: block;
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+  }
+
+  /* =========================================================
+     💫 Sidebar Glow Effect (Always on Pin)
+  ========================================================= */
+  &.pinned {
+    animation: sidebarPulse 1.2s ease-out;
+  }
+
+  /* =========================================================
+     ✨ Optional Shimmer (Plays Once)
+  ========================================================= */
+  &.shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        120deg,
+        transparent 0%,
+        var(--primary, rgba(59, 130, 246, 0.15)) 40%,
+        var(--primary-hover, rgba(37, 99, 235, 0.25)) 50%,
+        transparent 60%
+    );
+    opacity: 0;
+    transform: translateX(-100%);
+    animation: shimmerSweep 1.3s ease-out 0.1s;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  @keyframes sidebarPulse {
+    0% {
+      box-shadow: 0 0 0 0 var(--primary, rgba(59, 130, 246, 0.6));
+      border-right: 1px solid var(--primary, rgba(59, 130, 246, 0.8));
+    }
+    50% {
+      box-shadow: 0 0 20px 6px var(--primary-hover, rgba(37, 99, 235, 0.4));
+      border-right: 1px solid var(--primary-hover, rgba(37, 99, 235, 0.9));
+    }
+    100% {
+      box-shadow: 2px 0 12px rgba(0, 0, 0, 0.3);
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  }
+
+  /* 🎞️ Shimmer Animation */
+  @keyframes shimmerSweep {
+    0% {
+      opacity: 0;
+      transform: translateX(-100%);
+    }
+    30% {
+      opacity: 1;
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+  }
+
+  /* ======================
+     👤 Profile Section
+  ====================== */
+  .profile-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 18px 0;
+    width: 100%;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    .profile-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(
+          135deg,
+          var(--primary, #3b82f6),
+          var(--primary-hover, #2563eb)
+      );
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.1rem;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
+    }
+
+    .profile-info {
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      opacity: 0;
+      transform: translateX(-8px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+
+      .profile-name {
+        color: #e5e7eb;
+        font-size: 0.8rem;
+        font-weight: 500;
+      }
+
+      .status-dropdown {
+        margin-top: 4px;
+        border: none;
+        border-radius: 6px;
+        padding: 3px 6px;
+        font-size: 0.7rem;
+        background: rgba(255, 255, 255, 0.1);
+        color: #ddd;
+        outline: none;
+        cursor: pointer;
+        transition: background 0.2s ease;
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.2);
+        }
+      }
+    }
+  }
+
+  /* ======================
+     🔘 Icon Buttons
+  ====================== */
+  .nav-group,
+  .utility-group {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 20px;
+    padding: 20px 0;
+    align-items: center;
+  }
+
+  .utility-group {
+    margin-top: auto;
+  }
+
+  .icon-btn {
+    position: relative;
+    width: 100%;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    color: var(--icon-color, #9ca3af);
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    overflow: visible;
+
+    &:hover {
+      color: var(--primary, #3b82f6);
+      background: rgba(59, 130, 246, 0.15);
+
+      .tooltip {
+        opacity: 1;
+        transform: translateX(8px);
+      }
+    }
+
+    &:active {
+      transform: scale(0.97);
+    }
+
+    &.active {
+      color: #fff;
+      background: linear-gradient(
+          135deg,
+          var(--primary, #3b82f6),
+          var(--primary-hover, #2563eb)
+      );
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+
+      &::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 3px;
+        height: 22px;
+        border-radius: 4px;
+        background: linear-gradient(
+            180deg,
+            var(--primary-hover, #2563eb),
+            var(--primary, #3b82f6)
+        );
+        box-shadow: 0 0 8px rgba(59, 130, 246, 0.8);
+      }
+    }
+
+    i.material-icons-round {
+      font-size: 22px;
+    }
+
+    img {
+      filter: brightness(0.9);
+    }
+
+    .label {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #e5e7eb;
+      opacity: 0;
+      transform: translateX(-10px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .tooltip {
+      position: absolute;
+      left: 70px;
+      background: rgba(30, 41, 59, 0.95);
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      white-space: nowrap;
+      opacity: 0;
+      transform: translateX(0);
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      z-index: 99;
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: -5px;
+        transform: translateY(-50%);
+        border-width: 5px;
+        border-style: solid;
+        border-color: transparent rgba(30, 41, 59, 0.95) transparent transparent;
+      }
+    }
+  }
+
+  /* =========================================================
+     📌 Pin Button Glow (Theme-Aware)
+  ========================================================= */
+  .pin-btn.glow {
+    animation: pulseGlow 1.2s ease-out;
+  }
+
+  @keyframes pulseGlow {
+    0% {
+      box-shadow: 0 0 0 0 var(--primary, rgba(59, 130, 246, 0.6));
+      transform: scale(1);
+    }
+    50% {
+      box-shadow: 0 0 12px 6px var(--primary-hover, rgba(37, 99, 235, 0.4));
+      transform: scale(1.08);
+    }
+    100% {
+      box-shadow: 0 0 0 0 transparent;
+      transform: scale(1);
+    }
+  }
+
+  /* ======================
+     📱 Toast
+  ====================== */
+  .toast {
+    position: absolute;
+    bottom: 20px;
+    left: 100px;
+    background: var(--primary, #3b82f6);
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+    animation: fadeInSlide 0.4s ease forwards;
+    z-index: 99;
+  }
+
+  @keyframes fadeInSlide {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* 🌗 Dark Mode Adjustments */
+[data-theme='dark'] .left-sidebar {
+  background: #111b21;
+
+  .icon-btn {
+    color: #9ca3af;
+
+    &:hover {
+      color: #60a5fa;
+      background: rgba(96, 165, 250, 0.15);
+    }
+
+    &.active::before {
+      background: linear-gradient(180deg, #60a5fa, #2563eb);
+    }
+  }
+
+  .profile-section .status-dropdown {
+    background: #2a3942;
+    color: #d1d5db;
+  }
+}
+
+/* 📱 Auto-Hide Tooltips on Touch Devices */
+@media (hover: none) and (pointer: coarse) {
+  .icon-btn .tooltip {
+    display: none !important;
+  }
+}

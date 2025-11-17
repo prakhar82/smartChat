@@ -1,0 +1,257 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SmartChat Design Token Preview</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --primary-light: #93c5fd;
+      --surface: rgba(255, 255, 255, 0.65);
+      --surface-dark: rgba(17, 27, 33, 0.8);
+      --surface-border: rgba(255, 255, 255, 0.15);
+      --glass-blue: rgba(59, 130, 246, 0.08);
+      --glass-border: rgba(59, 130, 246, 0.2);
+      --text-color: #111827;
+      --text-muted: #6b7280;
+      --radius: 12px;
+      --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.1);
+      --shadow-strong: 0 4px 24px rgba(37, 99, 235, 0.25);
+    }
+
+    [data-theme='dark'] {
+      --surface: rgba(17, 27, 33, 0.75);
+      --surface-border: rgba(255, 255, 255, 0.08);
+      --text-color: #f9fafb;
+      --text-muted: #9ca3af;
+      --glass-blue: rgba(59, 130, 246, 0.12);
+      --glass-border: rgba(59, 130, 246, 0.25);
+      --shadow-soft: 0 4px 10px rgba(0, 0, 0, 0.4);
+      background: #0f172a;
+      color: var(--text-color);
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--text-color);
+      transition: background 0.4s ease, color 0.3s ease;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 24px;
+      background: var(--surface);
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .brand {
+      font-weight: 600;
+      font-size: 1.1rem;
+      color: var(--primary);
+    }
+
+    .theme-toggle {
+      cursor: pointer;
+      background: var(--glass-blue);
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      transition: all 0.25s ease;
+    }
+
+    .theme-toggle:hover {
+      background: var(--primary-light);
+      color: #fff;
+    }
+
+    main {
+      padding: 24px;
+      max-width: 1100px;
+      margin: auto;
+    }
+
+    h2 {
+      font-size: 1.2rem;
+      margin-top: 32px;
+      margin-bottom: 12px;
+      color: var(--text-color);
+      border-bottom: 1px solid var(--surface-border);
+      padding-bottom: 4px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 16px;
+    }
+
+    .swatch {
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-soft);
+      padding: 12px;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      height: 120px;
+      transition: transform 0.2s ease;
+    }
+
+    .swatch:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-strong);
+    }
+
+    .color-box {
+      width: 100%;
+      height: 60px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    .presence-indicators {
+      display: flex;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .presence-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .available {
+      background: #22c55e;
+    }
+
+    .away {
+      background: #eab308;
+    }
+
+    .busy {
+      background: #ef4444;
+    }
+
+    .offline {
+      background: #6b7280;
+    }
+
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="brand">🎨 SmartChat Design Tokens</div>
+  <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
+</header>
+
+<main>
+  <section>
+    <h2>🎨 Primary Palette</h2>
+    <div class="grid">
+      <div class="swatch">
+        <div class="color-box" style="background:#3b82f6;"></div>
+        <div class="label">--primary</div>
+      </div>
+      <div class="swatch">
+        <div class="color-box" style="background:#2563eb;"></div>
+        <div class="label">--primary-hover</div>
+      </div>
+      <div class="swatch">
+        <div class="color-box" style="background:#93c5fd;"></div>
+        <div class="label">--primary-light</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>💬 Surface & Glass</h2>
+    <div class="grid">
+      <div class="swatch">
+        <div class="color-box" style="background:rgba(255,255,255,0.65);"></div>
+        <div class="label">--surface</div>
+      </div>
+      <div class="swatch">
+        <div class="color-box" style="background:rgba(59,130,246,0.08);"></div>
+        <div class="label">--glass-blue</div>
+      </div>
+      <div class="swatch">
+        <div class="color-box" style="background:rgba(59,130,246,0.2);"></div>
+        <div class="label">--glass-border</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>🟢 Presence States</h2>
+    <div class="presence-indicators">
+      <div class="presence-dot available" title="Available"></div>
+      <div class="presence-dot away" title="Away"></div>
+      <div class="presence-dot busy" title="Busy"></div>
+      <div class="presence-dot offline" title="Offline"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>🌗 Shadows & Radii</h2>
+    <div class="grid">
+      <div class="swatch" style="box-shadow:var(--shadow-soft);">
+        <div class="label">Soft Shadow</div>
+      </div>
+      <div class="swatch" style="box-shadow:var(--shadow-strong);">
+        <div class="label">Strong Shadow</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>© 2025 SmartChat Contributors — Internal Use Only</footer>
+
+<script>
+  function toggleTheme() {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme');
+    html.setAttribute('data-theme', current === 'light' ? 'dark' : 'light');
+  }
+</script>
+</body>
+</html>

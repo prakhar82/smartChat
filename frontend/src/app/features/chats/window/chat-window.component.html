@@ -1,0 +1,169 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<div class="sound-settings-wrapper" [class.offline]="!isConnected">
+  <button
+    class="sound-btn"
+    (click)="toggleSoundPopover($event)"
+    [class.active]="this.showSoundPopover"
+    aria-label="Open sound settings"
+  >
+    🔊
+  </button>
+
+  <!-- Floating Notes -->
+  <div class="floating-notes">
+    <span
+      class="note"
+      *ngFor="let note of floatingNotes; trackBy: trackById"
+      [style.left.px]="note.x"
+      [style.bottom.px]="note.y"
+      @noteFloat
+    >
+      🎵
+    </span>
+  </div>
+
+  <!-- Popover -->
+  <div
+    class="sound-popover"
+    *ngIf="this.showSoundPopover"
+    @fadeSlideIn
+    role="dialog"
+    tabindex="-1"
+    aria-label="Sound settings"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="popover-head">
+      <h4>🎧 Sound & Feedback</h4>
+      <button class="close-pop" (click)="showSoundPopover=false">✕</button>
+    </div>
+
+    <!-- Checkboxes -->
+    <div class="setting-item">
+      <label>
+        <input type="checkbox" [(ngModel)]="enableSound" (change)="saveSoundPreferences()">
+        Enable Sound
+      </label>
+    </div>
+
+    <div class="setting-item">
+      <label>
+        <input type="checkbox" [(ngModel)]="enableVibration" (change)="saveSoundPreferences()">
+        Enable Vibration
+      </label>
+    </div>
+
+    <div class="setting-item">
+      <label>
+        <input type="checkbox" [(ngModel)]="useMicInput" (change)="handleMicToggle()">
+        Use Microphone Input
+      </label>
+    </div>
+
+    <p class="hint">🎧 Volume adapts to focus + time.</p>
+
+    <!-- Test Buttons -->
+    <div class="test-actions">
+      <button
+        class="sound-test-btn"
+        (click)="playTestTone($event)"
+        [disabled]="!enableSound"
+        [class.pulsing]="this.isPulsing"
+      >
+        🔈 Test Sound
+      </button>
+
+      <button
+        class="vibration-test-btn"
+        (click)="testVibration($event)"
+        [disabled]="!enableVibration"
+        [class.shaking]="this.isShaking"
+      >
+        📳 Test Vibration
+      </button>
+    </div>
+
+    <!-- Dual Visualizer -->
+    <div class="dual-visualizer" *ngIf="dualMode || useMicInput">
+
+      <!-- Local -->
+      <div class="visualizer-panel mic-panel">
+        <h5>🎙️ You</h5>
+
+        <div class="vu-meter">
+          <div
+            class="bar"
+            *ngFor="let h of barHeights; index as i; trackBy: trackByIndex"
+            [style.height.px]="h"
+            [style.background]="getDynamicBarGradient()"
+          ></div>
+        </div>
+
+        <div class="vu-readout">
+          {{ currentVU.toFixed(1) }} dB
+        </div>
+      </div>
+
+      <!-- Remote -->
+      <div class="visualizer-panel remote-panel" *ngIf="remoteAudioStream">
+        <h5>🗣️ Remote</h5>
+
+        <div
+          class="vu-meter"
+          [class.talking]="isRemoteTalking"
+          [style.setProperty]="'--pulse-color: ' + getTalkingPulseColor()"
+        >
+          <div
+            class="bar"
+            *ngFor="let h of barHeights; index as i; trackBy: trackByIndex"
+            [style.height.px]="h"
+            [style.background]="getDynamicBarGradient()"
+          ></div>
+        </div>
+
+        <div class="vu-readout">
+          {{ remoteVU.toFixed(1) }} dB
+          <span class="talking-badge" *ngIf="isRemoteTalking">
+            Talking…
+          </span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Latency -->
+    <div class="latency-panel" *ngIf="dualMode || remoteAudioStream">
+      <div class="latency-circle" [style.border-color]="latencyColor"></div>
+      <span class="latency-value" [style.color]="latencyColor">
+        {{ latencyMs }} ms
+      </span>
+      <span class="latency-label">Latency</span>
+    </div>
+
+    <!-- Network -->
+    <div class="network-radar">
+      <div class="radar-ring" [style.border-color]="networkColor">
+        <div class="radar-sweep" [style.border-color]="networkColor"></div>
+      </div>
+
+      <div class="radar-info">
+        <span class="stability-value" [style.color]="networkColor">
+          {{ networkStability.toFixed(0) }}%
+        </span>
+        <span class="stability-label">Stability</span>
+      </div>
+
+      <div class="net-details">
+        Jitter: {{ networkJitter.toFixed(1) }} ms
+        Loss: {{ networkLoss.toFixed(1) }}%
+      </div>
+    </div>
+
+  </div>
+</div>

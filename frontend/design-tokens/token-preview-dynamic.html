@@ -1,0 +1,280 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SmartChat Dynamic Token Preview</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --radius: 12px;
+      --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.1);
+      --shadow-strong: 0 4px 24px rgba(37, 99, 235, 0.25);
+    }
+
+    [data-theme='dark'] {
+      background: #0f172a;
+      color: #f9fafb;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: var(--surface, #f8fafc);
+      color: var(--text-color, #111827);
+      transition: background 0.4s ease, color 0.3s ease;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 24px;
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow-soft);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .brand {
+      font-weight: 600;
+      font-size: 1.1rem;
+      color: var(--primary, #3b82f6);
+    }
+
+    .theme-toggle {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      background: rgba(59, 130, 246, 0.1);
+      padding: 6px 12px;
+      transition: all 0.3s ease;
+    }
+
+    .theme-toggle:hover {
+      background: var(--primary, #3b82f6);
+      color: white;
+    }
+
+    main {
+      padding: 24px;
+      max-width: 1100px;
+      margin: auto;
+    }
+
+    h2 {
+      margin-top: 32px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+      padding-bottom: 4px;
+      font-size: 1.2rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 16px;
+    }
+
+    .swatch {
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-soft);
+      padding: 12px;
+      background: var(--surface, rgba(255, 255, 255, 0.65));
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      height: 120px;
+      transition: transform 0.2s ease;
+    }
+
+    .swatch:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-strong);
+    }
+
+    .color-box {
+      width: 100%;
+      height: 60px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .label {
+      font-size: 0.85rem;
+      color: #6b7280;
+      text-align: center;
+      user-select: all;
+    }
+
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: 0.85rem;
+      color: #9ca3af;
+    }
+
+    .presence-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .presence-container {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+    }
+
+    .shadow-demo {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+    }
+
+    .shadow-box {
+      width: 100px;
+      height: 100px;
+      border-radius: var(--radius);
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #333;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+
+    .shadow-box.soft {
+      box-shadow: var(--shadow-soft);
+    }
+
+    .shadow-box.strong {
+      box-shadow: var(--shadow-strong);
+    }
+
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="brand">🎨 SmartChat Dynamic Tokens</div>
+  <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
+</header>
+
+<main id="content">
+  <h2>Loading SmartChat tokens...</h2>
+</main>
+
+<footer>© 2025 SmartChat Contributors — Auto-generated Preview</footer>
+
+<script>
+  const TOKEN_PATH = './smartchat-tokens.json';
+  const content = document.getElementById('content');
+
+  async function loadTokens() {
+    try {
+      const res = await fetch(TOKEN_PATH);
+      const tokens = await res.json();
+      renderTokens(tokens);
+    } catch (err) {
+      content.innerHTML = `<p style="color:red;">❌ Failed to load ${TOKEN_PATH}: ${err.message}</p>`;
+    }
+  }
+
+  function renderTokens(tokens) {
+    content.innerHTML = '';
+
+    // 1️⃣ Colors
+    const colorSection = document.createElement('section');
+    colorSection.innerHTML = '<h2>🎨 Color Tokens</h2>';
+    const colorGrid = document.createElement('div');
+    colorGrid.className = 'grid';
+
+    Object.entries(tokens.colors).forEach(([key, val]) => {
+      colorGrid.innerHTML += `
+          <div class="swatch">
+            <div class="color-box" style="background:${val};"></div>
+            <div class="label">--${key}</div>
+          </div>`;
+    });
+    colorSection.appendChild(colorGrid);
+    content.appendChild(colorSection);
+
+    // 2️⃣ Presence
+    const presenceSection = document.createElement('section');
+    presenceSection.innerHTML = '<h2>💬 Presence States</h2>';
+    const presDiv = document.createElement('div');
+    presDiv.className = 'presence-container';
+    Object.entries(tokens.presence).forEach(([state, color]) => {
+      if (typeof color === 'string') {
+        presDiv.innerHTML += `
+            <div class="presence-dot" style="background:${color};" title="${state}"></div>`;
+      }
+    });
+    presenceSection.appendChild(presDiv);
+    content.appendChild(presenceSection);
+
+    // 3️⃣ Shadows
+    const shadowSection = document.createElement('section');
+    shadowSection.innerHTML = '<h2>🌗 Shadows</h2>';
+    shadowSection.innerHTML += `
+        <div class="shadow-demo">
+          <div class="shadow-box soft">Soft</div>
+          <div class="shadow-box strong">Strong</div>
+        </div>`;
+    content.appendChild(shadowSection);
+
+    // 4️⃣ Typography
+    const typo = tokens.typography || {};
+    const typoSection = document.createElement('section');
+    typoSection.innerHTML = '<h2>🅰 Typography</h2>';
+    typoSection.innerHTML += `
+        <p style="font-family:${typo['font-family']}; font-size:${typo['font-size-title']}; font-weight:${typo['font-weight']};">
+          Title Font — ${typo['font-family']}
+        </p>
+        <p style="font-family:${typo['font-family']}; font-size:${typo['font-size-body']}; color:#6b7280;">
+          Body Text Example (Muted)
+        </p>`;
+    content.appendChild(typoSection);
+
+    // 5️⃣ Motion
+    const motionSection = document.createElement('section');
+    motionSection.innerHTML = '<h2>⚡ Motion Tokens</h2>';
+    const motionList = document.createElement('ul');
+    Object.entries(tokens.motion || {}).forEach(([k, v]) => {
+      const li = document.createElement('li');
+      li.textContent = `${k}: ${v}`;
+      motionList.appendChild(li);
+    });
+    motionSection.appendChild(motionList);
+    content.appendChild(motionSection);
+  }
+
+  function toggleTheme() {
+    const html = document.documentElement;
+    const theme = html.getAttribute('data-theme');
+    html.setAttribute('data-theme', theme === 'light' ? 'dark' : 'light');
+  }
+
+  loadTokens();
+</script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<!-- =========================================================
+     💬 SmartChat Main Workspace Layout
+========================================================= -->
+
+<div
+  class="workspace"
+  [attr.data-theme]="isDarkTheme ? 'dark' : 'light'"
+  role="main"
+  aria-label="SmartChat Workspace"
+>
+  <!-- =========================
+       📂 LEFT SIDEBAR
+  ========================== -->
+  <aside class="sidebar" aria-label="Main navigation">
+    <app-left-sidebar></app-left-sidebar>
+  </aside>
+
+  <!-- =========================
+       👥 CONTACTS PANEL
+  ========================== -->
+  <section
+    class="contacts-panel"
+    [style.width.px]="contactPanelWidth"
+    [class.hide]="isChatOpen && isMobileView"
+    aria-label="Contacts panel"
+  >
+    <app-top-header
+      class="contacts-header"
+      [firstName]="firstName"
+      [isDarkTheme]="isDarkTheme"
+      [userStatus]="userStatus"
+      [connectionState]="connectionState"
+      (toggleTheme)="toggleTheme()"
+    ></app-top-header>
+
+    <!-- 🔍 Search Bar -->
+    <div class="search-bar" role="search">
+      <input
+        type="text"
+        [(ngModel)]="searchQuery"
+        (input)="filterContacts()"
+        placeholder="Search by name or number..."
+        aria-label="Search contacts"
+      />
+      <button
+        *ngIf="searchQuery.length > 0"
+        class="clear-btn"
+        (click)="searchQuery=''; filterContacts()"
+        aria-label="Clear search"
+      >
+        ✕
+      </button>
+    </div>
+
+    <app-contact-list
+      [contacts]="filteredContacts"
+      (contactSelected)="openChat($event)"
+    ></app-contact-list>
+  </section>
+
+  <!-- =========================
+       🪟 SPLIT RESIZER
+  ========================== -->
+  <div
+    class="split-resizer"
+    (mousedown)="startResize($event)"
+    (touchstart)="startResize($event)"
+    role="separator"
+    aria-orientation="vertical"
+    title="Drag to resize contact panel"
+  ></div>
+
+  <!-- =========================
+       🔌 CONNECTION BANNER
+  ========================== -->
+  <div
+    *ngIf="connectionState === 'reconnecting' || connectionState === 'offline'"
+    class="connection-banner"
+    [class.offline]="connectionState === 'offline'"
+    role="alert"
+    aria-live="assertive"
+  >
+    <span *ngIf="connectionState === 'reconnecting'">🔄 Reconnecting…</span>
+    <span *ngIf="connectionState === 'offline'">❌ Offline — Trying to reconnect…</span>
+  </div>
+
+  <!-- =========================
+       💬 CHAT PANEL
+  ========================== -->
+  <section class="chat-panel" [class.active]="isChatOpen" aria-label="Chat panel">
+    <ng-container *ngIf="selectedContactId; else welcomeScreen">
+      <app-chat-window
+        [contactId]="selectedContactId"
+        [contactInfo]="selectedContactInfo"
+        [isConnected]="isConnected"
+        [isMobileView]="isMobileView"
+        (back)="closeChat()"
+        (closeChat)="closeChat()"
+      ></app-chat-window>
+    </ng-container>
+
+    <!-- 🏠 Empty State -->
+    <ng-template #welcomeScreen>
+      <div class="welcome" role="status" aria-live="polite">
+        <h2>
+          Welcome to <span class="app-name">SmartChat</span> 👋
+        </h2>
+        <p>Select a contact to start chatting.</p>
+      </div>
+    </ng-template>
+  </section>
+</div>
+
+<!-- =========================
+     📱 MOBILE BOTTOM NAVBAR
+========================= -->
+<nav class="bottom-nav" *ngIf="isMobileView" aria-label="Bottom navigation">
+  <button class="theme-toggle" (click)="toggleTheme()" aria-label="Toggle theme">
+    <span class="material-icons-round">
+      {{ isDarkTheme ? 'light_mode' : 'dark_mode' }}
+    </span>
+  </button>
+
+  <button class="scroll-top" (click)="scrollToTop()" aria-label="Scroll to top">
+    <span class="material-icons-round">arrow_upward</span>
+  </button>
+</nav>

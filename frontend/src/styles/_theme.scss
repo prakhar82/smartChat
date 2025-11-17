@@ -6,97 +6,147 @@
  * Author: $USER_NAME
  */
 
-/* =========================================================
- * SmartChat Theme Variables
- * ========================================================= */
+/*!
+ * =========================================================
+ *  🌈 SmartChat Global Theme (Response 2)
+ *  ---------------------------------------------------------
+ *  Light Blue + Gray palette + Glass Aesthetic
+ *  Includes mixins for reusable glass effects
+ * =========================================================
+ */
 
+/* =========================================================
+   🎨 Color System
+========================================================= */
 :root {
-  /* 🎨 Brand Colors */
   --primary: #3b82f6;
   --primary-hover: #2563eb;
+  --primary-light: #60a5fa;
 
-  /* 🧱 Backgrounds */
-  --app-bg: #f5f6fa;
-  --sidebar-bg: #ffffff;
-  --contacts-bg: #f9fafb;
-  --chat-bg: #ffffff;
-  --messages-bg: #fafafa;
-  --input-bg: #ffffff;
-  --header-bg: #ffffff;
-  --avatar-bg: #3b82f6;
-  --panel-bg: #ffffff;
+  --surface: rgba(255, 255, 255, 0.65);
+  --surface-dark: rgba(17, 27, 33, 0.8);
+  --surface-border: rgba(255, 255, 255, 0.15);
+  --glass-blue: rgba(59, 130, 246, 0.08);
+  --glass-border: rgba(59, 130, 246, 0.2);
 
-  /* ✉️ Message bubbles */
-  --bubble-out: #3b82f6;
-  --bubble-in: #e5e7eb;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-700: #374151;
+  --gray-900: #111827;
 
-  /* ⚙️ Borders */
-  --border-color: #e5e7eb;
+  --text-color: #111827;
+  --text-muted: #6b7280;
 
-  /* 🌐 Status Colors */
-  --online-color: #22c55e;
-  --offline-color: #9ca3af;
-
-  /* 🖤 Text Colors */
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --toast-bg: #2a2f32;
-  --search-bg: #f9fafb;
+  --radius: 12px;
+  --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-strong: 0 4px 24px rgba(37, 99, 235, 0.25);
+  --transition: all 0.25s ease;
 }
 
-body.light {
-  --sidebar-bg: #f8f9fa;
-  --text-secondary: #555;
-  --primary: #007bff;
-  --primary-hover: #0056b3;
-}
-
-body.dark {
-  --sidebar-bg: #1f1f1f;
-  --text-secondary: #bbb;
-  --primary: #4dabf7;
-  --primary-hover: #1a8cff;
+/* 🌗 Dark Mode */
+[data-theme='dark'] {
+  --surface: rgba(17, 27, 33, 0.75);
+  --surface-border: rgba(255, 255, 255, 0.08);
+  --text-color: #f9fafb;
+  --text-muted: #9ca3af;
+  --glass-blue: rgba(59, 130, 246, 0.12);
+  --glass-border: rgba(59, 130, 246, 0.25);
+  --shadow-soft: 0 4px 10px rgba(0, 0, 0, 0.4);
 }
 
 /* =========================================================
- * Dark Theme Override
- * ========================================================= */
-
-[data-theme='dark'] {
-  /* Base backgrounds - slightly lighter so black icons show clearly */
-  --app-bg: #1e293b; /* Deep gray-blue, black icons visible */
-  --sidebar-bg: #273449; /* Slightly lighter sidebar */
-  --contacts-bg: #273449;
-  --chat-bg: #1e293b;
-  --messages-bg: #2b3a55; /* Contrast for chat area */
-  --input-bg: #2d3e5f; /* Slightly lighter input field */
-  --header-bg: #273449;
-
-  /* Accent colors (blue emphasis) */
-  --primary: #3b82f6; /* Standard bright blue */
-  --primary-hover: #2563eb; /* Darker hover tone */
-
-  /* Chat bubbles */
-  --bubble-out: #3b82f6; /* Sent message bubble */
-  --bubble-in: #374357; /* Received message bubble */
-
-  /* Borders & dividers */
-  --border-color: #3b4b63;
-
-  /* Text colors */
-  --text-primary: #f1f5f9; /* Very light text */
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
-
-  /* Icon and avatar contrast */
-  --icon-color: #3b82f6; /* Blue icons pop nicely */
-  --icon-hover: #60a5fa;
-  --black-icon: #0f172a; /* Black icon stays visible */
-  --avatar-bg: #2563eb;
-
-  /* Shadows & depth */
-  --shadow-color: rgba(0, 0, 0, 0.4);
-  --card-shadow: 0 4px 10px var(--shadow-color);
+   🧠 SCSS Mixins for Reuse
+========================================================= */
+@mixin glass-panel($tint: var(--glass-blue), $blur: 10px) {
+  background: $tint;
+  backdrop-filter: blur($blur);
+  -webkit-backdrop-filter: blur($blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  transition: var(--transition);
 }
 
+@mixin gradient-primary($angle: 135deg) {
+  background: linear-gradient($angle, var(--primary), var(--primary-hover));
+}
 
+@mixin shimmer($color: var(--primary-light)) {
+  background: linear-gradient(
+      120deg,
+      transparent 0%,
+      rgba($color, 0.15) 40%,
+      rgba($color, 0.3) 50%,
+      transparent 60%
+  );
+  background-size: 200% 100%;
+  animation: shimmerMove 1.5s linear infinite;
+}
+
+@keyframes shimmerMove {
+  from {
+    background-position: -100% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+/* =========================================================
+   💠 Base Global Styles
+========================================================= */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: var(--gray-100);
+  color: var(--text-color);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: 8px;
+
+  &:hover {
+    background: var(--gray-700);
+  }
+}
+
+/* =========================================================
+   💎 Glass Utilities
+========================================================= */
+.glass-card {
+  @include glass-panel();
+  padding: 16px;
+}
+
+.glass-hover:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.shadow-soft {
+  box-shadow: var(--shadow-soft);
+}
+
+.text-primary {
+  color: var(--primary);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}

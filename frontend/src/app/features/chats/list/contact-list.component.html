@@ -1,0 +1,140 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<!-- =========================================================
+     📇 SmartChat Contact List Component Template
+     ---------------------------------------------------------
+     Displays user's contacts, their presence state, and
+     last message preview. Includes loading states,
+     empty fallbacks, accessible ARIA semantics, and a
+     presence legend footer for visual reference.
+     ========================================================= -->
+<div class="contact-list" role="list">
+  <!-- =========================================================
+       🌀 Loading State
+       ========================================================= -->
+  <div class="loading" *ngIf="isLoading" aria-busy="true">
+    <div class="spinner" role="status" aria-label="Loading contacts..."></div>
+    <p>Loading contacts...</p>
+  </div>
+
+  <!-- =========================================================
+       ✅ Contacts Loaded
+       ========================================================= -->
+  <ng-container *ngIf="!isLoading && (contacts?.length ?? 0) > 0; else noContacts">
+    <div
+      class="contact-item"
+      *ngFor="let contact of contacts; trackBy: trackById"
+      tabindex="0"
+      role="button"
+      (click)="onSelect(contact)"
+      (keydown.enter)="onSelect(contact)"
+      (keydown.space)="onSelect(contact)"
+      [attr.aria-label]="'Select contact ' + (contact.contactName || 'Unknown Contact')"
+    >
+      <!-- 🧑 Avatar -->
+      <div class="avatar">
+        <img
+          *ngIf="contact.avatarUrl; else fallbackAvatar"
+          [src]="contact.avatarUrl"
+          [alt]="contact.contactName || 'User Avatar'"
+          width="48"
+          height="48"
+          class="avatar-img"
+          loading="lazy"
+        />
+        <ng-template #fallbackAvatar>
+          <div class="default-avatar" [attr.aria-label]="contact.contactName || 'Unknown user'">
+            {{ contact.contactName ? contact.contactName[0] : '?' }}
+          </div>
+        </ng-template>
+      </div>
+
+      <!-- 💬 Contact Info -->
+      <div class="contact-info">
+        <div class="top">
+          <span class="name" title="{{ contact.contactName }}">
+            {{ contact.contactName || 'Unknown Contact' }}
+          </span>
+        </div>
+
+        <div class="bottom">
+          <!-- 💭 Last Message -->
+          <span class="last-message" *ngIf="contact.lastMessage; else noMsg">
+            {{ contact.lastMessage }}
+          </span>
+          <ng-template #noMsg>
+            <span class="last-message muted">No recent messages</span>
+          </ng-template>
+
+          <!-- 🟢 Presence Indicator -->
+          <ng-container *ngIf="contact.registered">
+            <span
+              class="status"
+              [attr.aria-label]="
+                contact.online
+                  ? 'User online'
+                  : 'User last seen ' + (contact.lastSeen | lastSeen)
+              "
+            >
+              <app-presence-indicator
+                [userId]="contact.matchedUserId ?? contact.contactId"
+              ></app-presence-indicator>
+
+              <span
+                class="presence-text"
+                [class.online-text]="contact.online"
+                [class.offline-text]="!contact.online"
+              >
+                {{
+                  contact.online
+                    ? 'Online'
+                    : (contact.lastSeen
+                      ? ('Last seen ' + (contact.lastSeen | lastSeen))
+                      : 'Offline')
+                }}
+              </span>
+            </span>
+          </ng-container>
+
+          <!-- ✉️ Invite Action -->
+          <button
+            *ngIf="!contact.registered && contact.canInvite"
+            class="invite-btn"
+            (click)="invite(contact, $event)"
+            aria-label="Invite {{ contact.contactName || 'contact' }}"
+            [disabled]="isLoading"
+          >
+            <span class="material-icons-round invite-icon">mail</span>
+            Invite
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         🧭 Presence Legend Footer
+         ---------------------------------------------------------
+         Provides quick visual guide for presence colors.
+         Ideal for clarity and UX consistency.
+         ========================================================= -->
+    <footer class="presence-legend-footer" role="contentinfo">
+      <app-presence-legend></app-presence-legend>
+    </footer>
+  </ng-container>
+
+  <!-- =========================================================
+       🚫 Empty State
+       ========================================================= -->
+  <ng-template #noContacts>
+    <div class="no-contacts" *ngIf="!isLoading">
+      <p>📭 No contacts found.</p>
+      <p class="hint">Try syncing Google Contacts or adding a new one manually.</p>
+    </div>
+  </ng-template>
+</div>

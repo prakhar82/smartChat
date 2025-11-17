@@ -1,0 +1,165 @@
+############################################################
+# 🧑‍💻 SMARTCHAT API GATEWAY — DEVELOPMENT CONFIGURATION
+############################################################
+
+spring:
+  application:
+    name: smartchat-api
+
+  profiles:
+    active: dev
+
+  main:
+    web-application-type: reactive
+    allow-bean-definition-overriding: true
+
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.web.servlet.ServletWebServerFactoryAutoConfiguration
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 60000
+      connect-timeout: 2000
+      client-type: lettuce
+
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+          lower-case-service-id: true
+
+      httpclient:
+        ssl:
+          use-insecure-trust-manager: true
+        connect-timeout: 5000
+        response-timeout: 10s
+
+      default-filters:
+        - PreserveHostHeader
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
+
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        corsConfigurations:
+          '[/**]':
+            allowedOriginPatterns:
+              - "http://localhost*"
+              - "https://localhost*"
+              - "http://127.0.0.1*"
+              - "https://127.0.0.1*"
+              - "http://192.168.*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+      routes:
+        # 🔐 AUTH SERVICE
+        - id: smartchat-auth
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - RemoveRequestHeader=Cookie
+            - PreserveHostHeader
+            - name: StripPrefix
+              args:
+                parts: 1
+
+        # 💬 CHAT SERVICE
+        - id: smartchat-chat
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/chat/**
+          filters:
+            - RemoveRequestHeader=Cookie
+            - PreserveHostHeader
+            - name: StripPrefix
+              args:
+                parts: 1
+
+        # 📇 CONTACT SERVICE (includes /auth/google/**)
+        - id: smartchat-contact
+          uri: http://localhost:8083
+          predicates:
+            - Path=/api/contacts/**
+          filters:
+            - RemoveRequestHeader=Cookie
+            - PreserveHostHeader
+            - name: StripPrefix
+              args:
+                parts: 1
+
+  codec:
+    max-in-memory-size: 10MB
+
+############################################################
+# 🌍 SERVER SETTINGS
+############################################################
+server:
+  port: 8080
+  forward-headers-strategy: native
+  shutdown: graceful
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,application/javascript,application/json
+    min-response-size: 1024
+  ssl:
+    enabled: false
+
+############################################################
+# 🧭 EUREKA DISCOVERY
+############################################################
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+  instance:
+    hostname: localhost
+    prefer-ip-address: true
+
+############################################################
+# 🔐 JWT SECURITY
+############################################################
+security:
+  jwt:
+    secret: ${JWT_SECRET:localDevSecretKey123}
+    expiration: 3600000
+    refresh-expiration: 604800000
+    verification-token-expiration: 86400000
+    lockout-duration: 300000
+    max-login-attempts: 5
+
+############################################################
+# 📊 ACTUATOR / MONITORING
+############################################################
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    gateway:
+      enabled: true
+  health:
+    redis:
+      enabled: true
+    probes:
+      enabled: true
+
+############################################################
+# 🧾 LOGGING
+############################################################
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web.reactive: DEBUG
+    org.springframework.security: DEBUG
+    com.smartchat.api: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

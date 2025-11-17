@@ -1,0 +1,442 @@
+/*!
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
+ */
+
+/* =========================================================
+   🎨 THEME VARIABLES
+   ---------------------------------------------------------
+   Shared across SmartChat components.
+   These are defined at the component root level and switch
+   automatically with [data-theme].
+========================================================= */
+
+:host {
+  --color-accent: #60a5fa;
+  --color-accent-light: #93c5fd;
+  --color-success: #22c55e;
+  --color-warning: #fbbf24;
+  --color-error: #ef4444;
+
+  --bg-popover: rgba(40, 55, 85, 0.9);
+  --bg-panel: rgba(255, 255, 255, 0.05);
+  --text-primary: #eaf2ff;
+  --text-secondary: #a0b3d9;
+  --border-soft: rgba(255, 255, 255, 0.08);
+
+  --shadow-soft: 0 8px 28px rgba(0, 0, 0, 0.45);
+  --blur-strength: blur(14px) saturate(1.5);
+
+  transition: background 0.4s ease, color 0.4s ease, box-shadow 0.4s ease;
+}
+
+/* Light theme override */
+:host-context([data-theme='light']) {
+  --color-accent: #2563eb;
+  --color-accent-light: #60a5fa;
+  --color-success: #16a34a;
+  --color-warning: #eab308;
+  --color-error: #dc2626;
+
+  --bg-popover: rgba(250, 250, 255, 0.96);
+  --bg-panel: rgba(240, 240, 255, 0.85);
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --border-soft: rgba(0, 0, 0, 0.08);
+  --shadow-soft: 0 4px 14px rgba(0, 0, 0, 0.1);
+}
+
+/* =========================================================
+   🔊 DUAL VISUALIZER PANEL
+========================================================= */
+
+.sound-settings-wrapper {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 200;
+  font-family: 'Inter', system-ui, sans-serif;
+  transition: opacity 0.3s ease;
+
+  &.offline {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  /* === 🔘 Main Sound Button === */
+  .sound-btn {
+    width: 42px;
+    height: 42px;
+    border: none;
+    border-radius: 12px;
+    background: rgba(120, 160, 255, 0.12);
+    color: var(--text-primary);
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+
+    &:hover {
+      background: rgba(120, 160, 255, 0.22);
+      transform: scale(1.05);
+    }
+
+    &.active {
+      background: rgba(100, 180, 255, 0.28);
+      box-shadow: 0 0 12px rgba(120, 180, 255, 0.4);
+    }
+  }
+
+  /* === 🎵 Floating Notes === */
+  .floating-notes {
+    position: absolute;
+    bottom: -8px;
+    left: 10px;
+    pointer-events: none;
+
+    .note {
+      position: absolute;
+      font-size: 1.2rem;
+      animation: noteFloat 1.2s ease-out forwards;
+      opacity: 0;
+    }
+  }
+
+  /* === 🧭 Sound Settings Popover === */
+  .sound-popover {
+    margin-top: 10px;
+    width: 340px;
+    background: var(--bg-popover);
+    border-radius: 14px;
+    border: 1px solid var(--border-soft);
+    backdrop-filter: var(--blur-strength);
+    padding: 14px;
+    box-shadow: var(--shadow-soft);
+    color: var(--text-primary);
+    animation: fadeIn 0.25s ease;
+
+    h4 {
+      font-weight: 600;
+      font-size: 1rem;
+      margin: 0 0 10px 0;
+    }
+
+    .popover-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+
+      .close-pop {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 1.1rem;
+        transition: color 0.2s;
+
+        &:hover {
+          color: var(--text-primary);
+        }
+      }
+    }
+
+    .setting-item {
+      margin: 8px 0;
+      display: flex;
+      align-items: center;
+      font-size: 0.9rem;
+      color: var(--text-primary);
+
+      input[type='checkbox'] {
+        margin-right: 8px;
+      }
+    }
+
+    .hint {
+      font-size: 0.8rem;
+      opacity: 0.75;
+      margin: 6px 0 10px;
+      color: var(--text-secondary);
+    }
+
+    /* === Test Buttons === */
+    .test-actions {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+
+      button {
+        flex: 1;
+        margin: 4px;
+        border: none;
+        border-radius: 10px;
+        background: rgba(100, 150, 255, 0.2);
+        color: var(--text-primary);
+        padding: 8px 0;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover {
+          background: rgba(100, 160, 255, 0.35);
+        }
+      }
+
+      .pulsing {
+        animation: pulseButton 0.6s ease-in-out;
+      }
+
+      .shaking {
+        animation: shake 0.3s ease-in-out;
+      }
+    }
+
+    /* === Visualizer === */
+    .dual-visualizer {
+      display: flex;
+      gap: 14px;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-top: 10px;
+      flex-wrap: wrap;
+
+      .visualizer-panel {
+        flex: 1;
+        background: var(--bg-panel);
+        border-radius: 12px;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.25);
+        min-width: 140px;
+
+        h5 {
+          font-size: 0.85rem;
+          margin-bottom: 4px;
+          color: var(--text-primary);
+        }
+
+        .vu-meter {
+          width: 100%;
+          height: 48px;
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          gap: 5px;
+          position: relative;
+
+          &.talking {
+            animation: talkingPulse 0.7s infinite ease-in-out;
+            box-shadow: 0 0 12px var(--pulse-color, var(--color-success));
+          }
+
+          .bar {
+            width: 6px;
+            border-radius: 3px;
+            transition: height 0.12s linear;
+          }
+        }
+
+        .vu-readout {
+          font-size: 0.8rem;
+          color: var(--text-secondary);
+          margin-top: 6px;
+
+          .talking-badge {
+            font-size: 0.75rem;
+            margin-left: 4px;
+            animation: fadePulse 1.2s infinite ease-in-out;
+          }
+        }
+      }
+    }
+
+    /* === Latency === */
+    .latency-panel {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 12px;
+
+      .latency-circle {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        border: 2px solid var(--color-success);
+        animation: ping 1.2s infinite ease-in-out;
+      }
+
+      .latency-value {
+        font-weight: 600;
+        font-size: 0.85rem;
+      }
+
+      .latency-label {
+        font-size: 0.75rem;
+        opacity: 0.7;
+      }
+    }
+
+    /* === Network Radar === */
+    .network-radar {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin-top: 16px;
+
+      .radar-ring {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        border: 2px solid var(--color-success);
+        animation: rotateSweep 4s linear infinite;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .radar-sweep {
+        position: absolute;
+        width: 50%;
+        height: 2px;
+        border: 1px solid var(--color-success);
+        transform-origin: left center;
+        border-radius: 2px;
+        opacity: 0.8;
+      }
+
+      .radar-info {
+        text-align: center;
+        margin-top: 6px;
+
+        .stability-value {
+          font-size: 0.95rem;
+          font-weight: 600;
+        }
+
+        .stability-label {
+          font-size: 0.75rem;
+          opacity: 0.7;
+          display: block;
+        }
+      }
+
+      .net-details {
+        display: flex;
+        flex-direction: column;
+        text-align: center;
+        margin-top: 6px;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+      }
+    }
+  }
+}
+
+/* =========================================================
+   ✨ Animations
+========================================================= */
+
+@keyframes noteFloat {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.8);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-20px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-60px) scale(1.4);
+  }
+}
+
+@keyframes talkingPulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--pulse-color, var(--color-success));
+  }
+  50% {
+    box-shadow: 0 0 14px 6px rgba(34, 197, 94, 0.25);
+  }
+  100% {
+    box-shadow: 0 0 0 0 var(--pulse-color, var(--color-success));
+  }
+}
+
+@keyframes fadePulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
+}
+
+@keyframes pulseButton {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes ping {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+}
+
+@keyframes rotateSweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =========================================================
+   📱 Responsive
+========================================================= */
+@media (max-width: 480px) {
+  .sound-settings-wrapper {
+    .sound-popover {
+      width: 92vw;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+  }
+}

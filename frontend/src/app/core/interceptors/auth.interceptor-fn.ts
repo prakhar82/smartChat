@@ -8,21 +8,22 @@
 
 import {HttpErrorResponse, HttpEvent, HttpHandlerFn, HttpInterceptorFn, HttpRequest,} from '@angular/common/http';
 import {inject} from '@angular/core';
-import {Router} from '@angular/router';
 import {BehaviorSubject, Observable, throwError} from 'rxjs';
 import {catchError, filter, switchMap, take} from 'rxjs/operators';
-import {AuthService} from '../../auth/auth.service';
+import {AuthService} from '../../features/auth/auth.service';
+import {environment} from '../../../environments/environment.prod';
 
 let isRefreshing = false;
 const refreshTokenSubject = new BehaviorSubject<string | null>(null);
 
 /**
  * ==========================================================
- * ✅ AuthInterceptor
+ * 🔐 AuthInterceptorFn (Standalone Functional Interceptor)
  * ----------------------------------------------------------
- * • Automatically attaches JWT to all API requests
- * • Skips login/register/refresh endpoints
- * • Handles 401 refresh token flow gracefully
+ * - Attaches JWT to outgoing requests
+ * - Skips login/register/refresh calls
+ * - Handles automatic token refresh on 401
+ * - Redirects to login on network/auth failure
  * ==========================================================
  */
 export const authInterceptorFn: HttpInterceptorFn = (
@@ -30,53 +31,76 @@ export const authInterceptorFn: HttpInterceptorFn = (
   next: HttpHandlerFn
 ): Observable<HttpEvent<any>> => {
   const authService = inject(AuthService);
-  const router = inject(Router);
   const jwt = authService.getToken();
+
+  // 🧩 Normalize URL (strip trailing slashes)
   const normalizedUrl = req.url.replace(/\/+$/, '');
+  const apiUrl = (() => {
+    try {
+      return new URL(normalizedUrl, window.location.origin);
+    } catch {
+      // fallback for relative URLs
+      return {pathname: normalizedUrl};
+    }
+  })();
 
-  // 🔍 Explicitly skip only login/register/refresh
+  // ==========================================================
+  // 🛑 Routes that should NOT include the Authorization header
+  // ==========================================================
   const skipAuthRoutes = [
-    '/api/auth/login',
-    '/api/auth/register',
-    '/api/auth/refresh',
+    '/auth/login',
+    '/auth/register',
+    '/auth/refresh',
+
+    // Google OAuth (contact service)
+    '/contact/google/init',
+    '/contact/google/callback'
+
+    // Google public endpoints do NOT require Authorization
+    //'/contact/google/token'
   ];
-  const skipAuth = skipAuthRoutes.some((r) => normalizedUrl.endsWith(r));
 
-  console.log('[AuthInterceptor] 🧭 Intercepting:', normalizedUrl);
-  console.log('[AuthInterceptor] 🧩 skipAuth:', skipAuth, '| JWT present:', !!jwt);
+  const skipAuth = skipAuthRoutes.some((r) =>
+    apiUrl.pathname.toLowerCase().includes(r)
+  );
 
-  // 🛡️ Attach JWT unless it's a public route
+  // ==========================================================
+  // ✅ Clone request and attach token if needed
+  // ==========================================================
   let authReq = req;
   if (!skipAuth && jwt) {
     authReq = req.clone({
       setHeaders: {Authorization: `Bearer ${jwt}`},
     });
-    console.log('[AuthInterceptor] 🔐 Token attached for:', normalizedUrl);
-  } else if (!skipAuth && !jwt) {
-    console.warn('[AuthInterceptor] ⚠️ Missing JWT for:', normalizedUrl);
-  } else {
-    console.log('[AuthInterceptor] 🚫 Skipped token for public route:', normalizedUrl);
+  }
+
+  // 🔍 Debug log (safe for dev only)
+  if (!environment.production) {
+    console.debug('[AuthInterceptor]', {
+      url: req.url,
+      skipAuth,
+      tokenAdded: !!jwt && !skipAuth,
+      authHeader: authReq.headers.get('Authorization'),
+    });
   }
 
   // ==========================================================
-  // 🧩 Handle responses and refresh token if 401 Unauthorized
+  // 🧠 Main handler with refresh logic
   // ==========================================================
   return next(authReq).pipe(
     catchError((err: any) => {
+      // 🔄 Handle Unauthorized (401)
       if (err instanceof HttpErrorResponse && err.status === 401 && !skipAuth) {
-        console.warn('[AuthInterceptor] ⚠️ 401 → Attempting refresh flow');
+        console.warn('[AuthInterceptor] ⚠️ 401 — attempting token refresh');
 
         if (!isRefreshing) {
           isRefreshing = true;
           refreshTokenSubject.next(null);
 
-          console.log('[AuthInterceptor] 🔄 Refreshing access token...');
-
           return authService.refreshToken().pipe(
             switchMap((res: any) => {
               const newToken = res?.auth_token || res?.token;
               if (newToken) {
-                console.log('[AuthInterceptor] ✅ Token refreshed successfully');
                 authService.setToken(newToken);
                 refreshTokenSubject.next(newToken);
                 isRefreshing = false;
@@ -84,31 +108,33 @@ export const authInterceptorFn: HttpInterceptorFn = (
                 const retryReq = authReq.clone({
                   setHeaders: {Authorization: `Bearer ${newToken}`},
                 });
-                console.log('[AuthInterceptor] 🔁 Retrying original request:', normalizedUrl);
+                console.info(
+                  '[AuthInterceptor] ✅ Token refreshed — retrying request'
+                );
                 return next(retryReq);
               } else {
-                console.error('[AuthInterceptor] ❌ Refresh response missing token');
+                console.error('[AuthInterceptor] ❌ Refresh returned no token');
                 isRefreshing = false;
                 authService.logout();
-                router.navigate(['/login']);
                 return throwError(() => err);
               }
             }),
             catchError((refreshErr) => {
-              console.error('[AuthInterceptor] ❌ Token refresh failed:', refreshErr);
+              console.error(
+                '[AuthInterceptor] ❌ Token refresh failed:',
+                refreshErr
+              );
               isRefreshing = false;
               authService.logout();
-              router.navigate(['/login']);
               return throwError(() => refreshErr);
             })
           );
         } else {
-          // Wait for refresh to complete
+          // 🔁 Wait for refresh to complete
           return refreshTokenSubject.pipe(
             filter((token) => token != null),
             take(1),
             switchMap((token) => {
-              console.log('[AuthInterceptor] ⏳ Queued request resuming with new token');
               const retryReq = authReq.clone({
                 setHeaders: {Authorization: `Bearer ${token}`},
               });
@@ -118,7 +144,12 @@ export const authInterceptorFn: HttpInterceptorFn = (
         }
       }
 
-      // 🚫 Pass all other errors to caller
+      // ⚙️ Handle generic network errors (CORS, SSL, gateway issues)
+      if (err instanceof HttpErrorResponse && err.status === 0) {
+        console.error('[AuthInterceptor] ❌ Network or CORS error:', err);
+        // Don’t immediately log out — allow user to retry
+      }
+
       return throwError(() => err);
     })
   );

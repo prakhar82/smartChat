@@ -9,15 +9,18 @@
 export const environment = {
   production: true,
 
-  // ✅ Use relative paths — Nginx proxies /api → http://api:8080/api
+  // ✅ Local dev via gateway: change to 'https://localhost:8080/api' if not using nginx
   apiUrl: '/api',
 
-  // ✅ WebSocket endpoint proxied by Nginx → http://api:8080/ws-chat
+  // ✅ WebSocket relay
   wsUrl: '/ws-chat',
 
-  // ✅ Google OAuth redirect from deployed frontend
-  googleRedirectUri: 'http://localhost/chats/oauth2/callback',
+  stompConfig: {
+    user: 'smartchat_user',
+    pass: 'smartchat123',
+    vhost: 'smartchat',
+  },
 
-  // ✅ Disable debug logs for production build
-  enableDebugLogs: false
+  googleRedirectUri: 'https://app.smartchat.ai/api/contact/google/callback',
+  enableDebugLogs: false,
 };

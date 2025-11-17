@@ -1,0 +1,114 @@
+############################################################
+# 🧭 SMARTCHAT DISCOVERY SERVICE — FINAL PRODUCTION CONFIG
+# ------------------------------------------------------------
+# Central service registry for SmartChat microservices:
+# - smartchat-api (gateway)
+# - smartchat-auth
+# - smartchat-chat
+# - smartchat-contact
+############################################################
+
+spring:
+  application:
+    name: smartchat-discovery
+  main:
+    allow-bean-definition-overriding: true
+
+  ##########################################################
+  # 📧 Mail Configuration (Optional - remove if unused)
+  ##########################################################
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls.enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+############################################################
+# 🌐 Server Configuration
+############################################################
+server:
+  port: ${EUREKA_PORT:8761}
+  forward-headers-strategy: native
+  shutdown: graceful
+  servlet:
+    context-path: /
+
+############################################################
+# 🔍 Eureka Server Core Configuration
+############################################################
+eureka:
+  client:
+    # The registry server does not register itself
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      # This value must point to itself (useful for clustered setups)
+      defaultZone: http://${EUREKA_INSTANCE_HOSTNAME:smartchat-discovery}:${EUREKA_PORT:8761}/eureka/
+  instance:
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:smartchat-discovery}
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+    metadata-map:
+      instanceId: ${spring.application.name}:${server.port}
+      region: asia-south1
+      zone: primary
+  server:
+    enable-self-preservation: false        # Disable for local / Docker — prevents stale entries
+    eviction-interval-timer-in-ms: 60000
+    renewal-threshold-update-interval-ms: 15000
+    wait-time-in-ms-when-sync-empty: 0
+    peer-eureka-nodes-update-interval-ms: 60000
+
+############################################################
+# 📊 Actuator / Management
+############################################################
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"                       # expose all actuator endpoints
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  health:
+    probes:
+      enabled: true
+    security:
+      enabled: false
+
+############################################################
+# 🧾 Logging Configuration
+############################################################
+logging:
+  file:
+    name: ${LOG_FILE_PATH:/var/log/smartchat-discovery/app.log}
+  level:
+    root: INFO
+    com.netflix.discovery: INFO
+    com.netflix.eureka: INFO
+    org.springframework.cloud.netflix.eureka: INFO
+    com.smartchat.discovery: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} %-5level [%thread] %logger{36} - %msg%n"
+
+############################################################
+# 🧠 Info Metadata (visible under /actuator/info)
+############################################################
+info:
+  app:
+    name: SmartChat Discovery Service
+    version: 1.0.0
+    description: Central Eureka-based registry for SmartChat microservices.
+    maintainer: prakhar.unique@gmail.com

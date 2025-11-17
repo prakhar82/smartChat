@@ -1,0 +1,921 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>SmartChat — Token Browser (Pro)</title>
+
+  <!-- Fonts & small icon set -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --radius: 12px;
+      --gap: 12px;
+      --panel-bg: rgba(255, 255, 255, 0.85);
+      --muted: #6b7280;
+      --accent: #3b82f6;
+      --glass: rgba(59, 130, 246, 0.08);
+      --shadow: 0 6px 18px rgba(11, 22, 38, 0.08);
+      --max-width: 1200px;
+    }
+
+    [data-theme="dark"] {
+      --panel-bg: rgba(20, 24, 33, 0.85);
+      --muted: #9ca3af;
+      --accent: #60a5fa;
+      background: #071022;
+      color: #e6eef8;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial;
+    }
+
+    body {
+      background: linear-gradient(180deg, #f5f7fb 0%, #eef4ff 100%);
+      color: #0f172a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    header {
+      width: 100%;
+      max-width: var(--max-width);
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px
+    }
+
+    h1 {
+      font-size: 1.05rem;
+      margin: 0;
+      font-weight: 600;
+      display: flex;
+      gap: 10px;
+      align-items: center
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-left: 6px;
+      font-weight: 500
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn {
+      background: var(--panel-bg);
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      padding: 8px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      display: inline-flex;
+      gap: 8px;
+      align-items: center
+    }
+
+    .btn.small {
+      padding: 6px 8px;
+      border-radius: 8px;
+      font-size: 0.9rem
+    }
+
+    .btn.ghost {
+      background: transparent;
+      border: 1px dashed rgba(0, 0, 0, 0.06)
+    }
+
+    .search {
+      flex: 1;
+      display: flex;
+      gap: 8px;
+      align-items: center
+    }
+
+    input[type="search"] {
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      min-width: 220px;
+      font-size: 0.95rem;
+      background: white
+    }
+
+    [data-theme="dark"] input[type="search"] {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.06)
+    }
+
+    .layout {
+      width: 100%;
+      max-width: var(--max-width);
+      display: grid;
+      grid-template-columns:270px 1fr;
+      gap: 16px;
+      align-items: start
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--panel-bg);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: var(--shadow);
+      min-height: 320px
+    }
+
+    .sidebar h3 {
+      margin: 0 0 8px 0;
+      font-size: 0.95rem
+    }
+
+    .filters {
+      display: flex;
+      flex-direction: column;
+      gap: 8px
+    }
+
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap
+    }
+
+    .chip {
+      padding: 6px 8px;
+      border-radius: 999px;
+      background: transparent;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      font-size: 0.9rem;
+      cursor: pointer
+    }
+
+    .chip.active {
+      background: var(--accent);
+      color: white;
+      border-color: transparent
+    }
+
+    .meta {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 8px
+    }
+
+    .tog {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px
+    }
+
+    /* Main */
+    .main {
+      min-height: 320px
+    }
+
+    .panels {
+      display: flex;
+      flex-direction: column;
+      gap: 16px
+    }
+
+    .panel {
+      background: var(--panel-bg);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: var(--shadow)
+    }
+
+    .panel h2 {
+      margin: 0 0 12px 0;
+      font-size: 1rem
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px
+    }
+
+    .token {
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.4));
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 96px
+    }
+
+    [data-theme="dark"] .token {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+      border: 1px solid rgba(255, 255, 255, 0.04)
+    }
+
+    .swatch {
+      height: 56px;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow: inset 0 -8px 24px rgba(0, 0, 0, 0.04)
+    }
+
+    .token .meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.85rem
+    }
+
+    .token .name {
+      font-weight: 600;
+      font-size: 0.95rem;
+      word-break: break-all
+    }
+
+    .token .val {
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: var(--muted)
+    }
+
+    .actions {
+      display: flex;
+      gap: 6px;
+      align-items: center
+    }
+
+    .actions button {
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: none;
+      background: rgba(0, 0, 0, 0.04);
+      cursor: pointer
+    }
+
+    .small-muted {
+      font-size: 0.85rem;
+      color: var(--muted)
+    }
+
+    /* presence badge */
+    .presence {
+      display: flex;
+      gap: 8px;
+      align-items: center
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%
+    }
+
+    /* details modal */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 200
+    }
+
+    .modal .card {
+      width: min(760px, 96%);
+      background: var(--panel-bg);
+      padding: 18px;
+      border-radius: 12px;
+      box-shadow: var(--shadow)
+    }
+
+    .modal pre {
+      background: rgba(0, 0, 0, 0.03);
+      padding: 10px;
+      border-radius: 8px;
+      overflow: auto
+    }
+
+    /* responsive */
+    @media (max-width: 880px) {
+      .layout {
+        grid-template-columns:1fr;
+        align-items: stretch
+      }
+
+      header {
+        flex-direction: column;
+        align-items: flex-start
+      }
+
+      .search {
+        width: 100%
+      }
+    }
+  </style>
+</head>
+<body data-theme="light">
+<header>
+  <div style="display:flex;gap:8px;align-items:center">
+    <h1>SmartChat Token Browser <span class="subtitle">Pro</span></h1>
+    <div class="small-muted" id="token-path" style="margin-left:10px">loading…</div>
+  </div>
+
+  <div class="controls">
+    <div class="search">
+      <input id="q" type="search" placeholder="Search tokens (name, value)... (press 'f')" aria-label="Search tokens">
+      <select id="kind" class="btn small" title="Filter by kind">
+        <option value="all">All types</option>
+        <option value="colors">Colors</option>
+        <option value="typography">Typography</option>
+        <option value="presence">Presence</option>
+        <option value="shadows">Shadows</option>
+        <option value="motion">Motion</option>
+      </select>
+    </div>
+
+    <button id="refresh" class="btn small" title="Refresh (r)">⟳ Refresh</button>
+    <button id="auto" class="btn small ghost" title="Toggle auto-reload (a)">Auto</button>
+    <button id="download" class="btn small">⬇️ Download</button>
+    <button id="export-css" class="btn small">📋 CSS</button>
+    <button id="theme" class="btn small">🌗 Theme</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <h3>Filters</h3>
+    <div class="filters" id="filters">
+      <div class="filter-row">
+        <button class="chip active" data-filter="all">All</button>
+        <button class="chip" data-filter="colors">Colors</button>
+        <button class="chip" data-filter="typography">Typography</button>
+        <button class="chip" data-filter="presence">Presence</button>
+        <button class="chip" data-filter="shadows">Shadows</button>
+        <button class="chip" data-filter="motion">Motion</button>
+      </div>
+    </div>
+    <div class="meta" style="margin-top:12px">
+      <div>Auto-reload: <strong id="auto-state">off</strong></div>
+    </div>
+    <div class="tog">
+      <div class="small-muted">Polling interval</div>
+      <select id="poll-interval" class="btn small" style="margin-left:auto">
+        <option value="1000">1s</option>
+        <option value="2000" selected>2s</option>
+        <option value="5000">5s</option>
+        <option value="10000">10s</option>
+      </select>
+    </div>
+
+    <div class="meta" style="margin-top:12px">
+      <div>Shortcuts:</div>
+      <div class="small-muted" style="margin-top:6px">
+        <div><strong>f</strong> focus search</div>
+        <div><strong>r</strong> refresh</div>
+        <div><strong>a</strong> toggle auto-reload</div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="panels">
+      <section class="panel">
+        <h2 id="summary">Tokens</h2>
+        <div id="grid" class="grid" aria-live="polite"/>
+      </section>
+
+      <section class="panel" id="details-panel" style="display:none">
+        <h2>Token Details</h2>
+        <div id="details-content"></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- modal -->
+<div id="modal" style="display:none"></div>
+
+<script>
+  /**
+   * SmartChat Token Browser (Pro)
+   * - Place this file next to `smartchat-tokens.json`
+   * - Autoloads tokens and renders a searchable / filterable UI
+   *
+   * Features implemented:
+   *  - load + parse tokens
+   *  - grouping, filtering, search
+   *  - copy token name/value/CSS variable
+   *  - contrast score for color tokens
+   *  - export CSS variables
+   *  - auto-reload with polling
+   *  - keyboard shortcuts
+   *
+   * Author: Assistant (generated)
+   */
+
+  const TOKEN_FILE = './smartchat-tokens.json';
+  const grid = document.getElementById('grid');
+  const q = document.getElementById('q');
+  const kindSelect = document.getElementById('kind');
+  const refreshBtn = document.getElementById('refresh');
+  const autoBtn = document.getElementById('auto');
+  const autoState = document.getElementById('auto-state');
+  const pollIntervalSelect = document.getElementById('poll-interval');
+  const downloadBtn = document.getElementById('download');
+  const exportCssBtn = document.getElementById('export-css');
+  const themeBtn = document.getElementById('theme');
+  const tokenPathEl = document.getElementById('token-path');
+  const modal = document.getElementById('modal');
+  const filtersContainer = document.getElementById('filters');
+
+  let tokensRaw = null;
+  let tokens = {}; // normalized
+  let autoReload = false;
+  let pollTimer = null;
+  let lastEtag = null;
+
+  tokenPathEl.textContent = TOKEN_FILE;
+
+  async function fetchJson() {
+    try {
+      const res = await fetch(TOKEN_FILE, {cache: 'no-store'});
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const json = await res.json();
+      return json;
+    } catch (err) {
+      console.error('Failed to load tokens', err);
+      showMessage(`Failed to load ${TOKEN_FILE}: ${err.message}`, true);
+      return null;
+    }
+  }
+
+  function normalize(raw) {
+    // Basic shape inference: group keys present on top-level
+    // expected groups: colors, typography, presence, shadows, motion
+    const groups = {};
+    const keys = Object.keys(raw || {});
+    // If top-level groups exist, use them
+    ['colors', 'typography', 'presence', 'shadows', 'motion'].forEach(k => {
+      if (raw[k]) groups[k] = raw[k];
+    });
+    // If no structured groups, try to infer by token naming
+    if (Object.keys(groups).length === 0) {
+      for (const [k, v] of Object.entries(raw || {})) {
+        const lname = k.toLowerCase();
+        if (lname.includes('color') || lname.includes('bg') || isColor(v)) {
+          groups.colors = groups.colors || {};
+          groups.colors[k] = v;
+        } else if (lname.includes('font') || lname.includes('type') || lname.includes('size') || typeof v === 'object' && v['font-family']) {
+          groups.typography = groups.typography || {};
+          groups.typography[k] = v;
+        } else if (lname.includes('shadow') || lname.includes('elevation')) {
+          groups.shadows = groups.shadows || {};
+          groups.shadows[k] = v;
+        } else if (lname.includes('motion') || lname.includes('duration') || lname.includes('timing')) {
+          groups.motion = groups.motion || {};
+          groups.motion[k] = v;
+        } else {
+          // fallback into colors if value looks like a color string, else into misc
+          if (isColor(v)) {
+            groups.colors = groups.colors || {};
+            groups.colors[k] = v;
+          } else {
+            groups.typography = groups.typography || {};
+            groups.typography[k] = v;
+          }
+        }
+      }
+    }
+    return groups;
+  }
+
+  // quick color detection (hex, rgb, rgba, hsl)
+  function isColor(v) {
+    if (typeof v !== 'string') return false;
+    return /^#([0-9a-f]{3,8})$/i.test(v.trim()) ||
+      /^rgb(a)?\(/i.test(v.trim()) ||
+      /^hsl(a)?\(/i.test(v.trim());
+  }
+
+  // utility: compute approximate contrast ratio between two colors
+  // returns ratio number; quick implementation for preview (sRGB)
+  function hexToRgb(hex) {
+    if (!hex) return null;
+    hex = hex.replace('#', '').trim();
+    if (hex.length === 3) {
+      return {r: parseInt(hex[0] + hex[0], 16), g: parseInt(hex[1] + hex[1], 16), b: parseInt(hex[2] + hex[2], 16)};
+    }
+    if (hex.length === 6 || hex.length === 8) {
+      return {r: parseInt(hex.slice(0, 2), 16), g: parseInt(hex.slice(2, 4), 16), b: parseInt(hex.slice(4, 6), 16)};
+    }
+    return null;
+  }
+
+  function luminance({r, g, b}) {
+    const srgb = [r, g, b].map(v => v / 255).map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+    return 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2];
+  }
+
+  function contrastRatio(colorA, colorB = '#ffffff') {
+    try {
+      const a = parseColorToRgb(colorA);
+      const b = parseColorToRgb(colorB);
+      if (!a || !b) return null;
+      const L1 = luminance(a), L2 = luminance(b);
+      const bright = Math.max(L1, L2), dark = Math.min(L1, L2);
+      return +((bright + 0.05) / (dark + 0.05)).toFixed(2);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // parse color strings: hex, rgb(a)
+  function parseColorToRgb(value) {
+    if (!value) return null;
+    value = String(value).trim();
+    if (value.startsWith('#')) return hexToRgb(value);
+    const m = value.match(/rgba?\(([^)]+)\)/i);
+    if (m) {
+      const parts = m[1].split(',').map(s => s.trim());
+      const r = parseInt(parts[0]), g = parseInt(parts[1]), b = parseInt(parts[2]);
+      if ([r, g, b].some(isNaN)) return null;
+      return {r, g, b};
+    }
+    // fallback: can't parse
+    return null;
+  }
+
+  function showMessage(msg, isError = false) {
+    const old = document.getElementById('msg-temp');
+    if (old) old.remove();
+    const el = document.createElement('div');
+    el.id = 'msg-temp';
+    el.style.position = 'fixed';
+    el.style.right = '18px';
+    el.style.bottom = '18px';
+    el.style.padding = '12px 16px';
+    el.style.borderRadius = '10px';
+    el.style.background = isError ? 'rgba(220,60,60,0.95)' : 'rgba(10,120,220,0.95)';
+    el.style.color = 'white';
+    el.style.boxShadow = '0 8px 24px rgba(2,6,23,0.3)';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+  }
+
+  function clearGrid() {
+    grid.innerHTML = '';
+    document.getElementById('summary').textContent = 'Tokens';
+  }
+
+  function renderAll(groups) {
+    clearGrid();
+    const qv = (q.value || '').trim().toLowerCase();
+    const kind = (kindSelect.value || 'all');
+    let count = 0;
+
+    // helper to render token card
+    function createTokenCard(name, val, group) {
+      count++;
+      const t = document.createElement('div');
+      t.className = 'token';
+      // swatch area (colors show swatch, typography shows sample)
+      const sw = document.createElement('div');
+      sw.className = 'swatch';
+      if (group === 'colors') {
+        sw.style.background = val;
+        sw.style.border = '1px solid rgba(0,0,0,0.06)';
+      } else if (group === 'presence') {
+        sw.style.display = 'flex';
+        sw.style.alignItems = 'center';
+        sw.style.justifyContent = 'center';
+        const d = document.createElement('div');
+        d.className = 'dot';
+        d.style.background = val;
+        d.style.width = '42px';
+        d.style.height = '42px';
+        d.style.boxShadow = '0 6px 18px rgba(0,0,0,0.12)';
+        sw.appendChild(d);
+      } else if (group === 'typography') {
+        sw.style.display = 'flex';
+        sw.style.alignItems = 'center';
+        sw.style.justifyContent = 'center';
+        const s = document.createElement('div');
+        s.textContent = (val && val['font-family']) ? 'Aa' : 'Aa';
+        if (val && typeof val === 'object') {
+          if (val['font-family']) s.style.fontFamily = val['font-family'];
+          if (val['font-size']) s.style.fontSize = val['font-size'];
+        }
+        sw.appendChild(s);
+      } else {
+        // show a subtle sample
+        sw.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.45))';
+        sw.innerHTML = `<div style="padding:8px;color:var(--muted);font-size:0.9rem">Preview</div>`;
+      }
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'name';
+      nameEl.textContent = name;
+      const valEl = document.createElement('div');
+      valEl.className = 'val';
+      valEl.textContent = typeof val === 'object' ? JSON.stringify(val) : String(val);
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      const left = document.createElement('div');
+      left.style.display = 'flex';
+      left.style.flexDirection = 'column';
+      left.appendChild(nameEl);
+      left.appendChild(valEl);
+
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+      const btnCopy = document.createElement('button');
+      btnCopy.title = 'Copy value';
+      btnCopy.innerText = 'Copy';
+      btnCopy.onclick = (e) => {
+        e.stopPropagation();
+        copyToClipboard(typeof val === 'object' ? JSON.stringify(val) : String(val));
+        showMessage('Copied value');
+      };
+      const btnName = document.createElement('button');
+      btnName.title = 'Copy token name';
+      btnName.innerText = 'Name';
+      btnName.onclick = (e) => {
+        e.stopPropagation();
+        copyToClipboard(name);
+        showMessage('Copied token name');
+      };
+      const btnCss = document.createElement('button');
+      btnCss.title = 'Copy CSS variable';
+      btnCss.innerText = '--var';
+      btnCss.onclick = (e) => {
+        e.stopPropagation();
+        copyToClipboard(`--${name}: ${typeof val === 'object' ? JSON.stringify(val) : String(val)};`);
+        showMessage('Copied CSS variable');
+      };
+
+      actions.appendChild(btnCopy);
+      actions.appendChild(btnName);
+      actions.appendChild(btnCss);
+
+      // extra badge for colors: contrast vs white/black
+      if (group === 'colors') {
+        const crWhite = contrastRatio(val, '#ffffff');
+        const crBlack = contrastRatio(val, '#000000');
+        const badge = document.createElement('div');
+        badge.className = 'small-muted';
+        badge.innerHTML = `contrast: ${crWhite ? crWhite + ' (vs white)' : ''} ${crBlack ? crBlack + ' (vs black)' : ''}`;
+        left.appendChild(badge);
+      }
+
+      meta.appendChild(left);
+      meta.appendChild(actions);
+
+      t.appendChild(sw);
+      t.appendChild(meta);
+
+      // open details on click
+      t.onclick = () => openDetails(name, val, group);
+      return t;
+    }
+
+    // iterate groups and tokens
+    const kinds = Object.keys(groups);
+    for (const g of kinds) {
+      if (kind !== 'all' && kind !== g) continue;
+      const map = groups[g] || {};
+      for (const [name, val] of Object.entries(map)) {
+        const combined = (name + ' ' + (typeof val === 'object' ? JSON.stringify(val) : String(val))).toLowerCase();
+        if (qv && !combined.includes(qv)) continue;
+        const card = createTokenCard(name, val, g);
+        grid.appendChild(card);
+      }
+    }
+
+    document.getElementById('summary').textContent = `Tokens — ${grid.children.length} items`;
+  }
+
+  function openDetails(name, val, group) {
+    // show modal with details and small code snippets
+    modal.innerHTML = '';
+    modal.style.display = 'flex';
+    modal.className = 'modal';
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div><strong>${name}</strong> <span class="small-muted">(${group})</span></div>
+      <div style="display:flex;gap:8px">
+        <button id="copyValue" class="btn small">Copy value</button>
+        <button id="closeModal" class="btn small ghost">Close</button>
+      </div>
+    </div>`;
+    const body = document.createElement('div');
+    const pre = document.createElement('pre');
+    pre.style.whiteSpace = 'pre-wrap';
+    pre.textContent = typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val);
+    body.appendChild(pre);
+
+    // additional helpers for colors
+    if (group === 'colors') {
+      const px = document.createElement('div');
+      px.style.marginTop = '10px';
+      px.innerHTML = `<div style="display:flex;gap:12px;align-items:center">
+        <div style="width:80px;height:80px;border-radius:8px;background:${val};border:1px solid rgba(0,0,0,0.06)"></div>
+        <div>
+          <div class="small-muted">Contrast vs white: <strong>${contrastRatio(val, '#fff') || 'n/a'}</strong></div>
+          <div class="small-muted">Contrast vs black: <strong>${contrastRatio(val, '#000') || 'n/a'}</strong></div>
+        </div>
+      </div>`;
+      body.appendChild(px);
+    }
+
+    card.appendChild(body);
+    modal.appendChild(card);
+
+    document.getElementById('closeModal').onclick = closeModal;
+    document.getElementById('copyValue').onclick = () => {
+      copyToClipboard(pre.textContent);
+      showMessage('Copied value');
+    };
+  }
+
+  function closeModal() {
+    modal.style.display = 'none';
+    modal.innerHTML = '';
+  }
+
+  function copyToClipboard(txt) {
+    navigator.clipboard?.writeText(txt).catch(() => {
+      // fallback
+      const t = document.createElement('textarea');
+      t.value = txt;
+      document.body.appendChild(t);
+      t.select();
+      document.execCommand('copy');
+      t.remove();
+    });
+  }
+
+  // Export CSS variables (very naive: outputs flat variables for colors + presence)
+  function exportCSSVariables(groups) {
+    let css = '/* SmartChat CSS variables (generated) */\n:root{\n';
+    if (groups.colors) for (const [k, v] of Object.entries(groups.colors)) css += `  --${k}: ${v};\n`;
+    if (groups.presence) for (const [k, v] of Object.entries(groups.presence)) css += `  --presence-${k}: ${v};\n`;
+    css += '}\n';
+    copyToClipboard(css);
+    showMessage('CSS variables copied to clipboard');
+  }
+
+  function renderFilters() {
+    // wire up chips
+    filtersContainer.querySelectorAll('.chip').forEach(ch => {
+      ch.onclick = () => {
+        filtersContainer.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        ch.classList.add('active');
+        const filter = ch.dataset.filter || 'all';
+        kindSelect.value = filter === 'all' ? 'all' : filter;
+        renderAll(tokens);
+      };
+    });
+  }
+
+  // main loader
+  async function loadAndRender() {
+    const raw = await fetchJson();
+    if (!raw) return;
+    tokensRaw = raw;
+    tokens = normalize(raw);
+    renderAll(tokens);
+  }
+
+  // polling
+  function startPolling() {
+    stopPolling();
+    const interval = parseInt(pollIntervalSelect.value, 10) || 2000;
+    pollTimer = setInterval(async () => {
+      try {
+        const res = await fetch(TOKEN_FILE, {cache: 'no-store'});
+        if (!res.ok) return;
+        const json = await res.json();
+        // naive diff: stringify
+        if (JSON.stringify(json) !== JSON.stringify(tokensRaw)) {
+          tokensRaw = json;
+          tokens = normalize(json);
+          renderAll(tokens);
+          showMessage('Tokens updated (auto-reload)');
+        }
+      } catch (e) {
+      }
+    }, interval);
+  }
+
+  function stopPolling() {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  // initialize
+  (function init() {
+    loadAndRender();
+    renderFilters();
+
+    // UI hookups
+    refreshBtn.onclick = () => loadAndRender();
+    q.oninput = () => renderAll(tokens);
+    kindSelect.onchange = () => renderAll(tokens);
+    pollIntervalSelect.onchange = () => {
+      if (autoReload) startPolling();
+    };
+
+    autoBtn.onclick = () => {
+      autoReload = !autoReload;
+      autoBtn.classList.toggle('active', autoReload);
+      autoBtn.classList.toggle('ghost', !autoReload);
+      autoState.textContent = autoReload ? 'on' : 'off';
+      if (autoReload) startPolling(); else stopPolling();
+      showMessage('Auto-reload ' + (autoReload ? 'enabled' : 'disabled'));
+    };
+
+    downloadBtn.onclick = async () => {
+      const blob = new Blob([JSON.stringify(tokensRaw, null, 2)], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'smartchat-tokens.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    exportCssBtn.onclick = () => exportCSSVariables(tokens);
+
+    themeBtn.onclick = () => {
+      const el = document.documentElement;
+      const cur = el.getAttribute('data-theme') || 'light';
+      const next = cur === 'light' ? 'dark' : 'light';
+      el.setAttribute('data-theme', next);
+    };
+
+    // keyboard shortcuts
+    window.addEventListener('keydown', (ev) => {
+      if (ev.key === 'f' && document.activeElement !== q) {
+        ev.preventDefault();
+        q.focus();
+      }
+      if (ev.key === 'r') {
+        ev.preventDefault();
+        loadAndRender();
+      }
+      if (ev.key === 'a') {
+        ev.preventDefault();
+        autoBtn.click();
+      }
+      if (ev.key === 'Escape') {
+        closeModal();
+      }
+    });
+
+    // accessibility: close modal on click outside
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    // provide a small initial tip
+    setTimeout(() => showMessage('Pro Token Browser ready — press "f" to search'), 800);
+  })();
+
+  // small helper to be resilient when tokens have nested groups: flatten top-level objects
+  // (already handled by normalize)
+
+</script>
+</body>
+</html>

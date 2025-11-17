@@ -4,7 +4,9 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve --proxy-config proxy.conf.json",
+    "build:tokens": "style-dictionary build --config design-tokens/smartchat-style-dictionary.config.js",
     "build": "ng build",
+    "build:prod": "ng build --configuration production --base-href=/",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },
@@ -30,9 +32,11 @@
     "@angular/forms": "20.3.0",
     "@angular/platform-browser": "20.3.0",
     "@angular/router": "20.3.0",
+    "@angular/service-worker": "^20.3.0",
     "@capacitor-community/contacts": "^7.0.0",
     "@capacitor/core": "^7.4.3",
     "@capacitor/geolocation": "^7.1.5",
+    "@stomp/rx-stomp": "^2.2.0",
     "@stomp/stompjs": "^7.2.1",
     "browser-image-compression": "^2.0.2",
     "emoji-picker-element": "^1.27.0",
@@ -42,6 +46,7 @@
     "tslib": "^2.3.0"
   },
   "devDependencies": {
+    "@angular-devkit/build-angular": "^20.3.0",
     "@angular/build": "20.3.0",
     "@angular/cli": "20.3.0",
     "@angular/compiler-cli": "20.3.0",
@@ -54,6 +59,7 @@
     "karma-coverage": "~2.2.0",
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
+    "style-dictionary": "^5.1.1",
     "typescript": "5.8.3"
   }
 }

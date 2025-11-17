@@ -1,0 +1,24 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<!-- =========================================================
+     🧭 Presence Legend
+     ---------------------------------------------------------
+     Explains presence dot meanings — lightweight & accessible.
+     Can be used inside sidebar footer or below contact list.
+     ========================================================= -->
+<div class="presence-legend" role="group" aria-label="Presence status legend">
+  <div
+    class="legend-item"
+    *ngFor="let item of legendItems"
+    [attr.aria-label]="item.label + ' status indicator'"
+  >
+    <span class="presence-dot" [ngClass]="item.class" aria-hidden="true"></span>
+    <span class="label">{{ item.label }}</span>
+  </div>
+</div>

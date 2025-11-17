@@ -1,0 +1,101 @@
+###############################################################################
+# 🚀 SmartChat CI/CD Pipeline (Backend + Frontend Deployment via Docker)
+# ----------------------------------------------------------------------
+# ✅ Builds and pushes Docker images for:
+#    - backend (Spring Boot)
+#    - frontend (Angular + NGINX)
+# ✅ SSH deploys updated stack via docker-compose on target server
+#
+# 🔐 Requirements:
+#   - Add GitHub Secrets:
+#       DOCKERHUB_USERNAME
+#       DOCKERHUB_TOKEN
+#       SERVER_HOST
+#       SERVER_USER
+#       SERVER_SSH_KEY (private key content)
+###############################################################################
+
+name: 🚀 SmartChat Full-Stack Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch: # allow manual trigger
+
+jobs:
+  build-and-deploy:
+    name: 🧱 Build & Deploy Docker Stack
+    runs-on: ubuntu-latest
+
+    env:
+      BACKEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/smartchat-backend
+      FRONTEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/smartchat-frontend
+      TAG: latest
+
+    steps:
+      # ================================
+      # 🧰 Step 1. Checkout Repository
+      # ================================
+      - name: 🛎️ Checkout Code
+        uses: actions/checkout@v4
+
+      # ================================
+      # 🐳 Step 2. Login to Docker Hub
+      # ================================
+      - name: 🔐 Docker Login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # ================================
+      # 🏗️ Step 3. Build Backend Image
+      # ================================
+      - name: 🧠 Build Backend (Spring Boot)
+        run: |
+          docker build -t $BACKEND_IMAGE:$TAG ./backend
+
+      # ================================
+      # 🎨 Step 4. Build Frontend Image
+      # ================================
+      - name: 🌐 Build Frontend (Angular + NGINX)
+        run: |
+          docker build -t $FRONTEND_IMAGE:$TAG ./frontend
+
+      # ================================
+      # 📤 Step 5. Push to Docker Hub
+      # ================================
+      - name: 🚀 Push Docker Images
+        run: |
+          docker push $BACKEND_IMAGE:$TAG
+          docker push $FRONTEND_IMAGE:$TAG
+
+      # ================================
+      # 🔑 Step 6. Configure SSH
+      # ================================
+      - name: 🔐 Setup SSH for Deployment
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
+
+      # ================================
+      # 🌍 Step 7. Deploy on Remote Server
+      # ================================
+      - name: 🧩 Deploy SmartChat Stack
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            set -e
+            cd ~/smartchat
+
+            echo "🔄 Pulling latest images..."
+            docker compose pull
+
+            echo "🚀 Rebuilding and restarting stack..."
+            docker compose down
+            docker compose up -d
+
+            echo "✅ Deployment complete."
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          EOF

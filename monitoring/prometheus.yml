@@ -1,0 +1,143 @@
+# ===============================================================
+# 📈 Prometheus Configuration for SmartChat Microservices
+# ===============================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+# Optional global labels
+# external_labels:
+#   environment: production
+#   project: SmartChat
+
+# ===============================================================
+# 🔍 Scrape Configurations
+# ===============================================================
+scrape_configs:
+
+  # -------------------------------------------------------------
+  # 🧭 Eureka Discovery Service
+  # -------------------------------------------------------------
+  - job_name: 'smartchat-discovery'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: [ 'smartchat_discovery:8761' ]
+        labels:
+          service: 'discovery'
+          tier: 'registry'
+    relabel_configs:
+      - source_labels: [ __address__ ]
+        target_label: instance
+        replacement: 'smartchat-discovery'
+
+  # -------------------------------------------------------------
+  # 🧠 SmartChat API Orchestrator
+  # -------------------------------------------------------------
+  - job_name: 'smartchat-api'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: [ 'smartchat_api:8080' ]
+        labels:
+          service: 'api'
+          tier: 'orchestrator'
+    relabel_configs:
+      - source_labels: [ __address__ ]
+        target_label: instance
+        replacement: 'smartchat-api'
+
+  # -------------------------------------------------------------
+  # 🔐 SmartChat Auth Service
+  # -------------------------------------------------------------
+  - job_name: 'smartchat-auth'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: [ 'smartchat_auth:8081' ]
+        labels:
+          service: 'auth'
+          tier: 'security'
+    relabel_configs:
+      - source_labels: [ __address__ ]
+        target_label: instance
+        replacement: 'smartchat-auth'
+
+  # -------------------------------------------------------------
+  # 💬 SmartChat Chat Service
+  # -------------------------------------------------------------
+  - job_name: 'smartchat-chat'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: [ 'smartchat_chat:8082' ]
+        labels:
+          service: 'chat'
+          tier: 'messaging'
+    relabel_configs:
+      - source_labels: [ __address__ ]
+        target_label: instance
+        replacement: 'smartchat-chat'
+
+  # -------------------------------------------------------------
+  # 📇 SmartChat Contact Service
+  # -------------------------------------------------------------
+  - job_name: 'smartchat-contact'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: [ 'smartchat_contact:8083' ]
+        labels:
+          service: 'contact'
+          tier: 'integration'
+    relabel_configs:
+      - source_labels: [ __address__ ]
+        target_label: instance
+        replacement: 'smartchat-contact'
+
+  # -------------------------------------------------------------
+  # 🧩 Redis Exporter (optional)
+  # -------------------------------------------------------------
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: [ 'redis_exporter:9121' ]
+        labels:
+          service: 'redis'
+          tier: 'cache'
+
+  # -------------------------------------------------------------
+  # 🧩 PostgreSQL Exporter (optional)
+  # -------------------------------------------------------------
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: [ 'postgres_exporter:9187' ]
+        labels:
+          service: 'postgres'
+          tier: 'database'
+
+  # -------------------------------------------------------------
+  # 🐇 RabbitMQ Native Prometheus Endpoint
+  # -------------------------------------------------------------
+  - job_name: 'rabbitmq'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: [ 'smartchat_rabbitmq:15692' ]
+        labels:
+          service: 'rabbitmq'
+          tier: 'messaging'
+          exporter: 'builtin'
+    relabel_configs:
+      - source_labels: [ __address__ ]
+        target_label: instance
+        replacement: 'smartchat-rabbitmq'
+
+  # -------------------------------------------------------------
+  # ☕ JVM Metrics (Micrometer Exporters)
+  # -------------------------------------------------------------
+  - job_name: 'jvm-metrics'
+    honor_labels: true
+    static_configs:
+      - targets:
+          - 'smartchat_api:8080'
+          - 'smartchat_auth:8081'
+          - 'smartchat_chat:8082'
+          - 'smartchat_contact:8083'
+        labels:
+          exporter: 'micrometer'

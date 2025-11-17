@@ -1,0 +1,88 @@
+/*!
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
+ */
+
+/* =========================================================
+ * ⚪ Base Indicator
+ * ========================================================= */
+.presence-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+
+  /* 🔄 Smooth transitions */
+  transition: background-color 0.25s ease-in-out,
+  box-shadow 0.25s ease-in-out,
+  transform 0.25s ease-in-out,
+  opacity 0.25s ease-in-out;
+
+  &[aria-label] {
+    cursor: default;
+  }
+}
+
+/* =========================================================
+ * 🟢 Online
+ * ========================================================= */
+.presence-dot.online {
+  background-color: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.65);
+  transform: scale(1.1);
+  opacity: 1;
+}
+
+/* =========================================================
+ * 🟡 Away
+ * ========================================================= */
+.presence-dot.away {
+  background-color: #eab308;
+  box-shadow: 0 0 6px rgba(234, 179, 8, 0.6);
+  transform: scale(1.05);
+  opacity: 0.9;
+}
+
+/* =========================================================
+ * ⚫ Offline
+ * ========================================================= */
+.presence-dot.offline {
+  background-color: #9ca3af;
+  transform: scale(0.95);
+  opacity: 0.7;
+}
+
+/* =========================================================
+ * 🌙 Dark Mode
+ * ========================================================= */
+@media (prefers-color-scheme: dark) {
+  .presence-dot.offline {
+    background-color: #6b7280;
+    opacity: 0.6;
+  }
+
+  .presence-dot.online {
+    background-color: #22c55e;
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.8);
+  }
+
+  .presence-dot.away {
+    background-color: #facc15;
+    box-shadow: 0 0 8px rgba(250, 204, 21, 0.75);
+  }
+}
+
+/* =========================================================
+ * 🪶 Accessibility: Reduced Motion
+ * ========================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .presence-dot {
+    transition: none;
+    transform: none;
+  }
+}

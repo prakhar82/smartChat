@@ -6,112 +6,85 @@
  * Author: $USER_NAME
  */
 
-/* 🌈 Root color variables */
-:root {
-  --btn-radius: 8px;
-  --btn-font: 0.95rem;
-  --btn-transition: 0.25s ease;
+/*!
+ * =========================================================
+ *  🧩 SmartChat Button System (Blue-Gray Theme)
+ * =========================================================
+ */
 
-  /* Light theme */
-  --color-primary: #25d366; /* WhatsApp green */
-  --color-primary-hover: #1da955;
-  --color-secondary: #ddd;
-  --color-secondary-hover: #ccc;
-  --color-danger: #e53935;
-  --color-danger-hover: #d32f2f;
-  --color-text-light: #fff;
-  --color-text-dark: #111;
-}
-
-/* 🌙 Dark mode overrides */
-body.dark {
-  --color-primary: #00a884;
-  --color-primary-hover: #009973;
-  --color-secondary: #2a3942;
-  --color-secondary-hover: #3b4a54;
-  --color-danger: #f44336;
-  --color-danger-hover: #ef5350;
-  --color-text-light: #e9edef;
-  --color-text-dark: #e9edef;
-}
-
-/* 🔘 Base button */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--btn-font);
-  font-weight: 500;
-  border-radius: var(--btn-radius);
+button {
+  position: relative;
+  font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   border: none;
   cursor: pointer;
-  transition: background var(--btn-transition), transform 0.1s;
-  padding: 0.6rem 1.1rem;
-  text-decoration: none;
-  user-select: none;
-  outline: none;
+  border-radius: 12px;
+  transition: all 0.25s ease;
+  font-weight: 500;
+  overflow: hidden;
 }
 
-.btn:hover {
-  transform: scale(1.02);
-}
-
-/* 💚 Primary */
+/* 🔵 Primary */
 .btn-primary {
-  background: var(--color-primary);
-  color: var(--color-text-light);
+  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+  color: #fff;
+  box-shadow: var(--shadow-soft);
 }
 
 .btn-primary:hover {
-  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-strong);
+  transform: translateY(-1px);
 }
 
-/* ⚪ Secondary */
+/* ⚪ Secondary Glass Button */
 .btn-secondary {
-  background: var(--color-secondary);
-  color: var(--color-text-dark);
+  background: var(--glass-blue);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--glass-border);
+  color: var(--text-color);
 }
 
 .btn-secondary:hover {
-  background: var(--color-secondary-hover);
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.25);
 }
 
-/* ❤️ Danger */
-.btn-danger {
-  background: var(--color-danger);
-  color: var(--color-text-light);
+/* 🔘 Icon */
+.btn-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--glass-blue);
+  border: 1px solid var(--glass-border);
+  color: var(--primary);
 }
 
-.btn-danger:hover {
-  background: var(--color-danger-hover);
+.btn-icon:hover {
+  background: rgba(59, 130, 246, 0.15);
+  box-shadow: var(--shadow-strong);
+}
+
+/* 💥 Ripple */
+button::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  opacity: 0.5;
+  background: rgba(59, 130, 246, 0.4);
+  transition: transform 0.5s, opacity 1s;
+  inset: 0;
+}
+
+button:active::after {
+  transform: scale(4);
+  opacity: 0;
 }
 
 /* 🚫 Disabled */
-.btn:disabled {
+button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  transform: none;
-}
-
-/* 🔲 Icon buttons */
-.icon-btn {
-  background: transparent;
-  border: none;
-  color: var(--color-text-dark);
-  padding: 6px;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.icon-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-body.dark .icon-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.btn:active {
-  transform: scale(0.97);
 }

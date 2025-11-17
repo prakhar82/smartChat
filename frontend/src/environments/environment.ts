@@ -6,21 +6,21 @@
  * Author: $USER_NAME
  */
 
-/**
- * 🌱 Environment Configuration — Development
- * -------------------------------------------
- * Used when running Angular locally (`ng serve`).
- * Points to a local backend on http://localhost:8080.
- */
-
 export const environment = {
   production: false,
 
   /** 🌐 Local backend API (Spring Boot) */
   apiUrl: 'http://localhost:8080/api',
 
-  /** 🔌 Local WebSocket endpoint */
-  wsUrl: 'http://localhost:8080/ws-chat',
+  /** 🔌 Local WebSocket endpoint (RabbitMQ Web STOMP) */
+  wsUrl: 'ws://localhost:15674/ws',
+
+  /** 🧠 RabbitMQ STOMP credentials (for WebSocket client) */
+  stompConfig: {
+    user: 'smartchat_user',
+    pass: 'smartchat123',
+    vhost: 'smartchat',
+  },
 
   /** 🔑 Google OAuth redirect for local testing */
   googleRedirectUri: 'http://localhost:4200/chats/oauth2/callback',

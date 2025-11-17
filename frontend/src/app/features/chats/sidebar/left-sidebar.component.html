@@ -1,0 +1,151 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<nav
+  class="left-sidebar"
+  [class.pinned]="isPinned"
+  aria-label="SmartChat sidebar"
+  (mouseenter)="onMouseEnter()"
+  (mouseleave)="onMouseLeave()"
+>
+  <!-- 👤 Profile Section -->
+  <div
+    class="profile-section"
+    (click)="goToProfile()"
+    tabindex="0"
+    role="button"
+    aria-label="Go to Profile"
+  >
+    <div class="profile-avatar">
+      {{ firstName ? firstName[0] : 'U' }}
+    </div>
+    <div class="profile-info">
+      <span class="profile-name">{{ firstName }}</span>
+      <select
+        class="status-dropdown"
+        [(ngModel)]="userStatus"
+        (change)="changeStatus(userStatus)"
+        aria-label="Set your status"
+      >
+        <option value="available">🟢 Available</option>
+        <option value="busy">🔴 Busy</option>
+        <option value="away">🟡 Away</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- 🧭 Navigation -->
+  <div class="nav-group">
+    <button
+      class="icon-btn"
+      [class.active]="activeTab === 'chats'"
+      (click)="setActiveTab('chats'); goToChats()"
+    >
+      <i class="material-icons-round">chat</i>
+      <span class="label">Chats</span>
+      <span class="tooltip">Chats</span>
+    </button>
+
+    <button
+      class="icon-btn"
+      [class.active]="activeTab === 'contacts'"
+      (click)="setActiveTab('contacts'); goToContacts()"
+    >
+      <i class="material-icons-round">contacts</i>
+      <span class="label">Contacts</span>
+      <span class="tooltip">Contacts</span>
+    </button>
+
+    <button
+      class="icon-btn"
+      [class.active]="activeTab === 'profile'"
+      (click)="setActiveTab('profile'); goToProfile()"
+    >
+      <i class="material-icons-round">person</i>
+      <span class="label">Profile</span>
+      <span class="tooltip">Profile</span>
+    </button>
+  </div>
+
+  <!-- ⚙  ️ Utilities -->
+  <div class="utility-group">
+    <!-- 🔄 Google Contacts Sync -->
+    <button
+      class="icon-btn"
+      [disabled]="isSyncing"
+      (click)="requestGoogleSync()"
+      aria-label="Sync Google Contacts"
+    >
+      <ng-container *ngIf="!isSyncing; else syncLoading">
+        <img
+          src="assets/google-icon.png"
+          alt="Google"
+          width="20"
+          height="20"
+          draggable="false"
+        />
+      </ng-container>
+      <ng-template #syncLoading>
+        <div class="spinner" role="status" aria-label="Syncing contacts..."></div>
+      </ng-template>
+      <span class="label">Sync</span>
+      <span class="tooltip">Sync Contacts</span>
+    </button>
+
+    <!-- 🌗 Theme Toggle -->
+    <button
+      class="icon-btn"
+      (click)="onToggleTheme()"
+      aria-label="Toggle Theme"
+    >
+      <i class="material-icons-round">
+        {{ theme === 'dark' ? 'light_mode' : 'dark_mode' }}
+      </i>
+      <span class="label">Theme</span>
+      <span class="tooltip">Toggle Theme</span>
+    </button>
+
+    <!-- 📌 Pin Toggle (with glowing pulse) -->
+    <button
+      class="icon-btn pin-btn"
+      [class.active]="isPinned"
+      [class.glow]="pinGlow"
+      (click)="togglePin()"
+      [attr.aria-pressed]="isPinned"
+      aria-label="Pin or unpin sidebar"
+    >
+      <i class="material-icons-round">push_pin</i>
+      <span class="label">
+        {{ isPinned ? 'Unpin Sidebar' : 'Pin Sidebar' }}
+      </span>
+      <span class="tooltip">
+        {{ isPinned ? 'Unpin Sidebar' : 'Pin Sidebar' }}
+      </span>
+    </button>
+  </div>
+
+  <!-- 🧭 Presence Legend -->
+  <footer class="sidebar-legend">
+    <app-presence-legend></app-presence-legend>
+  </footer>
+
+  <!-- 🔔 Toast Notification -->
+  <div
+    class="toast"
+    *ngIf="showToast"
+    [ngClass]="{
+      success: toastType === 'success',
+      error: toastType === 'error',
+      info: toastType === 'info'
+    }"
+    role="alert"
+    aria-live="assertive"
+  >
+    {{ toastMessage }}
+  </div>
+</nav>

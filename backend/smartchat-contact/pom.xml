@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<!--
+  ======================================================================
+   🧩 SMARTCHAT :: CONTACT MODULE
+  ======================================================================
+   © 2025 SmartChat Contributors. All rights reserved.
+   Handles contact synchronization, matched contacts, and OAuth integration.
+  ======================================================================
+-->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ==================================================== -->
+    <!-- 📦 Parent -->
+    <!-- ==================================================== -->
+    <parent>
+        <groupId>com.smartchat</groupId>
+        <artifactId>backend</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>smartchat-contact</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>SmartChat :: Contact Module</name>
+    <description>Handles Google Contacts, OAuth integration, and contact synchronization for SmartChat.</description>
+
+    <!-- ==================================================== -->
+    <!-- 🧩 Dependencies -->
+    <!-- ==================================================== -->
+    <dependencies>
+
+        <!-- 🔗 Shared DTOs & Contracts -->
+        <dependency>
+            <groupId>com.smartchat</groupId>
+            <artifactId>smartchat-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- ✅ Spring Boot Core -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- ✅ Validation -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- ✅ Actuator (for health checks) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- ✅ Database Layer -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- ✅ Spring Security (needed for SecurityFilterChain and @EnableWebSecurity) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+
+        <!-- ✅ JSONB / Hibernate Types -->
+        <dependency>
+            <groupId>com.vladmihalcea</groupId>
+            <artifactId>hibernate-types-60</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>3.1.8</version>
+        </dependency>
+
+
+        <!--
+      ✅ WebClient Dependency (from WebFlux)
+        ======================================================================
+          We include spring-boot-starter-webflux only to use the WebClient API
+          for calling external HTTP services (e.g., Google People API, OAuth).
+
+          Reactive web runtime and security are explicitly disabled in
+          SmartChatContactApplication via exclusion of:
+            • ReactiveSecurityAutoConfiguration
+            • ReactiveManagementWebSecurityAutoConfiguration
+
+          This provides a lightweight, non-reactive WebClient configuration
+          without enabling a reactive web server or reactive security.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+
+        <!-- ✅ MongoDB (for sync history / optional caching) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+        </dependency>
+
+        <!-- ✅ Redis (for cache / sync status) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <!-- ✅ Eureka Client (Service Discovery) -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+
+        <!-- ✅ Feign Client (inter-service communication) -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+
+        <!-- ✅ LoadBalancer (for service name resolution) -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
+        </dependency>
+
+        <!-- ✅ Resilience4j (Circuit Breaker / Retry) -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
+        </dependency>
+
+        <!-- ✅ Utilities -->
+        <dependency>
+            <groupId>com.googlecode.libphonenumber</groupId>
+            <artifactId>libphonenumber</artifactId>
+        </dependency>
+
+        <!-- ✅ Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- ✅ Servlet API (provided by container) -->
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <version>6.0.0</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- ✅ Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.junit.vintage</groupId>
+                    <artifactId>junit-vintage-engine</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        
+
+    </dependencies>
+
+    <!-- ==================================================== -->
+    <!-- ⚙️ Build -->
+    <!-- ==================================================== -->
+    <build>
+        <finalName>smartchat-contact</finalName>
+
+        <plugins>
+
+            <!-- 🧱 Compiler Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <encoding>UTF-8</encoding>
+                    <parameters>true</parameters>
+                </configuration>
+            </plugin>
+
+            <!-- 🚀 Spring Boot Plugin -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>com.smartchat.contact.SmartChatContactApplication</mainClass>
+                    <layers enabled="true"/>
+                </configuration>
+            </plugin>
+
+        </plugins>
+    </build>
+
+    <!-- ==================================================== -->
+    <!-- 🌍 Profiles -->
+    <!-- ==================================================== -->
+    <profiles>
+        <profile>
+            <id>dev</id>
+            <properties>
+                <spring.profiles.active>dev</spring.profiles.active>
+            </properties>
+        </profile>
+        <profile>
+            <id>prod</id>
+            <properties>
+                <spring.profiles.active>prod</spring.profiles.active>
+            </properties>
+        </profile>
+    </profiles>
+
+</project>

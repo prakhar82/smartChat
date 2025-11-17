@@ -1,0 +1,88 @@
+############################################################
+# 🧩 SmartChat Auth Service - Development Configuration
+############################################################
+
+spring:
+  application:
+    name: smartchat-auth
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:smartchat}
+    username: ${POSTGRES_USER:smartchat}
+    password: ${POSTGRES_PASSWORD:smartchat}
+
+  data:
+    redis:
+      client-type: lettuce
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 60s
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: true
+
+  main:
+    allow-bean-definition-overriding: true
+
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 3000
+        readTimeout: 5000
+        loggerLevel: basic
+  circuitbreaker:
+    enabled: true
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      authServiceCB:
+        slidingWindowSize: 20
+        failureRateThreshold: 50
+        waitDurationInOpenState: 15s
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        permittedNumberOfCallsInHalfOpenState: 5
+        minimumNumberOfCalls: 10
+
+
+server:
+  port: ${AUTH_PORT:8081}
+  shutdown: graceful
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:localdevsecret}
+    expiration: 900000
+    refresh-expiration: 604800000
+    reset-token-expiration: 900000
+    verification-token-expiration: 86400000
+    max-login-attempts: 5
+    lockout-duration: 300000
+    password:
+      strength: 12
+
+logging:
+  file:
+    name: ./logs/auth/app.log
+  level:
+    root: DEBUG
+    com.smartchat.auth: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus

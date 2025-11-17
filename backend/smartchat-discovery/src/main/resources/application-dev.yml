@@ -1,0 +1,108 @@
+############################################################
+# 🧭 SmartChat Discovery Service (Eureka Server)
+############################################################
+
+spring:
+  application:
+    name: smartchat-discovery
+
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:alerts@smartchat.io}
+    password: ${MAIL_PASSWORD:change_me}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  slack:
+    enabled: true
+    webhook-url: ${SLACK_WEBHOOK_URL:https://hooks.slack.com/services/XXXX/YYYY/ZZZZ}
+
+  discord:
+    enabled: true
+    webhook-url: ${DISCORD_WEBHOOK_URL:https://discord.com/api/webhooks/XXXX/YYYY}
+alert:
+  mail:
+    enabled: true
+    from: noreply@smartchat.io
+    to: admin@smartchat.io
+
+  profiles:
+    active: ${PROFILE:dev}
+
+server:
+  port: ${EUREKA_PORT:8761}
+  shutdown: graceful
+  servlet:
+    context-path: /
+
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+  server:
+    enable-self-preservation: true
+    eviction-interval-timer-in-ms: 60000
+    renewal-threshold-update-interval-ms: 15000
+  instance:
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:localhost}
+    prefer-ip-address: true
+    metadata-map:
+      instanceId: ${spring.application.name}:${server.port}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  file:
+    name: ${LOG_FILE_PATH:./logs/discovery/app.log}
+  level:
+    root: INFO
+    com.netflix.eureka: INFO
+    com.smartchat.discovery: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+logging:
+  level:
+    root: DEBUG
+    com.smartchat.discovery: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+server:
+  port: ${EUREKA_PORT:8761}
+
+eureka:
+  instance:
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:smartchat-discovery}
+  server:
+    enable-self-preservation: true
+
+logging:
+  file:
+    name: /var/log/smartchat-discovery/app.log
+  level:
+    root: INFO
+    com.smartchat.discovery: DEBUG

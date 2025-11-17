@@ -1,0 +1,117 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<!-- Sound Settings Popover -->
+<div class="chat-container" [class.offline]="!isConnected">
+  <div class="sound-settings" (click)="$event.stopPropagation()">
+    <!-- Toggle button -->
+    <button
+      #soundBtn
+      class="sound-btn"
+      (click)="toggleSoundPopover($event)"
+      [attr.aria-expanded]="showSoundPopover"
+      [class.active]="showSoundPopover"
+      aria-label="Open sound settings"
+      type="button"
+    >
+      <span class="icon">🔊</span>
+      <span class="visually-hidden">Sound Settings</span>
+    </button>
+
+    <!-- Floating 🎵 Emoji Feedback -->
+    <div class="floating-notes" aria-hidden="true">
+      <span
+        class="note"
+        *ngFor="let note of floatingNotes"
+        [style.left.px]="note.x"
+        [style.bottom.px]="note.y"
+        [@noteFloat]
+      >
+        🎵
+      </span>
+    </div>
+
+    <!-- Popover -->
+    <div
+      class="sound-popover"
+      *ngIf="showSoundPopover"
+      role="dialog"
+      aria-label="Sound settings"
+      (keydown.escape)="closePopover()"
+      tabindex="-1"
+      #popover
+    >
+      <div class="popover-head">
+        <h4>Sound & Feedback</h4>
+        <button class="close-pop" (click)="closePopover()" aria-label="Close">✕</button>
+      </div>
+
+      <div class="setting-item">
+        <label class="checkbox-label">
+          <input
+            type="checkbox"
+            [(ngModel)]="enableSound"
+            (change)="saveSoundPreferences()"
+          />
+          Enable sound
+        </label>
+      </div>
+
+      <div class="setting-item">
+        <label class="checkbox-label">
+          <input
+            type="checkbox"
+            [(ngModel)]="enableVibration"
+            (change)="saveSoundPreferences()"
+          />
+          Enable vibration
+        </label>
+      </div>
+
+      <p class="hint">🎧 Auto volume scales with time & focus; low CPU visualizer.</p>
+
+      <div class="actions">
+        <button
+          class="sound-test-btn"
+          (click)="playTestTone($event)"
+          [disabled]="!enableSound"
+          [class.pulsing]="isPulsing"
+          type="button"
+        >
+          🔈 Test Sound
+        </button>
+
+        <button
+          class="vibration-test-btn"
+          (click)="testVibration($event)"
+          [disabled]="!enableVibration"
+          [class.shaking]="isShaking"
+          type="button"
+        >
+          📳 Test Vibration
+        </button>
+      </div>
+
+      <!-- Lightweight Visualizer -->
+      <div class="visualizer" *ngIf="showVisualizer" aria-hidden="true">
+        <div class="bars" #barsWrap>
+          <div
+            *ngFor="let h of barHeights; let i = index"
+            class="bar"
+            [style.height.px]="h"
+            [style.background]="barGradient"
+          ></div>
+        </div>
+
+        <svg class="micro-wave" viewBox="0 0 100 20" preserveAspectRatio="none">
+          <path [attr.d]="microWavePath" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1.2"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>

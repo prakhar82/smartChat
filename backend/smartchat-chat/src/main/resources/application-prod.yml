@@ -1,0 +1,197 @@
+############################################################
+# 💬 SMARTCHAT CHAT SERVICE — PRODUCTION CONFIGURATION
+# ----------------------------------------------------------
+# Provides real-time messaging, presence tracking, and chat
+# persistence using MongoDB + Redis + RabbitMQ STOMP relay.
+# ✅ Docker-optimized | Eureka-integrated | Health-checked.
+############################################################
+
+spring:
+  application:
+    name: smartchat-chat
+  ############################################################
+  # 🧠 Reactive Codec / Payload Buffering
+  ############################################################
+  codec:
+    max-in-memory-size: 10MB
+
+  ##########################################################
+  # ⚙️ Core Behavior
+  ##########################################################
+  main:
+    allow-bean-definition-overriding: true
+
+  ##########################################################
+  # 🚫 Disable Unused SQL/JPA Auto-Configuration
+  ##########################################################
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+
+  ##########################################################
+  # 🍃 MongoDB — Message Persistence Store
+  ##########################################################
+  data:
+    mongodb:
+      uri: mongodb://${MONGO_INITDB_ROOT_USERNAME:root}:${MONGO_INITDB_ROOT_PASSWORD:change_me}@${MONGO_HOST:mongo}:${MONGO_PORT:27017}/${MONGO_DB:smartchat}?authSource=admin
+      auto-index-creation: true
+
+    ##########################################################
+    # ⚡ Redis — Presence / Session Cache
+    ##########################################################
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      client-type: lettuce
+      timeout: 60000
+      connect-timeout: 2000
+
+  ##########################################################
+  # 🐇 RabbitMQ — Message Bus + STOMP Relay Bridge
+  ##########################################################
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:smartchat_user}
+    password: ${RABBITMQ_PASS:smartchat123}
+    virtual-host: ${RABBITMQ_VHOST:smartchat}
+    connection-timeout: 15000
+    listener:
+      simple:
+        concurrency: 3
+        max-concurrency: 10
+        retry:
+          enabled: true
+          max-attempts: 5
+          initial-interval: 1000
+          multiplier: 2.0
+          max-interval: 10000
+
+############################################################
+# 💬 STOMP Relay (WebSocket <-> RabbitMQ Bridge)
+############################################################
+messaging:
+  stomp:
+    relay:
+      host: ${RABBITMQ_HOST:rabbitmq}
+      port: ${STOMP_RELAY_PORT:61613}
+      login: ${RABBITMQ_USER:smartchat_user}
+      passcode: ${RABBITMQ_PASS:smartchat123}
+      system-login: ${RABBITMQ_USER:smartchat_user}
+      system-passcode: ${RABBITMQ_PASS:smartchat123}
+      virtual-host: ${RABBITMQ_VHOST:smartchat}
+      heartbeat-send-interval: 10000
+      heartbeat-receive-interval: 10000
+
+############################################################
+# 🔐 JWT + Security Configuration
+############################################################
+security:
+  jwt:
+    secret: ${JWT_SECRET:change_me_default_secret}
+    expiration: ${JWT_EXPIRATION:900000}                 # 15 min
+    refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000} # 7 days
+    reset-token-expiration: ${RESET_TOKEN_EXPIRATION:900000}
+    verification-token-expiration: ${VERIFICATION_TOKEN_EXPIRATION:86400000}
+    max-login-attempts: ${MAX_LOGIN_ATTEMPTS:5}
+    lockout-duration: ${LOCKOUT_DURATION:300000}
+    password:
+      strength: ${PASSWORD_STRENGTH:12}
+
+############################################################
+# 🌍 Eureka Discovery Client
+############################################################
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_URL:http://smartchat-discovery:8761/eureka/}
+  instance:
+    hostname: smartchat-chat
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+############################################################
+# 🤝 Feign Client / Resilience4J (Inter-Service Resilience)
+############################################################
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 3000
+        readTimeout: 5000
+        loggerLevel: basic
+  circuitbreaker:
+    enabled: true
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      chatServiceCB:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        minimumNumberOfCalls: 5
+
+############################################################
+# 🌐 Server Configuration
+############################################################
+server:
+  port: 8080
+  forward-headers-strategy: native
+  shutdown: graceful
+  servlet:
+    context-path: /
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,application/javascript,application/json
+    min-response-size: 1024
+
+############################################################
+# 📊 Actuator / Health / Metrics
+############################################################
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: true
+    mongo:
+      enabled: true
+    rabbit:
+      enabled: true
+    probes:
+      enabled: true
+
+presence:
+  ttl-seconds: 40
+  cleanup-interval-ms: 20000
+
+
+############################################################
+# 🧾 Logging Configuration
+############################################################
+logging:
+  file:
+    name: ${LOG_DIR:/var/log/smartchat-chat}/app.log
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.smartchat.chat: DEBUG
+    org.springframework.messaging: INFO
+    org.springframework.web.socket: INFO
+    org.springframework.amqp: INFO
+    org.springframework.data.redis: WARN
+    org.mongodb.driver: WARN

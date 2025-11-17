@@ -1,0 +1,111 @@
+############################################################
+# ⚙️ SmartChat Contact Service — Development Configuration
+############################################################
+
+spring:
+  application:
+    name: smartchat-contact
+
+  profiles:
+    active: ${PROFILE:dev}
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:smartchat}
+    username: ${POSTGRES_USER:smartchat}
+    password: ${POSTGRES_PASSWORD:smartchat}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 3
+      idle-timeout: 30000
+
+  data:
+    mongodb:
+      uri: mongodb://${MONGO_INITDB_ROOT_USERNAME:root}:${MONGO_INITDB_ROOT_PASSWORD:change_me}@${MONGO_HOST:localhost}:${MONGO_PORT:27017}/${MONGO_DB:smartchat}?authSource=admin
+      auto-index-creation: true
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 60000
+      client-type: lettuce
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: true
+
+
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 3000
+        readTimeout: 5000
+        loggerLevel: full
+  circuitbreaker:
+    enabled: true
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      contactServiceCB:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        minimumNumberOfCalls: 5
+
+
+server:
+  port: ${CONTACT_PORT:8083}
+  servlet:
+    context-path: /api
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/plain
+
+# 🌐 Eureka for service registration (local discovery)
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+google:
+  oauth:
+    client-id: ${GOOGLE_CLIENT_ID:dummy-client}
+    client-secret: ${GOOGLE_CLIENT_SECRET:dummy-secret}
+    redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8080/api/auth/google/callback}
+  people:
+    person-fields: names,phoneNumbers,emailAddresses
+    page-size: 100
+
+contacts:
+  cache:
+    ttl: ${CONTACTS_CACHE_TTL_SECONDS:300}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:localdevsecret}
+    expiration: 900000
+    refresh-expiration: 604800000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  file:
+    name: ./logs/contact/app.log
+  level:
+    root: DEBUG
+    com.smartchat.contact: DEBUG

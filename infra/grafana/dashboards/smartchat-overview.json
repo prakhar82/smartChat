@@ -1,0 +1,398 @@
+{
+  "id": null,
+  "uid": "smartchat-overview",
+  "title": "SmartChat Observability Dashboard",
+  "tags": [
+    "SmartChat",
+    "Microservices",
+    "Monitoring"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "version": 2,
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "row",
+      "title": "🧠 Service Overview",
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "gauge",
+      "title": "Auth - Login Success Rate (%)",
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{uri=\"/api/auth/login\",status=\"200\"}[1m]) / rate(http_server_requests_seconds_count{uri=\"/api/auth/login\"}[1m]) * 100",
+          "legendFormat": "Auth Success Rate"
+        }
+      ],
+      "max": 100,
+      "min": 0,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 80
+              },
+              {
+                "color": "green",
+                "value": 95
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "graph",
+      "title": "Auth - Failed Login Attempts",
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{uri=\"/api/auth/login\",status!=\"200\"}[5m])",
+          "legendFormat": "Failed Logins"
+        }
+      ],
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "graph",
+      "title": "Chat - Message Throughput (msg/sec)",
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{uri=~\"/api/chat/send\"}[1m])",
+          "legendFormat": "Messages/sec"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "graph",
+      "title": "Chat - Message Delivery Latency (s)",
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_sum{uri=~\"/api/chat/send\"}[1m]) / rate(http_server_requests_seconds_count{uri=~\"/api/chat/send\"}[1m])",
+          "legendFormat": "Latency"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 6,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "graph",
+      "title": "Chat - WebSocket Connections",
+      "targets": [
+        {
+          "expr": "sum(jvm_threads_live_threads{instance=~\"smartchat-chat.*\"})",
+          "legendFormat": "Active Threads"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "graph",
+      "title": "Contact - Sync Latency (s)",
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_sum{uri=~\"/api/contacts/sync\"}[1m]) / rate(http_server_requests_seconds_count{uri=~\"/api/contacts/sync\"}[1m])",
+          "legendFormat": "Avg Sync Latency"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 12,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "graph",
+      "title": "Contact - Sync Operations Per Minute",
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{uri=~\"/api/contacts/sync\"}[1m])",
+          "legendFormat": "Sync Ops/min"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Contact - Cache Hit Ratio (%)",
+      "targets": [
+        {
+          "expr": "redis_keyspace_hits_total / (redis_keyspace_hits_total + redis_keyspace_misses_total) * 100",
+          "legendFormat": "Cache Efficiency"
+        }
+      ],
+      "max": 100,
+      "min": 0,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        }
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 18,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Eureka - Registered Instances",
+      "targets": [
+        {
+          "expr": "eureka_registry_registered_instances",
+          "legendFormat": "Registered"
+        }
+      ],
+      "max": 50,
+      "min": 0,
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "graph",
+      "title": "Eureka - Heartbeats/sec",
+      "targets": [
+        {
+          "expr": "rate(eureka_client_heartbeats_total[1m])",
+          "legendFormat": "Heartbeats/sec"
+        }
+      ],
+      "gridPos": {
+        "x": 6,
+        "y": 24,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "graph",
+      "title": "JVM Memory Usage per Service (%)",
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes / jvm_memory_max_bytes * 100",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "graph",
+      "title": "Redis Command Latency (s)",
+      "targets": [
+        {
+          "expr": "rate(redis_commands_duration_seconds_sum[1m]) / rate(redis_commands_duration_seconds_count[1m])",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 30,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "row",
+      "title": "🐇 RabbitMQ Metrics",
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "gauge",
+      "title": "RabbitMQ - Messages Ready",
+      "targets": [
+        {
+          "expr": "sum(rabbitmq_queue_messages_ready)",
+          "legendFormat": "Messages Ready"
+        }
+      ],
+      "max": 10000,
+      "min": 0,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "graph",
+      "title": "RabbitMQ - Published vs Delivered",
+      "targets": [
+        {
+          "expr": "rate(rabbitmq_channel_messages_published_total[1m])",
+          "legendFormat": "Published"
+        },
+        {
+          "expr": "rate(rabbitmq_channel_messages_delivered_total[1m])",
+          "legendFormat": "Delivered"
+        }
+      ],
+      "gridPos": {
+        "x": 6,
+        "y": 36,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "graph",
+      "title": "RabbitMQ - Queue Depth per Queue",
+      "targets": [
+        {
+          "expr": "rabbitmq_queue_messages_ready",
+          "legendFormat": "{{queue}}"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 42,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "graph",
+      "title": "RabbitMQ - Connections & Channels",
+      "targets": [
+        {
+          "expr": "rabbitmq_connections",
+          "legendFormat": "Connections"
+        },
+        {
+          "expr": "rabbitmq_channels",
+          "legendFormat": "Channels"
+        }
+      ],
+      "gridPos": {
+        "x": 6,
+        "y": 42,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "RabbitMQ - Node Uptime (hours)",
+      "targets": [
+        {
+          "expr": "rabbitmq_node_uptime / 3600",
+          "legendFormat": "Uptime (h)"
+        }
+      ],
+      "max": 240,
+      "min": 0,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "RabbitMQ - Memory Usage (%)",
+      "targets": [
+        {
+          "expr": "rabbitmq_process_resident_memory_bytes / rabbitmq_resident_memory_limit_bytes * 100",
+          "legendFormat": "Memory %"
+        }
+      ],
+      "max": 100,
+      "min": 0,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        }
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 48,
+        "w": 6,
+        "h": 5
+      }
+    }
+  ]
+}

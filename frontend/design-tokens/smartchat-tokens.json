@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "meta": {
+    "name": "SmartChat Design Tokens",
+    "category": "SmartChat UI System",
+    "author": "SmartChat Contributors",
+    "theme": [
+      "light",
+      "dark"
+    ]
+  },
+  "colors": {
+    "primary": "#3b82f6",
+    "primary-hover": "#2563eb",
+    "primary-light": "#93c5fd",
+    "text": "#111827",
+    "text-muted": "#6b7280",
+    "surface": "rgba(255,255,255,0.65)",
+    "surface-dark": "rgba(17,27,33,0.8)",
+    "surface-border": "rgba(255,255,255,0.15)",
+    "glass-blue": "rgba(59,130,246,0.08)",
+    "glass-border": "rgba(59,130,246,0.2)"
+  },
+  "darkModeOverrides": {
+    "text": "#f9fafb",
+    "text-muted": "#9ca3af",
+    "surface": "rgba(17,27,33,0.75)",
+    "surface-border": "rgba(255,255,255,0.08)",
+    "glass-blue": "rgba(59,130,246,0.12)",
+    "glass-border": "rgba(59,130,246,0.25)"
+  },
+  "presence": {
+    "available": "#22c55e",
+    "away": "#eab308",
+    "busy": "#ef4444",
+    "offline": "#6b7280",
+    "reconnecting": {
+      "animation": "pulse-glow",
+      "colors": [
+        "#38bdf8",
+        "#2563eb"
+      ]
+    }
+  },
+  "shadows": {
+    "soft": "0 4px 12px rgba(0,0,0,0.1)",
+    "strong": "0 4px 24px rgba(37,99,235,0.25)"
+  },
+  "radius": {
+    "base": "12px"
+  },
+  "motion": {
+    "transition": "all 0.25s ease",
+    "pulse-ring": "2s ease-in-out infinite",
+    "reconnectSwirl": "1.2s linear infinite"
+  },
+  "typography": {
+    "font-family": "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    "font-weight": 600,
+    "font-size-title": "1.1rem",
+    "font-size-body": "0.9rem",
+    "letter-spacing": "0.3px"
+  }
+}

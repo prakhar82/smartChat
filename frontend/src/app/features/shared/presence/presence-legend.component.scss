@@ -1,0 +1,125 @@
+/*!
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
+ */
+
+/* =========================================================
+   🧭 Presence Legend — Visual Key for User Status
+   ========================================================= */
+.presence-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--text-secondary, #6b7280); /* gray-500 fallback */
+  margin-top: 6px;
+  user-select: none;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: fadeSlideIn 0.5s ease-out forwards;
+}
+
+/* =========================================================
+   🎨 Legend Item
+   ========================================================= */
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  transform: translateY(6px);
+  animation: itemFadeIn 0.4s ease-out forwards;
+
+  /* Slightly delay each child item for a cascading reveal */
+  &:nth-child(1) {
+    animation-delay: 0.1s;
+  }
+
+  &:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  &:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+
+  &:nth-child(4) {
+    animation-delay: 0.4s;
+  }
+}
+
+.label {
+  font-weight: 500;
+  font-size: 0.85rem;
+  color: var(--text-primary, #374151); /* gray-700 fallback */
+}
+
+/* =========================================================
+   🟢 Presence Dots
+   ========================================================= */
+.presence-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  transition: background-color 0.25s ease-in-out, transform 0.25s ease;
+}
+
+.presence-dot.online {
+  background-color: #22c55e; /* green-500 */
+  box-shadow: 0 0 5px rgba(34, 197, 94, 0.6);
+}
+
+.presence-dot.away {
+  background-color: #facc15; /* yellow-400 */
+  box-shadow: 0 0 5px rgba(250, 204, 21, 0.6);
+}
+
+.presence-dot.busy {
+  background-color: #ef4444; /* red-500 */
+  box-shadow: 0 0 5px rgba(239, 68, 68, 0.6);
+}
+
+.presence-dot.offline {
+  background-color: #9ca3af; /* gray-400 */
+  opacity: 0.7;
+}
+
+/* =========================================================
+   🌙 Dark Mode
+   ========================================================= */
+@media (prefers-color-scheme: dark) {
+  .label {
+    color: #d1d5db; /* gray-300 */
+  }
+  .presence-dot.offline {
+    background-color: #6b7280; /* gray-500 */
+  }
+}
+
+/* =========================================================
+   ✨ Animations
+   ========================================================= */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes itemFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -1,0 +1,108 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<header class="top-header" role="banner">
+  <!-- =========================================================
+       🧭 Brand
+  ========================================================== -->
+  <div class="brand" aria-label="SmartChat Brand">
+    <img
+      src="assets/logo.png"
+      alt="SmartChat Logo"
+      class="logo"
+      width="32"
+      height="32"
+      loading="lazy"
+    />
+    <span class="app-name">SmartChat</span>
+  </div>
+
+  <!-- =========================================================
+       👤 Avatar + Status + Connection Indicator
+  ========================================================== -->
+  <div
+    class="avatar-wrapper"
+    (mousedown)="onBadgePressStart($event)"
+    (mouseup)="onBadgePressEnd($event)"
+    (mouseleave)="onBadgePressEnd($event)"
+    (touchstart)="onBadgePressStart($event)"
+    (touchend)="onBadgePressEnd($event)"
+    (click)="toggleStatusPopover($event)"
+    [attr.aria-expanded]="statusPopoverOpen"
+    aria-label="User Status Menu"
+  >
+    <div
+      class="avatar"
+      [ngClass]="{
+        'pulse-ring': connectionState === 'online',
+        'dimmed': connectionState === 'offline'
+      }"
+      title="{{ firstName }} - {{ userStatus | titlecase }}"
+    >
+      {{ firstName ? firstName[0].toUpperCase() : 'U' }}
+
+      <!-- 🟢 Status Badge -->
+      <span
+        class="status-badge"
+        [ngClass]="[userStatus, connectionState]"
+        [attr.title]="badgeTooltip"
+        role="button"
+        tabindex="0"
+      ></span>
+
+      <!-- 🔁 Reconnect Swirl (added dynamically) -->
+    </div>
+
+    <!-- 💬 Status Selection Popover -->
+    <div
+      *ngIf="statusPopoverOpen"
+      class="status-popover"
+      [ngClass]="userStatus"
+      (click)="$event.stopPropagation()"
+      role="menu"
+      aria-label="Change Status"
+    >
+      <button
+        (click)="setStatus('available')"
+        class="status-option available"
+        aria-label="Set status to Available"
+      >
+        🟢 Available
+      </button>
+      <button
+        (click)="setStatus('away')"
+        class="status-option away"
+        aria-label="Set status to Away"
+      >
+        🟡 Away
+      </button>
+      <button
+        (click)="setStatus('busy')"
+        class="status-option busy"
+        aria-label="Set status to Busy"
+      >
+        🔴 Busy
+      </button>
+
+      <div class="reflection-strip"></div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       🌗 Theme Toggle
+  ========================================================== -->
+  <button
+    class="theme-toggle"
+    (click)="onToggleTheme()"
+    aria-label="Toggle Dark or Light Mode"
+  >
+    <i class="material-icons-round">
+      {{ isDarkTheme ? 'light_mode' : 'dark_mode' }}
+    </i>
+  </button>
+</header>

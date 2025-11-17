@@ -1,0 +1,199 @@
+############################################################
+# 🚀 SMARTCHAT AUTH SERVICE — FINAL PRODUCTION CONFIGURATION
+# ------------------------------------------------------------
+# Handles user authentication, registration, JWT management,
+# refresh tokens, rate limiting, and OAuth integrations.
+# Exposes endpoints under `/auth/**` internally.
+############################################################
+
+spring:
+  application:
+    name: smartchat-auth
+
+  ##########################################################
+  # ⚙️ Core Boot Config
+  ##########################################################
+  main:
+    allow-bean-definition-overriding: true
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration
+
+  ##########################################################
+  # 🗄️ PostgreSQL — Primary Auth Database
+  ##########################################################
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:postgres}:${POSTGRES_PORT:5432}/${POSTGRES_DB_AUTH:smartchat_auth}
+    username: ${POSTGRES_USER:smartchat}
+    password: ${POSTGRES_PASSWORD:smartchat}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 60000
+      connection-timeout: 30000
+
+  ##########################################################
+  # ⚡ Redis — Token Cache, Rate Limiting, Login Throttling
+  ##########################################################
+  data:
+    redis:
+      client-type: lettuce
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      timeout: 60000
+      connect-timeout: 2000
+
+  ##########################################################
+  # 🧩 JPA / Hibernate
+  ##########################################################
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
+
+  ##########################################################
+  # 🐇 RabbitMQ — Events for Auth Lifecycle (Signup, Reset)
+  ##########################################################
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:smartchat_user}
+    password: ${RABBITMQ_PASS:smartchat123}
+    virtual-host: ${RABBITMQ_VHOST:smartchat}
+    connection-timeout: 15000
+    listener:
+      simple:
+        retry:
+          enabled: true
+          initial-interval: 1000
+          multiplier: 2.0
+          max-attempts: 5
+        concurrency: 2
+        max-concurrency: 5
+
+############################################################
+# 🌍 Eureka Discovery Client
+############################################################
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_URL:http://smartchat-discovery:8761/eureka/}
+  instance:
+    hostname: smartchat-auth
+    prefer-ip-address: true
+    non-secure-port-enabled: true        # ensure non-secure (HTTP) port used
+    secure-port-enabled: false          # ensure secure port is disabled
+    instance-id: ${spring.application.name}:${vcap.application.instance_index:${random.value}}
+    status-page-url: http://smartchat-auth:8080/actuator/info
+    health-check-url: http://smartchat-auth:8080/actuator/health
+    metadata-map:
+      management.port: "8080"
+
+############################################################
+# 🤝 Feign Client + Resilience4J Circuit Breaker
+############################################################
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 3000
+        readTimeout: 5000
+        loggerLevel: basic
+  circuitbreaker:
+    enabled: true
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      authServiceCB:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        minimumNumberOfCalls: 5
+
+############################################################
+# 🔐 Security / JWT Configuration
+############################################################
+security:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration: ${JWT_EXPIRATION:3600000}
+    refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+    reset-token-expiration: ${RESET_TOKEN_EXPIRATION:900000}
+    verification-token-expiration: ${VERIFICATION_TOKEN_EXPIRATION:86400000}
+    max-login-attempts: ${MAX_LOGIN_ATTEMPTS:5}
+    lockout-duration: ${LOCKOUT_DURATION:900000}
+    password:
+      strength: ${PASSWORD_STRENGTH:12}
+
+############################################################
+# 🌐 Server Configuration
+############################################################
+server:
+  port: 8080
+  forward-headers-strategy: native
+  shutdown: graceful
+  servlet:
+    context-path: /   # exposes /auth/** instead of /api/auth/**
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,application/javascript,application/json
+    min-response-size: 1024
+
+############################################################
+# 📊 Actuator / Health / Prometheus Metrics
+############################################################
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,env
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: true
+    rabbit:
+      enabled: true
+    db:
+      enabled: true
+    probes:
+      enabled: true
+
+############################################################
+# 🧾 Logging
+############################################################
+logging:
+  file:
+    name: ${LOG_DIR:/var/log/smartchat-auth}/app.log
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.smartchat.auth: DEBUG
+    org.springframework.security: INFO
+    org.springframework.web: INFO
+    org.hibernate: WARN
+    org.springframework.data.redis: WARN
+    org.mongodb.driver: WARN
+
+############################################################
+# 🔗 Optional Service URLs (for non-Eureka local runs)
+############################################################
+services:
+  contact:
+    url: ${SERVICES_CONTACT_URL:}
+  chat:
+    url: ${SERVICES_CHAT_URL:}

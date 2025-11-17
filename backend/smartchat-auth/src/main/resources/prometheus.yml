@@ -1,0 +1,87 @@
+############################################################
+# 📊 SmartChat Prometheus Configuration
+# ----------------------------------------------------------
+# Centralized monitoring setup for SmartChat microservices:
+# - smartchat-discovery (Eureka)
+# - smartchat-auth (Authentication)
+# - smartchat-contact (Contacts & Sync)
+# - smartchat-chat (Messaging)
+# - smartchat-api (API Orchestrator)
+############################################################
+
+global:
+  scrape_interval: 15s       # How often to scrape targets
+  evaluation_interval: 15s   # How often to evaluate rules
+  scrape_timeout: 10s
+
+# Alertmanager (optional — only if you have it running)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
+
+# ==========================================================
+# 🌍 Service Scrape Configurations
+# ==========================================================
+scrape_configs:
+
+  # 🔎 Eureka Discovery Service
+  - job_name: 'smartchat-discovery'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: [ 'smartchat-discovery:8761' ]
+        labels:
+          service: 'eureka'
+          environment: 'production'
+
+  # 🔐 Auth Service
+  - job_name: 'smartchat-auth'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: [ 'smartchat-auth:8081' ]
+        labels:
+          service: 'auth'
+          environment: 'production'
+
+  # 📇 Contact Service
+  - job_name: 'smartchat-contact'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: [ 'smartchat-contact:8083' ]
+        labels:
+          service: 'contact'
+          environment: 'production'
+
+  # 💬 Chat Service
+  - job_name: 'smartchat-chat'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: [ 'smartchat-chat:8082' ]
+        labels:
+          service: 'chat'
+          environment: 'production'
+
+  # 🚀 API Orchestrator
+  - job_name: 'smartchat-api'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: [ 'smartchat-api:8080' ]
+        labels:
+          service: 'api'
+          environment: 'production'
+
+  # 🗃️ PostgreSQL Exporter (optional if you run one)
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: [ 'postgres-exporter:9187' ]
+        labels:
+          service: 'postgres'
+          environment: 'production'
+
+  # ⚡ Redis Exporter (optional if you run one)
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: [ 'redis-exporter:9121' ]
+        labels:
+          service: 'redis'
+          environment: 'production'

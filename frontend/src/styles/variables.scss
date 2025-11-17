@@ -1,0 +1,58 @@
+/*!
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
+ */
+
+/*!
+ * =========================================================
+ *  🎨 SmartChat Design Tokens (variables.scss)
+ *  ---------------------------------------------------------
+ *  This file provides strongly typed CSS variable aliases
+ *  for consistent design language across SmartChat.
+ *
+ *  ✅ Import-only (no output)
+ *  ✅ Autocompletion & color previews in IDEs
+ *  ✅ Linked to theme.scss global variables
+ * =========================================================
+ */
+
+:root {
+  /* ===== Primary Color System ===== */
+  --primary: #3b82f6; // Main brand blue
+  --primary-hover: #2563eb; // Hover/active accent
+  --primary-light: #93c5fd; // Soft tint for highlights
+
+  /* ===== Surfaces & Panels ===== */
+  --surface: rgba(255, 255, 255, 0.65); // Card backgrounds
+  --surface-dark: rgba(17, 27, 33, 0.8); // Dark-mode surfaces
+  --surface-border: rgba(255, 255, 255, 0.15);
+  --glass-blue: rgba(59, 130, 246, 0.08); // Glass tint
+  --glass-border: rgba(59, 130, 246, 0.2); // Glass outline
+
+  /* ===== Typography ===== */
+  --text-color: #111827; // Primary text
+  --text-muted: #6b7280; // Secondary text
+  --font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  /* ===== Shadows & Borders ===== */
+  --radius: 12px; // Global border radius
+  --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-strong: 0 4px 24px rgba(37, 99, 235, 0.25);
+
+  /* ===== Animation & Timing ===== */
+  --transition: all 0.25s ease;
+}
+
+/* 🌗 Dark Mode Token Overrides */
+[data-theme='dark'] {
+  --surface: rgba(17, 27, 33, 0.75);
+  --surface-border: rgba(255, 255, 255, 0.08);
+  --text-color: #f9fafb;
+  --text-muted: #9ca3af;
+  --glass-blue: rgba(59, 130, 246, 0.12);
+  --glass-border: rgba(59, 130, 246, 0.25);
+  --shadow-soft: 0 4px 10px rgba(0, 0, 0, 0.4);
+}

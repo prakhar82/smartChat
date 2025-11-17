@@ -1,0 +1,280 @@
+/*!
+ * Copyright (c) 2025 SmartChat Contributors
+ * All rights reserved.
+ * Unauthorized copying or distribution of this file,
+ * via any medium, is strictly prohibited unless permitted by license.
+ * Author: $USER_NAME
+ */
+
+/* =========================================================
+   💬 SmartChat Contact List Styles
+   ---------------------------------------------------------
+   - Interactive hover states
+   - Avatar + presence alignment
+   - Accessible keyboard focus
+   - Smooth animations
+========================================================= */
+
+.contact-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--contacts-bg, #fff);
+  color: var(--text-primary, #111);
+  overflow-y: auto;
+  scroll-behavior: smooth;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 6px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.25);
+  }
+
+  /* =========================================================
+     🌀 Loading State
+  ========================================================= */
+  .loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-secondary, #666);
+    font-size: 0.95rem;
+    text-align: center;
+
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(0, 0, 0, 0.1);
+      border-top-color: var(--primary, #2563eb);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 10px;
+    }
+  }
+
+  /* =========================================================
+     👤 Contact Item
+  ========================================================= */
+  .contact-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+    cursor: pointer;
+    transition: background 0.25s ease, transform 0.1s ease;
+    outline: none;
+
+    &:hover,
+    &:focus {
+      background: var(--hover-bg, #f3f4f6);
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      background: var(--active-bg, #e0e7ff);
+    }
+
+    /* Avatar */
+    .avatar {
+      position: relative;
+      flex-shrink: 0;
+
+      .avatar-img,
+      .default-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+
+      .default-avatar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--primary-light, #dbeafe);
+        color: var(--primary, #2563eb);
+        font-weight: 600;
+        font-size: 1.1rem;
+      }
+    }
+
+    /* Contact Info */
+    .contact-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 2px;
+
+      .top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .name {
+          font-weight: 600;
+          font-size: 0.97rem;
+          color: var(--text-primary, #111);
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+      }
+
+      .bottom {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        font-size: 0.85rem;
+        color: var(--text-secondary, #555);
+
+        .last-message {
+          flex: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+
+          &.muted {
+            color: #999;
+            font-style: italic;
+          }
+        }
+
+        .status {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+
+          .presence-text {
+            font-size: 0.82rem;
+
+            &.online-text {
+              color: #22c55e;
+            }
+
+            &.offline-text {
+              color: #9ca3af;
+            }
+          }
+        }
+
+        .invite-btn {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding: 5px 8px;
+          font-size: 0.8rem;
+          background: var(--primary, #2563eb);
+          color: #fff;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background 0.2s ease;
+
+          .invite-icon {
+            font-size: 1.1rem;
+          }
+
+          &:hover {
+            background: var(--primary-hover, #1d4ed8);
+          }
+
+          &:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+          }
+        }
+      }
+    }
+  }
+
+  /* =========================================================
+     🚫 Empty State
+  ========================================================= */
+  .no-contacts {
+    margin-top: 60px;
+    text-align: center;
+    color: var(--text-secondary, #666);
+    font-size: 0.95rem;
+
+    .hint {
+      color: #999;
+      font-size: 0.85rem;
+    }
+  }
+
+  /* =========================================================
+     🧭 Presence Legend Footer
+  ========================================================= */
+  .presence-legend-footer {
+    margin-top: auto;
+    border-top: 1px solid var(--border-color, #e5e7eb);
+    padding: 10px;
+    background: var(--contacts-bg, #fafafa);
+  }
+}
+
+/* =========================================================
+   🌙 Dark Mode
+========================================================= */
+[data-theme='dark'] .contact-list {
+  background: #1e293b;
+  color: #e2e8f0;
+
+  .contact-item {
+    border-bottom-color: #2a3942;
+
+    &:hover,
+    &:focus {
+      background: #2a3942;
+    }
+
+    .default-avatar {
+      background: #3b4a54;
+      color: #60a5fa;
+    }
+
+    .contact-info {
+      .name {
+        color: #f1f5f9;
+      }
+
+      .last-message {
+        color: #94a3b8;
+      }
+    }
+
+    .invite-btn {
+      background: #3b82f6;
+
+      &:hover {
+        background: #2563eb;
+      }
+    }
+  }
+
+  .presence-legend-footer {
+    background: #202c33;
+    border-top-color: #2a3942;
+  }
+}
+
+/* =========================================================
+   🔁 Animations
+========================================================= */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

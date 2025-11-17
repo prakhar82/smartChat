@@ -6,39 +6,33 @@
  * Author: $USER_NAME
  */
 
-import {NgModule} from '@angular/core';
-import {RouterModule, Routes} from '@angular/router';
-import {ChatsPageComponent} from './chats/page/chats-page.component';
-import {AuthGuard} from './auth/auth.guard';
-import {ContactListComponent} from './chats/list/contact-list.component';
-import {ChatWindowComponent} from './chats/window/chat-window.component';
-import {RegisterComponent} from './auth/register/register.component';
-import {LoginGuard} from './auth/login/login.guard';
-import {LoginComponent} from './auth/login/login.component';
-import {SyncContactsComponent} from './contacts/sync/sync.component';
+/*
+ * SmartChat © 2025
+ * Centralized Route Configuration (Standalone + Lazy-loaded)
+ */
+
+import {Routes} from '@angular/router';
+import {HomeComponent} from './features/home/home.component';
 
 export const routes: Routes = [
-  {path: 'register', component: RegisterComponent, canActivate: [LoginGuard]},
-  {path: 'login', component: LoginComponent, canActivate: [LoginGuard]},
-  {path: 'sync', component: SyncContactsComponent, canActivate: [AuthGuard]},
+  {path: '', redirectTo: 'home', pathMatch: 'full'},
+  {path: 'home', component: HomeComponent},
 
   {
+    path: 'auth',
+    loadChildren: () =>
+      import('./features/auth.module').then((m) => m.AuthFeatureModule),
+  },
+  {
     path: 'chats',
-    component: ChatsPageComponent,
-    canActivate: [AuthGuard],
-    children: [
-      {path: '', component: ContactListComponent},
-      {path: ':id', component: ChatWindowComponent, outlet: 'chat'},
-    ],
+    loadChildren: () =>
+      import('./features/chats.module').then((m) => m.ChatsFeatureModule),
+  },
+  {
+    path: 'contacts',
+    loadChildren: () =>
+      import('./features/contacts.module').then((m) => m.ContactsFeatureModule),
   },
 
-  {path: '', redirectTo: '/login', pathMatch: 'full'},
-  {path: '**', redirectTo: '/login'},
+  {path: '**', redirectTo: 'home'},
 ];
-
-@NgModule({
-  imports: [RouterModule.forRoot(routes, {useHash: false})],
-  exports: [RouterModule]
-})
-export class AppRoutingModule {
-}

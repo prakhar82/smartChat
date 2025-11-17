@@ -1,0 +1,35 @@
+{
+  "vhosts": [
+    {
+      "name": "smartchat"
+    }
+  ],
+  "users": [
+    {
+      "name": "smartchat_user",
+      "password": "smartchat123",
+      "tags": "administrator"
+    }
+  ],
+  "permissions": [
+    {
+      "user": "smartchat_user",
+      "vhost": "smartchat",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "policies": [
+    {
+      "vhost": "smartchat",
+      "name": "auto_delete_presence",
+      "pattern": "^presence\\.",
+      "definition": {
+        "message-ttl": 60000
+      },
+      "priority": 0,
+      "apply-to": "queues"
+    }
+  ]
+}

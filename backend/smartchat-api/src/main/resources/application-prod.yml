@@ -1,0 +1,223 @@
+############################################################
+# 🌐 SMARTCHAT API GATEWAY
+############################################################
+
+spring:
+  application:
+    name: smartchat-api
+
+  main:
+    web-application-type: reactive
+    allow-bean-definition-overriding: true
+
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.web.servlet.ServletWebServerFactoryAutoConfiguration
+
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      timeout: 60000
+      connect-timeout: 2000
+      client-type: lettuce
+
+  cloud:
+    gateway:
+      forwarded-headers-strategy: framework
+      httpclient:
+        ssl:
+          use-insecure-trust-manager: true
+          handshake-timeout: 10s
+        connect-timeout: 5000
+        response-timeout: 15s
+        wiretap: true
+
+      ########################################################
+      # ✅ Default Filters — fixed (no SpEL!)
+      ########################################################
+      default-filters:
+        - name: PreserveHostHeader
+        - name: RemoveRequestHeader
+          args:
+            name: Cookie
+        - name: DedupeResponseHeader
+          args:
+            name: Access-Control-Allow-Origin Access-Control-Allow-Credentials
+        - name: AddResponseHeader
+          args:
+            name: Access-Control-Allow-Credentials
+            value: "true"
+        - name: AddResponseHeader
+          args:
+            name: Access-Control-Allow-Headers
+            value: "Authorization, Content-Type, Accept, Origin, X-Requested-With"
+        - name: AddResponseHeader
+          args:
+            name: Access-Control-Allow-Methods
+            value: "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+        - name: AddResponseHeader
+          args:
+            name: Strict-Transport-Security
+            value: "max-age=31536000; includeSubDomains"
+        - name: AddResponseHeader
+          args:
+            name: X-Content-Type-Options
+            value: "nosniff"
+
+      ########################################################
+      # 🌐 Global CORS
+      ########################################################
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        corsConfigurations:
+          '[/**]':
+            allowedOriginPatterns:
+              - "http://localhost*"
+              - "https://localhost*"
+              - "http://127.0.0.1*"
+              - "https://app.smartchat.ai"
+              - "https://smartchat.ai"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            exposedHeaders: "Authorization, Content-Disposition"
+            allowCredentials: true
+            maxAge: 3600
+
+      ########################################################
+      # 🚏 Routes
+      ########################################################
+      routes:
+        # -----------------------------------------
+        # CONTACT SERVICE  (Google OAuth + contacts)
+        # -----------------------------------------
+        - id: smartchat-contact
+          uri: http://smartchat-contact:8080
+          predicates:
+            - Path=/api/contact/**
+          filters:
+            - name: PreserveHostHeader
+            - name: RemoveRequestHeader
+              args:
+                name: Cookie
+            # FIX: preserve full path including /api
+            - name: StripPrefix
+              args:
+                parts: 1
+
+        # -----------------------------------------
+        # AUTH SERVICE  (login, token validation)
+        # -----------------------------------------
+        - id: smartchat-auth
+          uri: http://smartchat-auth:8080
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - PreserveHostHeader
+            - RemoveRequestHeader=Cookie
+            # Auth service ALSO already contains /api/** in controllers
+            - StripPrefix=1
+
+        # -----------------------------------------
+        # CHAT SERVICE (WebSocket)
+        # -----------------------------------------
+        - id: smartchat-chat
+          uri: http://smartchat-chat:8080
+          predicates:
+            - Path=/ws-chat/**
+          filters:
+            - PreserveHostHeader
+            - RemoveRequestHeader=Cookie
+            - StripPrefix=1
+
+
+
+############################################################
+# 🔗 Internal Service URLs (for Feign)
+############################################################
+services:
+  chat:
+    url: http://smartchat-chat:8080
+  contact:
+    url: http://smartchat-contact:8080
+
+############################################################
+# 🌍 Server Settings
+############################################################
+server:
+  port: 8443
+  forward-headers-strategy: native
+  shutdown: graceful
+
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,application/javascript,application/json
+    min-response-size: 1024
+
+  http2:
+    enabled: false  # ✅ disable HTTP2 — fixes ERR_HTTP2_PROTOCOL_ERROR
+
+  ssl:
+    enabled: true
+    key-store: file:/app/keystore/smartchat.p12
+    key-store-password: password
+    key-store-type: PKCS12
+
+############################################################
+# 🧭 Eureka Discovery
+############################################################
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_URL:http://smartchat-discovery:8761/eureka/}
+  instance:
+    hostname: smartchat-api
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+############################################################
+# 🔐 JWT
+############################################################
+security:
+  jwt:
+    secret: ${JWT_SECRET:defaultSecretKey}
+    expiration: 3600000
+    refresh-expiration: 604800000
+    verification-token-expiration: 86400000
+    lockout-duration: 300000
+    max-login-attempts: 5
+
+############################################################
+# 📊 Actuator
+############################################################
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    gateway:
+      enabled: true
+  health:
+    redis:
+      enabled: true
+    probes:
+      enabled: true
+
+############################################################
+# 🧾 Logging
+############################################################
+logging:
+  file:
+    name: ${LOG_DIR:/var/log/smartchat-api}/app.log
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  level:
+    org.springframework.cloud.gateway: WARN
+    org.springframework.cloud.loadbalancer: WARN
+    org.springframework.cloud.netflix.eureka: WARN
+    com.netflix.discovery: WARN
+    org.springframework.web.reactive: WARN

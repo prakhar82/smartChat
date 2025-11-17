@@ -1,0 +1,88 @@
+<!--
+  ~ Copyright (c) 2025 SmartChat Contributors
+  ~ All rights reserved.
+  ~ Unauthorized copying or distribution of this file,
+  ~ via any medium, is strictly prohibited unless permitted by license.
+  ~ Author: $USER_NAME
+  -->
+
+<div class="flex flex-col items-center mt-10 px-5 text-center">
+
+  <!-- Title -->
+  <h2 class="text-2xl font-bold mb-2 dark:text-gray-100">
+    Sync Your Contacts
+  </h2>
+
+  <p class="text-gray-600 dark:text-gray-300 mb-6">
+    Hi {{ firstName }}, choose how you want to sync your contacts:
+  </p>
+
+  <!-- Button Container -->
+  <div class="w-full max-w-sm space-y-3">
+
+    <!-- Phone sync -->
+    <button
+      (click)="syncDeviceContacts()"
+      [disabled]="syncing"
+      class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow transition disabled:opacity-50"
+    >
+      📱 Sync Phone Contacts
+    </button>
+
+    <!-- Google sync -->
+    <button
+      (click)="syncGoogleContacts()"
+      [disabled]="syncing"
+      class="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow transition disabled:opacity-50"
+    >
+      🔑 Sync Google Contacts
+    </button>
+
+    <!-- Skip -->
+    <button
+      (click)="skipSync()"
+      [disabled]="syncing"
+      class="w-full py-3 bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600 text-black dark:text-white rounded-xl transition disabled:opacity-50"
+    >
+      ⏭️ Skip for Now
+    </button>
+  </div>
+
+  <!-- Loader -->
+  <div *ngIf="syncing" class="mt-6">
+    <div class="loader"></div>
+    <p class="text-blue-500 dark:text-blue-300 mt-3 font-medium">
+      Syncing contacts… please wait
+    </p>
+  </div>
+
+  <!-- Error -->
+  <div *ngIf="errorMsg" class="mt-4 text-red-500 font-medium">
+    ❌ {{ errorMsg }}
+  </div>
+
+  <!-- Popup Warning Modal -->
+  <div
+    *ngIf="showPopupWarning"
+    class="fixed inset-0 bg-black/50 backdrop-blur flex items-center justify-center px-4 z-50"
+  >
+    <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl max-w-sm w-full text-center">
+      <h3 class="text-lg font-bold mb-2 dark:text-gray-100">
+        Popup Blocked
+      </h3>
+
+      <p class="text-gray-600 dark:text-gray-300 mb-4">
+        Your browser blocked the Google login popup.
+        Please allow popups for SmartChat and try again.
+      </p>
+
+      <button
+        (click)="closeWarning()"
+        class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition"
+      >
+        OK, Got It
+      </button>
+    </div>
+  </div>
+
+</div>

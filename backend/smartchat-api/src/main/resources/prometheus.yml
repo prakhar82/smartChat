@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'smartchat-auth'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: [ 'smartchat-auth:8081' ]
+
+  - job_name: 'smartchat-api'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: [ 'smartchat-api:8080' ]
+
+  - job_name: 'smartchat-chat'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: [ 'smartchat-chat:8082' ]
+
+  - job_name: 'smartchat-contact'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: [ 'smartchat-contact:8083' ]
+
+  - job_name: 'smartchat-discovery'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: [ 'smartchat-discovery:8761' ]  # Eureka metrics if enabled
